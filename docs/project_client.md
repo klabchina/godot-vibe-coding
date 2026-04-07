@@ -7,7 +7,7 @@
 - **引擎**: Godot 4.x (C#)
 - **战斗逻辑**: ECS (Entity-Component-System)
 - **网络**: 多人在线对战，最多 2 人
-- **单局时长**: 3-5 分钟（6 波制）
+- **单局时长**: 4-6 分钟（8 波制）
 - **核心体验**: 轻松休闲、爆爽清屏
 
 ---
@@ -330,17 +330,24 @@ Client                          Server
 
 ## 波次系统
 
-### 设计（固定 6 波制）
+### 设计（固定 8 波制）
 
 ```
-Wave 1          Wave 2            Wave 3           Wave 4            Wave 5           Wave 6 (Boss)
-──────────      ──────────        ──────────       ──────────        ──────────       ──────────
-10 x Slime      10 x Slime        5 x Skeleton     10 x Skeleton     15 x Skeleton    1 x Boss
-                5 x Skeleton      10 x Skeleton     5 x Orc          10 x Orc         15 x 混合小怪
-                                  5 x Orc          10 x Elite(混合)   10 x Elite
+Wave 1       Wave 2            Wave 3                  Wave 4                    Wave 5
+──────────   ──────────        ──────────              ──────────                ──────────
+Slime ×10    Slime ×8          Slime ×5                Skeleton ×8               Skeleton ×6
+             Skeleton ×4       Skeleton ×8             Orc ×4                    Orc ×6
+                               Orc ×2                  Elite ×1                  Elite ×3
+
+Wave 6                Wave 7                      Wave 8 (Boss)
+──────────            ──────────                  ──────────
+Orc ×8                Orc ×10                     Boss ×1
+Elite ×5              Elite ×8                    Orc ×5
+Skeleton ×5           Skeleton ×8                 Elite ×3
+                                                  Slime ×10
 ```
 
-- 总共 **6 波**，单局约 3-5 分钟
+- 总共 **8 波**，单局约 4-6 分钟
 - 每波持续 20-35 秒
 - 波次间歇 **5 秒**，期间弹出升级选择面板（3 选 1）
 - 波次配置由服务器下发（`WaveConfig`）
@@ -357,7 +364,7 @@ Wave 1          Wave 2            Wave 3           Wave 4            Wave 5     
 | **Elite** | 150 | 70 | 12 | 普通怪的强化版，体型更大，发光标识 |
 | **Boss** | 500 | 40 | 25 | 三阶段：追击→召唤小怪→狂暴加速 |
 
-### Boss 设计（第 6 波）
+### Boss 设计（第 8 波）
 
 Boss 有三个阶段，每减少 1/3 血量切换：
 
@@ -475,7 +482,7 @@ client/
 6. ECS World 初始化 → 加载 WaveConfig → 开始 Wave 1
 7. 每帧: InputSystem(移动) → AutoAimSystem(自动射击) → ... → RenderSystem 循环执行
 8. 每波结束 → 收到 UpgradeOptions → 弹出 3 选 1 升级面板 → 发送 UpgradeChoice
-9. 6 波全部完成（胜利） / 双人 HP 均为 0（失败）→ 服务器发送 GameOver
+9. 8 波全部完成（胜利） / 双人 HP 均为 0（失败）→ 服务器发送 GameOver
 10. 切换到 Result 场景 → 显示 S/A/B/C 评分、击杀数、伤害
 11. 点击返回 → 回到 MainMenu
 ```
