@@ -4,7 +4,7 @@
 
 双人合作弓箭塔防游戏。玩家通过匹配系统组队（最多 2 人），进入战斗后使用弓箭协力击杀一波波来袭的怪物。
 
-- **引擎**: Godot 4.x (GDScript / C#)
+- **引擎**: Godot 4.x (C#)
 - **战斗逻辑**: ECS (Entity-Component-System)
 - **网络**: 多人在线对战，最多 2 人
 
@@ -23,7 +23,7 @@
 │        │               │                │           │
 │        ▼               ▼                ▼           │
 │  ┌──────────────────────────────────────────────┐   │
-│  │              Scene Manager                   │   │
+│  │              SceneManager                    │   │
 │  │  MainMenu → Matching → Battle → Result       │   │
 │  └──────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────┘
@@ -75,23 +75,81 @@
 
 ### Component 定义
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Components                            │
-├─────────────────┬───────────────────────────────────────────┤
-│ TransformC      │ position: Vector2, rotation: float        │
-│ VelocityC       │ velocity: Vector2, speed: float           │
-│ HealthC         │ hp: int, max_hp: int                      │
-│ BowC            │ charge_time: float, damage: int,          │
-│                 │ cooldown: float                            │
-│ ArrowC          │ damage: int, owner_id: int, piercing: bool│
-│ MonsterC        │ type: MonsterType, reward: int             │
-│ ColliderC       │ shape: Shape, layer: int, mask: int        │
-│ SpriteC         │ texture: Texture, animation: String        │
-│ NetworkSyncC    │ net_id: int, owner: int, is_local: bool    │
-│ WaveC           │ wave_num: int, spawn_list: Array,          │
-│                 │ interval: float                            │
-└─────────────────┴───────────────────────────────────────────┘
+```csharp
+// TransformComponent.cs
+public class TransformComponent
+{
+    public Vector2 Position;
+    public float Rotation;
+}
+
+// VelocityComponent.cs
+public class VelocityComponent
+{
+    public Vector2 Velocity;
+    public float Speed;
+}
+
+// HealthComponent.cs
+public class HealthComponent
+{
+    public int Hp;
+    public int MaxHp;
+}
+
+// BowComponent.cs
+public class BowComponent
+{
+    public float ChargeTime;
+    public int Damage;
+    public float Cooldown;
+}
+
+// ArrowComponent.cs
+public class ArrowComponent
+{
+    public int Damage;
+    public int OwnerId;
+    public bool Piercing;
+}
+
+// MonsterComponent.cs
+public class MonsterComponent
+{
+    public MonsterType Type;
+    public int Reward;
+}
+
+// ColliderComponent.cs
+public class ColliderComponent
+{
+    public Shape2D Shape;
+    public int Layer;
+    public int Mask;
+}
+
+// SpriteComponent.cs
+public class SpriteComponent
+{
+    public Texture2D Texture;
+    public string Animation;
+}
+
+// NetworkSyncComponent.cs
+public class NetworkSyncComponent
+{
+    public int NetId;
+    public int Owner;
+    public bool IsLocal;
+}
+
+// WaveComponent.cs
+public class WaveComponent
+{
+    public int WaveNum;
+    public Array<SpawnEntry> SpawnList;
+    public float Interval;
+}
 ```
 
 ### System 列表
@@ -105,15 +163,15 @@
  ├──────────────────────┤
  │ 3. WaveSpawnSystem    │  判定波次推进，生成怪物
  ├──────────────────────┤
- │ 4. MovementSystem     │  根据 VelocityC 更新 TransformC
+ │ 4. MovementSystem     │  根据 VelocityComponent 更新 TransformComponent
  ├──────────────────────┤
  │ 5. BowSystem          │  处理蓄力、发射箭矢逻辑
  ├──────────────────────┤
  │ 6. CollisionSystem    │  碰撞检测（箭矢 vs 怪物）
  ├──────────────────────┤
- │ 7. DamageSystem       │  计算伤害，更新 HealthC
+ │ 7. DamageSystem       │  计算伤害，更新 HealthComponent
  ├──────────────────────┤
- │ 8. DeathSystem        │  清理 hp<=0 的实体，触发掉落/特效
+ │ 8. DeathSystem        │  清理 Hp<=0 的实体，触发掉落/特效
  ├──────────────────────┤
  │ 9. NetworkSendSystem  │  将本地状态变更同步给对方
  ├──────────────────────┤
@@ -147,12 +205,12 @@ Client                          Server
   │                               │
   │                               │  匹配成功
   │◀─── MatchSuccess ────────────│
-  │     { room_id, players[] }    │
+  │     { RoomId, Players[] }     │
   │                               │
   │──── PlayerReady ─────────────▶│
   │                               │
   │◀─── BattleStart ─────────────│  双方 Ready 后开始
-  │     { wave_config, seed }     │
+  │     { WaveConfig, Seed }      │
   │                               │
 ```
 
@@ -182,7 +240,7 @@ Wave 1          Wave 2          Wave 3         ...    Boss Wave
 ```
 
 - 每波之间有间歇时间，供玩家调整
-- 波次配置由服务器下发（`wave_config`）
+- 波次配置由服务器下发（`WaveConfig`）
 - 当前波所有怪物死亡后，倒计时进入下一波
 - 怪物从场景边缘生成，朝玩家方向移动
 
@@ -200,65 +258,65 @@ Wave 1          Wave 2          Wave 3         ...    Boss Wave
 ## 目录结构
 
 ```
-project/
-├── scenes/
-│   ├── main_menu.tscn          # 主界面场景
-│   ├── matching.tscn           # 匹配界面场景
-│   ├── battle.tscn             # 战斗场景
-│   └── result.tscn             # 结算界面场景
+client/
+├── Scenes/
+│   ├── MainMenu.tscn              # 主界面场景
+│   ├── Matching.tscn              # 匹配界面场景
+│   ├── Battle.tscn                # 战斗场景
+│   └── Result.tscn                # 结算界面场景
 │
-├── scripts/
-│   ├── ecs/
-│   │   ├── world.gd            # ECS World，管理所有 Entity/Component
-│   │   ├── entity.gd           # Entity 基础定义
-│   │   ├── components/
-│   │   │   ├── transform_c.gd
-│   │   │   ├── velocity_c.gd
-│   │   │   ├── health_c.gd
-│   │   │   ├── bow_c.gd
-│   │   │   ├── arrow_c.gd
-│   │   │   ├── monster_c.gd
-│   │   │   ├── collider_c.gd
-│   │   │   ├── sprite_c.gd
-│   │   │   ├── network_sync_c.gd
-│   │   │   └── wave_c.gd
-│   │   └── systems/
-│   │       ├── input_system.gd
-│   │       ├── network_recv_system.gd
-│   │       ├── wave_spawn_system.gd
-│   │       ├── movement_system.gd
-│   │       ├── bow_system.gd
-│   │       ├── collision_system.gd
-│   │       ├── damage_system.gd
-│   │       ├── death_system.gd
-│   │       ├── network_send_system.gd
-│   │       └── render_system.gd
+├── Scripts/
+│   ├── Ecs/
+│   │   ├── World.cs               # ECS World，管理所有 Entity/Component
+│   │   ├── Entity.cs              # Entity 基础定义
+│   │   ├── Components/
+│   │   │   ├── TransformComponent.cs
+│   │   │   ├── VelocityComponent.cs
+│   │   │   ├── HealthComponent.cs
+│   │   │   ├── BowComponent.cs
+│   │   │   ├── ArrowComponent.cs
+│   │   │   ├── MonsterComponent.cs
+│   │   │   ├── ColliderComponent.cs
+│   │   │   ├── SpriteComponent.cs
+│   │   │   ├── NetworkSyncComponent.cs
+│   │   │   └── WaveComponent.cs
+│   │   └── Systems/
+│   │       ├── InputSystem.cs
+│   │       ├── NetworkRecvSystem.cs
+│   │       ├── WaveSpawnSystem.cs
+│   │       ├── MovementSystem.cs
+│   │       ├── BowSystem.cs
+│   │       ├── CollisionSystem.cs
+│   │       ├── DamageSystem.cs
+│   │       ├── DeathSystem.cs
+│   │       ├── NetworkSendSystem.cs
+│   │       └── RenderSystem.cs
 │   │
-│   ├── net/
-│   │   ├── net_manager.gd      # WebSocket 连接管理
-│   │   ├── match_client.gd     # 匹配逻辑
-│   │   ├── sync_client.gd      # 战斗同步
-│   │   └── protocol.gd         # 消息序列化/反序列化
+│   ├── Net/
+│   │   ├── NetManager.cs          # WebSocket 连接管理
+│   │   ├── MatchClient.cs         # 匹配逻辑
+│   │   ├── SyncClient.cs          # 战斗同步
+│   │   └── Protocol.cs            # 消息序列化/反序列化
 │   │
-│   ├── ui/
-│   │   ├── main_menu_ui.gd
-│   │   ├── matching_ui.gd
-│   │   ├── battle_hud.gd       # 战斗 HUD（血量、波次、击杀数）
-│   │   └── result_ui.gd
+│   ├── UI/
+│   │   ├── MainMenuUI.cs
+│   │   ├── MatchingUI.cs
+│   │   ├── BattleHud.cs           # 战斗 HUD（血量、波次、击杀数）
+│   │   └── ResultUI.cs
 │   │
-│   ├── game/
-│   │   ├── game_manager.gd     # 全局游戏状态管理（Autoload）
-│   │   ├── scene_manager.gd    # 场景切换管理（Autoload）
-│   │   └── wave_config.gd      # 波次配置数据
+│   ├── Game/
+│   │   ├── GameManager.cs         # 全局游戏状态管理（Autoload）
+│   │   ├── SceneManager.cs        # 场景切换管理（Autoload）
+│   │   └── WaveConfig.cs          # 波次配置数据
 │   │
-│   └── data/
-│       ├── monster_data.gd     # 怪物属性配置
-│       └── weapon_data.gd      # 弓箭属性配置
+│   └── Data/
+│       ├── MonsterData.cs         # 怪物属性配置
+│       └── WeaponData.cs          # 弓箭属性配置
 │
-└── assets/
-    ├── sprites/
-    ├── audio/
-    └── ui/
+└── Assets/
+    ├── Sprites/
+    ├── Audio/
+    └── UI/
 ```
 
 ---
@@ -283,7 +341,7 @@ project/
 3. 进入 Matching 界面 → 等待服务器 MatchSuccess
 4. 匹配成功 → 双方发送 PlayerReady
 5. 收到 BattleStart → SceneManager 切换到 Battle 场景
-6. ECS World 初始化 → 加载 wave_config → 开始 Wave 1
+6. ECS World 初始化 → 加载 WaveConfig → 开始 Wave 1
 7. 每帧: InputSystem → ... → RenderSystem 循环执行
 8. 所有波次完成 / 玩家死亡 → 服务器发送 GameOver
 9. 切换到 Result 场景 → 显示结算
