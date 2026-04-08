@@ -459,6 +459,343 @@ client/
 
 ---
 
+## 数值配置系统
+
+### 设计原则
+
+两份策划数值表（`docs/plan/monster_growth_stats.md` + `docs/plan/player_level_upgrade_stats.md`）中的数值采用 **静态配置类 + 枚举 + 公式函数** 的方式在程序中表现：
+
+- **公式型数值**（成长系数、升级效果）→ 写成静态方法，入参为等级/波次，返回计算结果
+- **表格型数值**（怪物基础属性、波次配置、经验阈值）→ 写成只读字典 / 数组常量
+- **开关型数值**（一次性升级、Boss 阶段）→ 用枚举 + bool 表达
+
+不使用外部 JSON / .tres 文件，原因：数据量小（5 种怪物、8 波、14 种升级）且公式固定，静态类更简洁、类型安全、无反序列化开销。
+
+### 枚举定义
+
+```csharp
+// Enums.cs
+public enum MonsterType { Slime, Skeleton, Orc, Elite, Boss }
+public enum PickupType  { ExpOrb, HealthPotion, Frenzy, Invincible, Bomb }
+public enum BuffType    { Frenzy, Invincible, Shield }
+
+public enum UpgradeId
+{
+    // 攻击类 (6)
+    MultiShot, AttackSpeed, DamageUp, Pierce, Bounce, Explosion,
+    // 防御类 (4)
+    MaxHpUp, MoveSpeedUp, Shield, Regen,
+    // 特殊类 (4)
+    Magnet, FreezeArrow, BurnArrow, OrbitGuard
+}
+
+public enum UpgradeCategory { Attack, Defense, Special }
+public enum BossPhase { Chase, Summon, Frenzy }
+```
+
+### MonsterData.cs — 怪物属性 + 成长
+
+```csharp
+public static class MonsterData
+{
+    // ── 基础属性表（Wave 1 基准） ──
+    public record MonsterBase(int Hp, float Speed, float Damage, int Radius, int BaseXp, int FirstWave);
+
+    public static readonly Dictionary<MonsterType, MonsterBase> Base = new()
+    {
+        [MonsterType.Slime]    = new(Hp: 20,  Speed: 60,  Damage: 5,  Radius: 15, BaseXp: 5,   FirstWave: 1),
+        [MonsterType.Skeleton] = new(Hp: 40,  Speed: 90,  Damage: 8,  Radius: 18, BaseXp: 8,   FirstWave: 2),
+        [MonsterType.Orc]      = new(Hp: 80,  Speed: 50,  Damage: 15, Radius: 22, BaseXp: 15,  FirstWave: 3),
+        [MonsterType.Elite]    = new(Hp: 150, Speed: 70,  Damage: 12, Radius: 25, BaseXp: 30,  FirstWave: 4),
+        [MonsterType.Boss]     = new(Hp: 500, Speed: 40,  Damage: 25, Radius: 40, BaseXp: 100, FirstWave: 8),
+    };
+
+    // ── 成长公式 ──
+    // 实际 HP  = 基础 HP  × (1 + 0.10 × (当前波次 - 首次出场波次))
+    // 实际伤害 = 基础伤害 × (1 + 0.08 × (当前波次 - 首次出场波次))
+    // 实际 XP  = 基础 XP  × (1 + 0.10 × (当前波次 - 首次出场波次))  向上取整
+    // 速度、体型不随波次变化
+
+    private const float HpGrowthRate     = 0.10f;
+    private const float DamageGrowthRate = 0.08f;
+    private const float XpGrowthRate     = 0.10f;
+
+    public static int   GetHp(MonsterType type, int wave)     => (int)(Base[type].Hp * (1 + HpGrowthRate * Math.Max(0, wave - Base[type].FirstWave)));
+    public static float GetDamage(MonsterType type, int wave)  => Base[type].Damage * (1 + DamageGrowthRate * Math.Max(0, wave - Base[type].FirstWave));
+    public static int   GetXp(MonsterType type, int wave)      => (int)Math.Ceiling(Base[type].BaseXp * (1 + XpGrowthRate * Math.Max(0, wave - Base[type].FirstWave)));
+    public static float GetSpeed(MonsterType type)             => Base[type].Speed;
+    public static int   GetRadius(MonsterType type)            => Base[type].Radius;
+
+    // ── Boss 不使用成长公式，阶段属性固定 ──
+    public record BossPhaseData(float HpThresholdPercent, float Speed, float Damage, int Radius);
+
+    public static readonly Dictionary<BossPhase, BossPhaseData> BossPhases = new()
+    {
+        [BossPhase.Chase]   = new(HpThresholdPercent: 1.0f,       Speed: 40, Damage: 25, Radius: 40),
+        [BossPhase.Summon]  = new(HpThresholdPercent: 2f / 3f,    Speed: 0,  Damage: 0,  Radius: 40),
+        [BossPhase.Frenzy]  = new(HpThresholdPercent: 1f / 3f,    Speed: 80, Damage: 30, Radius: 30),
+    };
+
+    public const int   BossSummonCount     = 3;          // 每次召唤 Slime 数量
+    public const float BossSummonCooldown  = 3.0f;       // 召唤间隔（秒）
+    public const float BossSummonDuration  = 10.0f;      // 召唤阶段持续时间
+    public const int   BossPhaseChangeXp   = 30;         // 阶段切换额外经验
+
+    // ── Orc 冲锋参数 ──
+    public const float OrcChargeRange      = 150f;       // 冲锋触发距离 (px)
+    public const float OrcChargeSpeed      = 150f;       // 冲锋速度
+    public const float OrcStunDuration     = 1.0f;       // 冲锋后眩晕时间
+
+    // ── Skeleton 闪避参数 ──
+    public const float SkeletonDodgeInterval = 3.0f;     // 闪避间隔（秒）
+    public const float SkeletonDodgeDuration = 0.5f;     // 闪避持续时间
+}
+```
+
+### WaveData.cs — 波次配置
+
+```csharp
+public static class WaveData
+{
+    public record SpawnEntry(MonsterType Type, int Count);
+
+    // 8 波固定配置（索引 0 = Wave 1）
+    public static readonly SpawnEntry[][] Waves =
+    {
+        new[] { new SpawnEntry(MonsterType.Slime, 10) },                                                                               // Wave 1
+        new[] { new SpawnEntry(MonsterType.Slime, 8),  new SpawnEntry(MonsterType.Skeleton, 4) },                                       // Wave 2
+        new[] { new SpawnEntry(MonsterType.Slime, 5),  new SpawnEntry(MonsterType.Skeleton, 8), new SpawnEntry(MonsterType.Orc, 2) },   // Wave 3
+        new[] { new SpawnEntry(MonsterType.Skeleton, 8), new SpawnEntry(MonsterType.Orc, 4), new SpawnEntry(MonsterType.Elite, 1) },    // Wave 4
+        new[] { new SpawnEntry(MonsterType.Skeleton, 6), new SpawnEntry(MonsterType.Orc, 6), new SpawnEntry(MonsterType.Elite, 3) },    // Wave 5
+        new[] { new SpawnEntry(MonsterType.Orc, 8), new SpawnEntry(MonsterType.Elite, 5), new SpawnEntry(MonsterType.Skeleton, 5) },    // Wave 6
+        new[] { new SpawnEntry(MonsterType.Orc, 10), new SpawnEntry(MonsterType.Elite, 8), new SpawnEntry(MonsterType.Skeleton, 8) },   // Wave 7
+        new[] { new SpawnEntry(MonsterType.Boss, 1), new SpawnEntry(MonsterType.Orc, 5), new SpawnEntry(MonsterType.Elite, 3), new SpawnEntry(MonsterType.Slime, 10) }, // Wave 8
+    };
+
+    public const int   TotalWaves        = 8;
+    public const float WaveIntervalSec   = 5.0f;        // 波次间歇时间
+    public const float SpawnIntervalMin  = 0.3f;        // 怪物刷出间隔下限
+    public const float SpawnIntervalMax  = 0.5f;        // 怪物刷出间隔上限
+}
+```
+
+### PlayerData.cs — 玩家基础属性
+
+```csharp
+public static class PlayerData
+{
+    // ── 基础属性（等级 0） ──
+    public const int   BaseHp            = 100;
+    public const float BaseMoveSpeed     = 200f;         // px/s
+    public const int   BaseArrowCount    = 1;
+    public const float BaseCooldown      = 0.80f;        // 射击间隔（秒）
+    public const int   BaseArrowDamage   = 10;
+    public const float ArrowSpeed        = 400f;         // 箭矢速度（固定不可升级）
+    public const int   BasePierce        = 0;
+    public const float BasePickupRadius  = 50f;          // px
+    public const int   BaseOrbitCount    = 0;
+}
+```
+
+### LevelData.cs — 经验等级表
+
+```csharp
+public static class LevelData
+{
+    public const int MaxLevel = 8;
+
+    // 各等级所需累计 XP（索引 0 = Lv1）
+    public static readonly int[] CumulativeXp = { 40, 100, 190, 310, 470, 670, 930, 1250 };
+
+    // 各等级本级所需 XP
+    public static readonly int[] LevelXp = { 40, 60, 90, 120, 160, 200, 260, 320 };
+
+    /// <summary>根据累计经验返回当前等级（0 = 未升级，最大 8）</summary>
+    public static int GetLevel(int totalXp)
+    {
+        for (int i = CumulativeXp.Length - 1; i >= 0; i--)
+            if (totalXp >= CumulativeXp[i]) return i + 1;
+        return 0;
+    }
+}
+```
+
+### UpgradeData.cs — 升级配置 + 效果公式
+
+```csharp
+public static class UpgradeData
+{
+    // ── 升级定义 ──
+    public record UpgradeDef(
+        UpgradeId Id,
+        string Name,
+        UpgradeCategory Category,
+        int MaxLevel,                // 1 = 一次性，int.MaxValue = 无上限
+        string Description
+    );
+
+    public static readonly UpgradeDef[] All =
+    {
+        // 攻击类 (6)
+        new(UpgradeId.MultiShot,   "多重射击", UpgradeCategory.Attack,  7,              "+1 箭矢，扇形展开"),
+        new(UpgradeId.AttackSpeed, "射速提升", UpgradeCategory.Attack,  5,              "射击间隔 ×0.85"),
+        new(UpgradeId.DamageUp,    "伤害提升", UpgradeCategory.Attack,  5,              "基础伤害 +30%"),
+        new(UpgradeId.Pierce,      "穿透箭",   UpgradeCategory.Attack,  3,              "+1 穿透次数"),
+        new(UpgradeId.Bounce,      "弹射箭",   UpgradeCategory.Attack,  1,              "命中后弹射 1 次"),
+        new(UpgradeId.Explosion,   "爆炸箭",   UpgradeCategory.Attack,  1,              "命中时 AOE 爆炸"),
+
+        // 防御类 (4)
+        new(UpgradeId.MaxHpUp,     "生命提升", UpgradeCategory.Defense, int.MaxValue,   "最大 HP +20%，立即恢复"),
+        new(UpgradeId.MoveSpeedUp, "移速提升", UpgradeCategory.Defense, 3,              "移动速度 +15%"),
+        new(UpgradeId.Shield,      "护盾",     UpgradeCategory.Defense, 1,              "每 15 秒生成 1 层护盾"),
+        new(UpgradeId.Regen,       "生命恢复", UpgradeCategory.Defense, 1,              "每秒恢复 1% 最大 HP"),
+
+        // 特殊类 (4)
+        new(UpgradeId.Magnet,      "磁铁",     UpgradeCategory.Special, int.MaxValue,   "拾取半径 +50%"),
+        new(UpgradeId.FreezeArrow, "冰冻箭",   UpgradeCategory.Special, 1,              "减速 30%，持续 2 秒"),
+        new(UpgradeId.BurnArrow,   "火焰箭",   UpgradeCategory.Special, 1,              "DoT 3/s，持续 3 秒"),
+        new(UpgradeId.OrbitGuard,  "旋转护卫", UpgradeCategory.Special, int.MaxValue,   "+1 环绕护卫箭"),
+    };
+
+    // ── 类别抽取权重 ──
+    public static readonly Dictionary<UpgradeCategory, float> CategoryWeight = new()
+    {
+        [UpgradeCategory.Attack]  = 0.50f,
+        [UpgradeCategory.Defense] = 0.30f,
+        [UpgradeCategory.Special] = 0.20f,
+    };
+
+    public const int ChoiceCount         = 3;            // 每次升级 3 选 1
+    public const float ChoiceTimeoutSec  = 5.0f;         // 超时自动选第一个
+    public const int GuaranteeAttackWave = 2;            // 前 N 次升级至少出现 1 个攻击类
+
+    // ── 效果计算公式（全部静态方法） ──
+
+    // 多重射击: 箭矢数 = 1 + Lv
+    public static int GetArrowCount(int lv) => 1 + lv;
+    // 多重射击: 扇形角度
+    public static readonly float[] SpreadAngles = { 0, 15, 30, 45, 50, 55, 60, 65 };  // 索引 = Lv
+
+    // 射速提升: 间隔 = 0.80 × 0.85^Lv
+    public static float GetCooldown(int lv) => 0.80f * MathF.Pow(0.85f, lv);
+
+    // 伤害提升: 伤害 = 10 × (1 + 0.3 × Lv)  加法叠加
+    public static int GetArrowDamage(int lv) => (int)(PlayerData.BaseArrowDamage * (1 + 0.3f * lv));
+
+    // 穿透: 穿透次数 = Lv（命中数 = Lv + 1）
+    public static int GetPierceCount(int lv) => lv;
+
+    // 弹射箭参数
+    public const float BounceRadius       = 120f;        // 弹射搜索半径 (px)
+    public const float BounceDamageRatio  = 0.70f;       // 弹射伤害 = 原始 ×70%
+
+    // 爆炸箭参数
+    public const float ExplosionRadius      = 60f;       // 爆炸半径 (px)
+    public const float ExplosionDamageRatio = 0.50f;     // 爆炸伤害 = 原始 ×50%
+
+    // 生命提升: MaxHP = 100 × (1 + 0.2 × Lv)，每次升级恢复 20 HP
+    public static int GetMaxHp(int lv) => (int)(PlayerData.BaseHp * (1 + 0.2f * lv));
+    public const int HpUpHealAmount = 20;
+
+    // 移速提升: 速度 = 200 × (1 + 0.15 × Lv)
+    public static float GetMoveSpeed(int lv) => PlayerData.BaseMoveSpeed * (1 + 0.15f * lv);
+
+    // 护盾参数
+    public const float ShieldRegenInterval = 15.0f;      // 护盾重生间隔（秒）
+
+    // 生命恢复: 每秒恢复当前 MaxHP 的 1%
+    public const float RegenPercent = 0.01f;
+
+    // 磁铁: 拾取半径 = 50 × (1 + 0.5 × Lv)
+    public static float GetPickupRadius(int lv) => PlayerData.BasePickupRadius * (1 + 0.5f * lv);
+
+    // 冰冻箭参数
+    public const float FreezeSlowPercent    = 0.30f;     // 减速 30%
+    public const float FreezeDuration       = 2.0f;      // 持续 2 秒
+    public const float FreezeBossResist     = 0.50f;     // Boss 抗性 50%（减速降为 15%）
+
+    // 火焰箭参数
+    public const int   BurnDotDamage        = 3;         // 每秒 3 点
+    public const float BurnDotDuration      = 3.0f;      // 持续 3 秒
+
+    // 旋转护卫: 护卫数 = Lv
+    public static int GetOrbitCount(int lv) => lv;
+    public const float OrbitRotationSpeed   = 180f;      // 旋转速度 (°/s)
+    public const float OrbitRadius          = 80f;       // 旋转半径 (px)
+    public const int   OrbitDamage          = 8;         // 每次碰撞伤害
+    public const float OrbitHitInterval     = 0.5f;      // 同一护卫对同一怪物最短打击间隔
+}
+```
+
+### PickupData.cs — 掉落物配置
+
+```csharp
+public static class PickupData
+{
+    // ── 道具掉落概率（各概率之和 = 5%）──
+    public record DropEntry(PickupType Type, float Probability);
+
+    public static readonly DropEntry[] DropTable =
+    {
+        new(PickupType.HealthPotion, 0.020f),    // 2.0% 恢复 25% MaxHP
+        new(PickupType.Frenzy,       0.015f),    // 1.5% 射速 ×2，持续 5 秒
+        new(PickupType.Invincible,   0.005f),    // 0.5% 免疫伤害，持续 3 秒
+        new(PickupType.Bomb,         0.010f),    // 1.0% 全屏 50 伤害
+    };
+
+    public const bool BossGuaranteeDrop = true;          // Boss 必掉 1 个随机道具
+
+    // ── 道具效果数值 ──
+    public const float HealthPotionPercent  = 0.25f;     // 恢复 25% MaxHP
+    public const float FrenzyMultiplier     = 2.0f;      // 射速翻倍
+    public const float FrenzyDuration       = 5.0f;      // 持续 5 秒
+    public const float InvincibleDuration   = 3.0f;      // 持续 3 秒
+    public const int   BombDamage           = 50;        // 全屏 50 伤害
+
+    // ── 经验球物理属性 ──
+    public const float ExpOrbPickupRadius   = 50f;       // 拾取吸附半径 (px)，受磁铁升级影响
+    public const float ExpOrbFlySpeed       = 300f;      // 被吸附后飞向玩家的速度 (px/s)
+    public const float ExpOrbLifeTime       = 30f;       // 存活时间（秒）
+    public const float ExpOrbBlinkTime      = 5.0f;      // 最后 N 秒闪烁提示
+}
+```
+
+### 数值引用方式示例
+
+System 中使用配置数据的典型写法：
+
+```csharp
+// WaveSpawnSystem 中生成怪物
+var entry = WaveData.Waves[currentWave - 1];
+foreach (var spawn in entry)
+{
+    for (int i = 0; i < spawn.Count; i++)
+    {
+        var hp     = MonsterData.GetHp(spawn.Type, currentWave);
+        var damage = MonsterData.GetDamage(spawn.Type, currentWave);
+        var speed  = MonsterData.GetSpeed(spawn.Type);
+        // ... 创建 Entity 并赋值 Component
+    }
+}
+
+// DamageSystem 中计算箭矢伤害
+var arrowDmg = UpgradeData.GetArrowDamage(upgrade.DamageLevel);
+if (arrow.Explosive)
+{
+    var aoeDmg = (int)(arrowDmg * UpgradeData.ExplosionDamageRatio);
+    // ... 在 ExplosionRadius 内对所有怪物造成 aoeDmg
+}
+
+// DeathSystem 中掉落经验
+var xp = MonsterData.GetXp(monster.Type, currentWave);
+// ... 生成经验球 Entity
+
+// 升级面板中计算当前等级
+var level = LevelData.GetLevel(player.TotalXp);
+```
+
+---
+
 ## Autoload（全局单例）
 
 | 名称 | 职责 |
