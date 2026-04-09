@@ -45,6 +45,9 @@ public class WaveSpawnSystem : GameSystem
         // Not spawning and no wave interval — check if wave is cleared
         if (wave.AliveMonsters <= 0)
         {
+            // Auto-collect all remaining XP orbs on wave clear
+            CollectAllExpOrbs();
+
             if (wave.CurrentWave >= WaveData.TotalWaves)
             {
                 wave.AllWavesComplete = true;
@@ -164,5 +167,41 @@ public class WaveSpawnSystem : GameSystem
         }
 
         return new Vector2(x, y);
+    }
+
+    /// <summary>
+    /// Wave clear: instantly collect all ExpOrb pickups for every player.
+    /// </summary>
+    private void CollectAllExpOrbs()
+    {
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        var pickups = World.GetEntitiesWith<PickupComponent>();
+
+        foreach (var pickupEntity in pickups)
+        {
+            if (!pickupEntity.IsAlive) continue;
+
+            var pickup = pickupEntity.Get<PickupComponent>();
+            if (pickup.Type != PickupType.ExpOrb) continue;
+
+            foreach (var player in players)
+            {
+                var playerComp = player.Get<PlayerComponent>();
+                if (playerComp == null) continue;
+
+                playerComp.TotalXp += pickup.Value;
+
+                int newLevel = LevelData.GetLevel(playerComp.TotalXp);
+                if (newLevel > playerComp.CurrentLevel)
+                {
+                    playerComp.CurrentLevel = newLevel;
+                    // Trigger level-up via PickupSystem callback
+                    var pickupSystem = World.GetSystem<PickupSystem>();
+                    pickupSystem?.OnLevelUp?.Invoke(player, newLevel);
+                }
+            }
+
+            World.DestroyEntity(pickupEntity.Id);
+        }
     }
 }
