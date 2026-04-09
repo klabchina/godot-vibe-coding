@@ -16,11 +16,21 @@ public partial class BattleScene : Node2D
 	private RenderSystem _renderSystem;
 	private Node2D _renderRoot;
 	private BattleHud _hud;
+	private UpgradePanel _upgradePanel;
+
+	// Pending level-ups queue (supports consecutive level-ups)
+	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
 
 	public override void _Ready()
 	{
 		_renderRoot = GetNode<Node2D>("RenderRoot");
 		_hud = GetNode<BattleHud>("CanvasLayer/BattleHud");
+
+		// Create upgrade panel dynamically
+		_upgradePanel = new UpgradePanel();
+		_upgradePanel.Name = "UpgradePanel";
+		_upgradePanel.SetAnchorsPreset(Control.LayoutPreset.Center);
+		GetNode<CanvasLayer>("CanvasLayer").AddChild(_upgradePanel);
 
 		InitializeWorld();
 	}
@@ -50,6 +60,7 @@ public partial class BattleScene : Node2D
 			Layer = CollisionLayers.Player,
 			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
 		});
+		player.Add(new UpgradeComponent());
 
 		// Create wave spawner entity
 		var spawner = _world.CreateEntity();
@@ -66,7 +77,11 @@ public partial class BattleScene : Node2D
 		_world.AddSystem(new MovementSystem());
 		// OrbitSystem — Phase 4
 		_world.AddSystem(new CollisionSystem());
-		// PickupSystem — Phase 3
+
+		var pickupSystem = new PickupSystem();
+		pickupSystem.OnLevelUp = OnPlayerLevelUp;
+		_world.AddSystem(pickupSystem);
+
 		_world.AddSystem(new DamageSystem());
 		// EffectSystem — Phase 4
 		// BuffSystem — Phase 4
@@ -85,11 +100,38 @@ public partial class BattleScene : Node2D
 		float dt = (float)delta;
 		_world.Update(dt);
 		UpdateHud();
+		ProcessPendingLevelUps();
+	}
+
+	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
+	{
+		_pendingLevelUps.Enqueue((playerEntity, newLevel));
+	}
+
+	private void ProcessPendingLevelUps()
+	{
+		// Only show one upgrade panel at a time
+		if (_upgradePanel.IsActive) return;
+		if (_pendingLevelUps.Count == 0) return;
+
+		var (player, level) = _pendingLevelUps.Dequeue();
+		if (!player.IsAlive) return;
+
+		var upgrade = player.Get<UpgradeComponent>();
+		if (upgrade == null) return;
+
+		// Don't show panel if already at max level
+		if (level > LevelData.MaxLevel) return;
+
+		var options = UpgradeRoller.Roll(upgrade, level);
+		if (options.Count > 0)
+		{
+			_upgradePanel.Show(player, options);
+		}
 	}
 
 	private void UpdateHud()
 	{
-		// Find wave component
 		var waveEntities = _world.GetEntitiesWith<WaveComponent>();
 		if (waveEntities.Count > 0)
 		{
@@ -97,12 +139,14 @@ public partial class BattleScene : Node2D
 			_hud?.UpdateWave(wave.CurrentWave, WaveData.TotalWaves);
 		}
 
-		// Find player health
 		var playerEntities = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
 		if (playerEntities.Count > 0)
 		{
 			var health = playerEntities[0].Get<HealthComponent>();
+			var player = playerEntities[0].Get<PlayerComponent>();
 			_hud?.UpdateHp(health.Hp, health.MaxHp);
+			_hud?.UpdateLevel(player.CurrentLevel);
+			_hud?.UpdateXp(player.TotalXp);
 		}
 	}
 }

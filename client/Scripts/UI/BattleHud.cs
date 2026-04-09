@@ -3,19 +3,23 @@ using Godot;
 namespace Game.UI;
 
 /// <summary>
-/// Minimal battle HUD: wave counter and HP bar.
+/// Battle HUD: wave counter, HP bar, level and XP display.
 /// </summary>
 public partial class BattleHud : Control
 {
     private Label _waveLabel;
     private ProgressBar _hpBar;
     private Label _hpLabel;
+    private Label _levelLabel;
+    private Label _xpLabel;
 
     public override void _Ready()
     {
-        _waveLabel = GetNode<Label>("WaveLabel");
-        _hpBar = GetNode<ProgressBar>("HpBar");
-        _hpLabel = GetNode<Label>("HpLabel");
+        _waveLabel = GetNodeOrNull<Label>("WaveLabel");
+        _hpBar = GetNodeOrNull<ProgressBar>("HpBar");
+        _hpLabel = GetNodeOrNull<Label>("HpLabel");
+        _levelLabel = GetNodeOrNull<Label>("LevelLabel");
+        _xpLabel = GetNodeOrNull<Label>("XpLabel");
     }
 
     public void UpdateWave(int current, int total)
@@ -33,5 +37,17 @@ public partial class BattleHud : Control
         }
         if (_hpLabel != null)
             _hpLabel.Text = $"{hp}/{maxHp}";
+    }
+
+    public void UpdateLevel(int level)
+    {
+        if (_levelLabel != null)
+            _levelLabel.Text = $"Lv.{level}";
+    }
+
+    public void UpdateXp(int xp)
+    {
+        if (_xpLabel != null)
+            _xpLabel.Text = $"XP: {xp}";
     }
 }
