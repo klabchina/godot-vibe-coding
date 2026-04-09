@@ -66,3 +66,11 @@ offset_top = 72.0
 offset_right = 250.0
 offset_bottom = 95.0
 text = "XP: 0"
+
+[node name="KillLabel" type="Label" parent="CanvasLayer/BattleHud"]
+layout_mode = 1
+offset_left = 260.0
+offset_top = 72.0
+offset_right = 400.0
+offset_bottom = 95.0
+text = "Kills: 0"

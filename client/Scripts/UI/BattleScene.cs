@@ -9,6 +9,7 @@ namespace Game.UI;
 /// <summary>
 /// Battle scene controller. Initializes ECS world, player entity,
 /// wave spawner, and runs the game loop.
+/// Handles game-over detection and transition to Result scene.
 /// </summary>
 public partial class BattleScene : Node2D
 {
@@ -17,6 +18,8 @@ public partial class BattleScene : Node2D
 	private Node2D _renderRoot;
 	private BattleHud _hud;
 	private UpgradePanel _upgradePanel;
+	private CanvasLayer _canvasLayer;
+	private bool _gameOver;
 
 	// Pending level-ups queue (supports consecutive level-ups)
 	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
@@ -24,13 +27,14 @@ public partial class BattleScene : Node2D
 	public override void _Ready()
 	{
 		_renderRoot = GetNode<Node2D>("RenderRoot");
+		_canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
 		_hud = GetNode<BattleHud>("CanvasLayer/BattleHud");
 
 		// Create upgrade panel dynamically
 		_upgradePanel = new UpgradePanel();
 		_upgradePanel.Name = "UpgradePanel";
 		_upgradePanel.SetAnchorsPreset(Control.LayoutPreset.Center);
-		GetNode<CanvasLayer>("CanvasLayer").AddChild(_upgradePanel);
+		_canvasLayer.AddChild(_upgradePanel);
 
 		InitializeWorld();
 	}
@@ -68,34 +72,32 @@ public partial class BattleScene : Node2D
 		var spawner = _world.CreateEntity();
 		var wave = spawner.Add(new WaveComponent());
 
-		// Register systems in execution order (see battle-gameplay-design.md §6.4)
-		_world.AddSystem(new InputSystem());                 // 1. Movement input
-		// NetworkRecvSystem — Phase 6                       // 2.
+		// Register systems in execution order
+		_world.AddSystem(new InputSystem());
 		var waveSpawnSystem = new WaveSpawnSystem();
-		_world.AddSystem(waveSpawnSystem);                   // 3. Wave spawning
+		_world.AddSystem(waveSpawnSystem);
 
 		var bossAISystem = new BossAISystem();
 		bossAISystem.OnBossPhaseChange = OnBossPhaseChange;
-		_world.AddSystem(bossAISystem);                      // 4. Boss AI
+		_world.AddSystem(bossAISystem);
 
-		_world.AddSystem(new MonsterAISystem());             // 4b. Monster AI (chase/dodge/charge)
-		_world.AddSystem(new AutoAimSystem());               // 5. Auto aim + fire
-		_world.AddSystem(new MovementSystem());              // 6. Movement
-		_world.AddSystem(new OrbitSystem());                 // 7. Orbit guard
-		_world.AddSystem(new CollisionSystem());             // 8. Collision detection
+		_world.AddSystem(new MonsterAISystem());
+		_world.AddSystem(new AutoAimSystem());
+		_world.AddSystem(new MovementSystem());
+		_world.AddSystem(new OrbitSystem());
+		_world.AddSystem(new CollisionSystem());
 
 		var pickupSystem = new PickupSystem();
 		pickupSystem.OnLevelUp = OnPlayerLevelUp;
-		_world.AddSystem(pickupSystem);                      // 9. Pickup processing
+		_world.AddSystem(pickupSystem);
 
-		_world.AddSystem(new DamageSystem());                // 10. Damage + revive
-		_world.AddSystem(new EffectSystem());                // 11. Arrow effects (bounce/explode/freeze/burn)
-		_world.AddSystem(new BuffSystem());                  // 12. Buff tick (frenzy/shield/regen)
-		_world.AddSystem(new DeathSystem());                 // 13. Death + drops
-		// NetworkSendSystem — Phase 6                       // 14.
+		_world.AddSystem(new DamageSystem());
+		_world.AddSystem(new EffectSystem());
+		_world.AddSystem(new BuffSystem());
+		_world.AddSystem(new DeathSystem());
 
 		_renderSystem = new RenderSystem { RenderRoot = _renderRoot };
-		_world.AddSystem(_renderSystem);                     // 15. Render
+		_world.AddSystem(_renderSystem);
 
 		// Start wave 1
 		waveSpawnSystem.StartNextWave(wave);
@@ -103,10 +105,14 @@ public partial class BattleScene : Node2D
 
 	public override void _Process(double delta)
 	{
+		if (_gameOver) return;
+
 		float dt = (float)delta;
 		_world.Update(dt);
 		UpdateHud();
 		ProcessPendingLevelUps();
+		CheckGameOver();
+		SpawnDamageNumbers();
 	}
 
 	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
@@ -116,7 +122,6 @@ public partial class BattleScene : Node2D
 
 	private void OnBossPhaseChange(int xpReward)
 	{
-		// Award XP to all players when Boss changes phase
 		var players = _world.GetEntitiesWith<PlayerComponent>();
 		foreach (var player in players)
 		{
@@ -134,7 +139,6 @@ public partial class BattleScene : Node2D
 
 	private void ProcessPendingLevelUps()
 	{
-		// Only show one upgrade panel at a time
 		if (_upgradePanel.IsActive) return;
 		if (_pendingLevelUps.Count == 0) return;
 
@@ -144,13 +148,97 @@ public partial class BattleScene : Node2D
 		var upgrade = player.Get<UpgradeComponent>();
 		if (upgrade == null) return;
 
-		// Don't show panel if already at max level
 		if (level > LevelData.MaxLevel) return;
 
 		var options = UpgradeRoller.Roll(upgrade, level);
 		if (options.Count > 0)
 		{
 			_upgradePanel.Show(player, options);
+		}
+	}
+
+	private void CheckGameOver()
+	{
+		var waveEntities = _world.GetEntitiesWith<WaveComponent>();
+		if (waveEntities.Count == 0) return;
+		var wave = waveEntities[0].Get<WaveComponent>();
+
+		// Victory: all waves cleared and no monsters alive
+		if (wave.AllWavesComplete && wave.AliveMonsters <= 0)
+		{
+			EndBattle(true, wave.CurrentWave);
+			return;
+		}
+
+		// Defeat: all players dead (HP <= 0 and already used revive)
+		var players = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
+		bool allDead = true;
+		foreach (var player in players)
+		{
+			var health = player.Get<HealthComponent>();
+			if (health.Hp > 0)
+			{
+				allDead = false;
+				break;
+			}
+			var revive = player.Get<ReviveComponent>();
+			if (revive == null || !revive.HasRevived)
+			{
+				allDead = false; // still has revive pending
+				break;
+			}
+		}
+
+		if (allDead && players.Count > 0)
+		{
+			EndBattle(false, wave.CurrentWave);
+		}
+	}
+
+	private void EndBattle(bool victory, int wavesCompleted)
+	{
+		_gameOver = true;
+
+		// Write stats to GameManager for Result screen
+		var gm = GameManager.Instance;
+		gm.WavesCompleted = wavesCompleted;
+
+		var players = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
+		if (players.Count > 0)
+		{
+			var player = players[0].Get<PlayerComponent>();
+			var health = players[0].Get<HealthComponent>();
+			gm.KillCount = player.KillCount;
+			gm.TotalDamage = player.TotalDamageDealt;
+			gm.TotalXpCollected = player.TotalXp;
+			gm.RemainingHpPercent = health.MaxHp > 0 ? (float)health.Hp / health.MaxHp : 0;
+		}
+
+		// Delay transition slightly so player sees the final state
+		GetTree().CreateTimer(2.0f).Timeout += () =>
+		{
+			SceneManager.Instance.GoToResult();
+		};
+	}
+
+	private void SpawnDamageNumbers()
+	{
+		var collisionSystem = _world.GetSystem<CollisionSystem>();
+		if (collisionSystem == null) return;
+
+		foreach (var hit in collisionSystem.Hits)
+		{
+			if (!hit.IsArrow) continue;
+
+			var defender = _world.GetEntity(hit.DefenderId);
+			if (defender == null) continue;
+
+			var transform = defender.Get<TransformComponent>();
+			if (transform == null) continue;
+
+			var dmgNum = new DamageNumber();
+			_canvasLayer.AddChild(dmgNum);
+			dmgNum.Show(transform.Position + new Vector2(-10, -30), hit.Damage);
 		}
 	}
 
@@ -168,9 +256,15 @@ public partial class BattleScene : Node2D
 		{
 			var health = playerEntities[0].Get<HealthComponent>();
 			var player = playerEntities[0].Get<PlayerComponent>();
+			var buff = playerEntities[0].Get<BuffComponent>();
+			var upgrade = playerEntities[0].Get<UpgradeComponent>();
+
 			_hud?.UpdateHp(health.Hp, health.MaxHp);
 			_hud?.UpdateLevel(player.CurrentLevel);
 			_hud?.UpdateXp(player.TotalXp);
+			_hud?.UpdateKills(player.KillCount);
+			_hud?.UpdateBuffs(buff);
+			_hud?.UpdateUpgradeIcons(upgrade);
 		}
 	}
 }

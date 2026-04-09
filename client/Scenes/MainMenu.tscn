@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://mainmenu"]
+
+[ext_resource type="Script" uid="uid://d0x1hyhmtlvpp" path="res://Scripts/UI/MainMenuUI.cs" id="1"]
+
+[node name="MainMenu" type="Control" unique_id=1031911199]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1403866034]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.08, 0.12, 1)
+script = ExtResource("1")
