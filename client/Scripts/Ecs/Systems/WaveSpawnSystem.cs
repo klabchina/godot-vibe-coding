@@ -170,12 +170,15 @@ public class WaveSpawnSystem : GameSystem
     }
 
     /// <summary>
-    /// Wave clear: instantly collect all ExpOrb pickups for every player.
+    /// Wave clear: attract all ExpOrb pickups toward the nearest player
+    /// at high speed. PickupSystem handles the actual collection on arrival.
     /// </summary>
     private void CollectAllExpOrbs()
     {
-        var players = World.GetEntitiesWith<PlayerComponent>();
-        var pickups = World.GetEntitiesWith<PickupComponent>();
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
+        if (players.Count == 0) return;
+
+        var pickups = World.GetEntitiesWith<PickupComponent, TransformComponent, VelocityComponent>();
 
         foreach (var pickupEntity in pickups)
         {
@@ -184,24 +187,26 @@ public class WaveSpawnSystem : GameSystem
             var pickup = pickupEntity.Get<PickupComponent>();
             if (pickup.Type != PickupType.ExpOrb) continue;
 
+            var pickupTransform = pickupEntity.Get<TransformComponent>();
+
+            // Find nearest player
+            float nearestDist = float.MaxValue;
+            Vector2 nearestPos = Vector2.Zero;
             foreach (var player in players)
             {
-                var playerComp = player.Get<PlayerComponent>();
-                if (playerComp == null) continue;
-
-                playerComp.TotalXp += pickup.Value;
-
-                int newLevel = LevelData.GetLevel(playerComp.TotalXp);
-                if (newLevel > playerComp.CurrentLevel)
+                var pt = player.Get<TransformComponent>();
+                float d = pickupTransform.Position.DistanceTo(pt.Position);
+                if (d < nearestDist)
                 {
-                    playerComp.CurrentLevel = newLevel;
-                    // Trigger level-up via PickupSystem callback
-                    var pickupSystem = World.GetSystem<PickupSystem>();
-                    pickupSystem?.OnLevelUp?.Invoke(player, newLevel);
+                    nearestDist = d;
+                    nearestPos = pt.Position;
                 }
             }
 
-            World.DestroyEntity(pickupEntity.Id);
+            // Set high-speed fly toward player (2x normal attract speed)
+            var vel = pickupEntity.Get<VelocityComponent>();
+            Vector2 dir = (nearestPos - pickupTransform.Position).Normalized();
+            vel.Velocity = dir * PickupData.ExpOrbFlySpeed * 2f;
         }
     }
 }

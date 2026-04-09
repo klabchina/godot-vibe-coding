@@ -47,14 +47,20 @@ public class PickupSystem : GameSystem
 
                 float dist = pickupTransform.Position.DistanceTo(playerTransform.Position);
 
-                if (dist <= pickupRadius)
+                // Already flying (wave-clear attract) — keep updating direction & check collect
+                var vel = pickupEntity.Get<VelocityComponent>();
+                bool alreadyFlying = vel != null && vel.Velocity.LengthSquared() > 0;
+
+                if (dist <= pickupRadius || alreadyFlying)
                 {
                     // Attract: fly toward player
-                    var vel = pickupEntity.Get<VelocityComponent>();
                     if (vel != null)
                     {
                         Vector2 dir = (playerTransform.Position - pickupTransform.Position).Normalized();
-                        vel.Velocity = dir * PickupData.ExpOrbFlySpeed;
+                        float speed = alreadyFlying
+                            ? Mathf.Max(vel.Velocity.Length(), PickupData.ExpOrbFlySpeed)
+                            : PickupData.ExpOrbFlySpeed;
+                        vel.Velocity = dir * speed;
                     }
 
                     // Collect if very close
