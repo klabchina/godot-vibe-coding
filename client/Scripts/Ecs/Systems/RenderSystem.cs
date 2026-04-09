@@ -11,6 +11,7 @@ public class RenderSystem : GameSystem
     public Node2D RenderRoot { get; set; }
 
     private readonly Dictionary<int, Node2D> _entityNodes = new();
+    private readonly Dictionary<int, List<Node2D>> _orbitNodes = new(); // playerId → orbit arrow visuals
 
     public override void Update(float delta)
     {
@@ -42,6 +43,9 @@ public class RenderSystem : GameSystem
             var arrow = entity.Get<ArrowComponent>();
             if (arrow != null)
                 node.Rotation = transform.Rotation;
+
+            // Update freeze/burn visual tint
+            UpdateEffectVisuals(entity, node);
         }
 
         // Clean up nodes for dead or removed entities
@@ -58,6 +62,100 @@ public class RenderSystem : GameSystem
 
         foreach (var id in toRemove)
             _entityNodes.Remove(id);
+
+        // Render orbit arrows
+        RenderOrbitArrows();
+    }
+
+    private void UpdateEffectVisuals(Entity entity, Node2D node)
+    {
+        if (!entity.Has<MonsterComponent>()) return;
+
+        var effect = entity.Get<EffectComponent>();
+        if (effect == null) return;
+
+        var rect = node.GetChildOrNull<ColorRect>(0);
+        if (rect == null) return;
+
+        var monster = entity.Get<MonsterComponent>();
+        Color baseColor = GetMonsterColor(monster.Type);
+
+        if (effect.IsFrozen && effect.IsBurning)
+            rect.Color = new Color(0.5f, 0.3f, 0.8f); // purple-ish for both
+        else if (effect.IsFrozen)
+            rect.Color = new Color(0.4f, 0.7f, 1.0f); // ice blue
+        else if (effect.IsBurning)
+            rect.Color = new Color(1.0f, 0.5f, 0.1f); // orange flame
+        else
+            rect.Color = baseColor;
+    }
+
+    private void RenderOrbitArrows()
+    {
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, OrbitComponent>();
+
+        // Collect active player IDs
+        var activePlayerIds = new HashSet<int>();
+
+        foreach (var player in players)
+        {
+            activePlayerIds.Add(player.Id);
+            var orbit = player.Get<OrbitComponent>();
+            var playerTransform = player.Get<TransformComponent>();
+
+            if (!_orbitNodes.ContainsKey(player.Id))
+                _orbitNodes[player.Id] = new List<Node2D>();
+
+            var nodes = _orbitNodes[player.Id];
+
+            // Ensure correct number of orbit visual nodes
+            while (nodes.Count < orbit.Count)
+            {
+                var orbitVisual = new Node2D();
+                var rect = new ColorRect();
+                rect.Color = Colors.Cyan;
+                rect.Size = new Vector2(12, 6);
+                rect.Position = new Vector2(-6, -3);
+                orbitVisual.AddChild(rect);
+                RenderRoot.AddChild(orbitVisual);
+                nodes.Add(orbitVisual);
+            }
+
+            while (nodes.Count > orbit.Count)
+            {
+                var last = nodes[^1];
+                last.QueueFree();
+                nodes.RemoveAt(nodes.Count - 1);
+            }
+
+            // Position orbit arrows
+            if (orbit.Count > 0)
+            {
+                float angleStep = 360f / orbit.Count;
+                for (int i = 0; i < orbit.Count; i++)
+                {
+                    float angle = Mathf.DegToRad(orbit.CurrentAngle + angleStep * i);
+                    nodes[i].Position = playerTransform.Position + new Vector2(
+                        Mathf.Cos(angle) * UpgradeData.OrbitRadius,
+                        Mathf.Sin(angle) * UpgradeData.OrbitRadius
+                    );
+                    nodes[i].Rotation = angle;
+                }
+            }
+        }
+
+        // Clean up orbit nodes for removed players
+        var toRemove = new List<int>();
+        foreach (var (playerId, nodes) in _orbitNodes)
+        {
+            if (!activePlayerIds.Contains(playerId))
+            {
+                foreach (var n in nodes) n.QueueFree();
+                toRemove.Add(playerId);
+            }
+        }
+        foreach (var id in toRemove)
+            _orbitNodes.Remove(id);
     }
 
     private Node2D CreateVisualNode(Entity entity)
@@ -86,16 +184,27 @@ public class RenderSystem : GameSystem
         else if (entity.Has<ArrowComponent>())
         {
             rect = new ColorRect();
-            rect.Color = Colors.Yellow;
+            var arrowComp = entity.Get<ArrowComponent>();
+            // Color-code special arrows
+            if (arrowComp.Freezing)
+                rect.Color = new Color(0.4f, 0.8f, 1.0f);
+            else if (arrowComp.Burning)
+                rect.Color = new Color(1.0f, 0.5f, 0.0f);
+            else if (arrowComp.Explosive)
+                rect.Color = new Color(1.0f, 0.2f, 0.2f);
+            else
+                rect.Color = Colors.Yellow;
             rect.Size = new Vector2(8, 4);
             rect.Position = new Vector2(-4, -2);
         }
         else if (entity.Has<PickupComponent>())
         {
+            var pickup = entity.Get<PickupComponent>();
             rect = new ColorRect();
-            rect.Color = Colors.LimeGreen;
-            rect.Size = new Vector2(10, 10);
-            rect.Position = new Vector2(-5, -5);
+            rect.Color = GetPickupColor(pickup.Type);
+            float size = pickup.Type == PickupType.ExpOrb ? 10 : 14;
+            rect.Size = new Vector2(size, size);
+            rect.Position = new Vector2(-size / 2, -size / 2);
         }
         else
         {
@@ -115,6 +224,19 @@ public class RenderSystem : GameSystem
             MonsterType.Orc => new Color(0.55f, 0.15f, 0.15f),
             MonsterType.Elite => Colors.Purple,
             MonsterType.Boss => Colors.Red,
+            _ => Colors.White,
+        };
+    }
+
+    private static Color GetPickupColor(PickupType type)
+    {
+        return type switch
+        {
+            PickupType.ExpOrb => Colors.LimeGreen,
+            PickupType.HealthPotion => new Color(1.0f, 0.2f, 0.4f), // pink-red
+            PickupType.Frenzy => new Color(1.0f, 0.8f, 0.0f),       // gold
+            PickupType.Invincible => Colors.White,
+            PickupType.Bomb => new Color(1.0f, 0.0f, 0.0f),          // red
             _ => Colors.White,
         };
     }

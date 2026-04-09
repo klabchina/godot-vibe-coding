@@ -6,7 +6,7 @@ namespace Game.Ecs.Systems;
 
 /// <summary>
 /// Handles experience orb attraction, pickup collection, XP accumulation,
-/// and level-up triggering.
+/// level-up triggering, and item pickup effects.
 /// </summary>
 public class PickupSystem : GameSystem
 {
@@ -36,6 +36,8 @@ public class PickupSystem : GameSystem
             // Check against each player
             foreach (var playerEntity in players)
             {
+                if (!playerEntity.IsAlive) continue;
+
                 var playerTransform = playerEntity.Get<TransformComponent>();
                 var upgrade = playerEntity.Get<UpgradeComponent>();
 
@@ -69,21 +71,85 @@ public class PickupSystem : GameSystem
 
     private void CollectPickup(Entity playerEntity, PickupComponent pickup)
     {
-        if (pickup.Type == PickupType.ExpOrb)
+        switch (pickup.Type)
         {
-            var player = playerEntity.Get<PlayerComponent>();
-            if (player == null) return;
-
-            player.TotalXp += pickup.Value;
-
-            // Check level up
-            int newLevel = LevelData.GetLevel(player.TotalXp);
-            if (newLevel > player.CurrentLevel)
-            {
-                player.CurrentLevel = newLevel;
-                OnLevelUp?.Invoke(playerEntity, newLevel);
-            }
+            case PickupType.ExpOrb:
+                CollectExpOrb(playerEntity, pickup.Value);
+                break;
+            case PickupType.HealthPotion:
+                CollectHealthPotion(playerEntity);
+                break;
+            case PickupType.Frenzy:
+                CollectFrenzy(playerEntity);
+                break;
+            case PickupType.Invincible:
+                CollectInvincible(playerEntity);
+                break;
+            case PickupType.Bomb:
+                CollectBomb(playerEntity);
+                break;
         }
-        // Other pickup types (HealthPotion, Frenzy, etc.) handled in Phase 4
+    }
+
+    private void CollectExpOrb(Entity playerEntity, int xpValue)
+    {
+        var player = playerEntity.Get<PlayerComponent>();
+        if (player == null) return;
+
+        player.TotalXp += xpValue;
+
+        // Check level up
+        int newLevel = LevelData.GetLevel(player.TotalXp);
+        if (newLevel > player.CurrentLevel)
+        {
+            player.CurrentLevel = newLevel;
+            OnLevelUp?.Invoke(playerEntity, newLevel);
+        }
+    }
+
+    private void CollectHealthPotion(Entity playerEntity)
+    {
+        var health = playerEntity.Get<HealthComponent>();
+        if (health == null) return;
+
+        int healAmount = (int)(health.MaxHp * PickupData.HealthPotionHealPercent);
+        health.Hp = Mathf.Min(health.Hp + healAmount, health.MaxHp);
+    }
+
+    private void CollectFrenzy(Entity playerEntity)
+    {
+        var buff = playerEntity.Get<BuffComponent>();
+        if (buff == null) return;
+
+        // Timed buffs overwrite each other
+        buff.ActiveTimedBuff = BuffType.Frenzy;
+        buff.TimedBuffRemaining = PickupData.FrenzyDuration;
+    }
+
+    private void CollectInvincible(Entity playerEntity)
+    {
+        var buff = playerEntity.Get<BuffComponent>();
+        if (buff == null) return;
+
+        buff.ActiveTimedBuff = BuffType.Invincible;
+        buff.TimedBuffRemaining = PickupData.InvincibleDuration;
+    }
+
+    private void CollectBomb(Entity playerEntity)
+    {
+        // Deal damage to ALL monsters on screen
+        var monsters = World.GetEntitiesWith<MonsterComponent, HealthComponent>();
+        foreach (var monster in monsters)
+        {
+            if (!monster.IsAlive) continue;
+            var health = monster.Get<HealthComponent>();
+            health.Hp -= PickupData.BombDamage;
+            if (health.Hp < 0) health.Hp = 0;
+        }
+
+        // Track damage dealt
+        var player = playerEntity.Get<PlayerComponent>();
+        if (player != null)
+            player.TotalDamageDealt += PickupData.BombDamage * World.GetEntitiesWith<MonsterComponent>().Count;
     }
 }

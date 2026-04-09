@@ -7,6 +7,8 @@ namespace Game.Ecs.Systems;
 
 public class DeathSystem : GameSystem
 {
+    private static readonly System.Random _rng = new();
+
     public override void Update(float delta)
     {
         var entities = World.GetEntitiesWith<HealthComponent>();
@@ -21,10 +23,7 @@ public class DeathSystem : GameSystem
             {
                 HandleMonsterDeath(entity);
             }
-            else if (entity.Has<PlayerComponent>())
-            {
-                HandlePlayerDeath(entity, health);
-            }
+            // Player death is handled in DamageSystem (revive logic)
         }
     }
 
@@ -33,30 +32,23 @@ public class DeathSystem : GameSystem
         var transform = entity.Get<TransformComponent>();
         var monster = entity.Get<MonsterComponent>();
 
+        // Track kill for attacker (find the player who last hit)
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        foreach (var player in players)
+        {
+            player.Get<PlayerComponent>().KillCount++;
+            break; // single player for now
+        }
+
         // Spawn experience orb at monster's position
-        var orb = World.CreateEntity();
-        orb.Add(new TransformComponent
+        SpawnExpOrb(transform.Position, monster.Reward);
+
+        // Item drop (5% chance, Boss guaranteed)
+        bool isBoss = monster.Type == MonsterType.Boss;
+        if (isBoss || _rng.NextDouble() < PickupData.TotalDropChance)
         {
-            Position = transform.Position,
-            Rotation = 0f
-        });
-        orb.Add(new ColliderComponent
-        {
-            Radius = 10f,
-            Layer = CollisionLayers.Pickup,
-            Mask = CollisionLayers.Player
-        });
-        orb.Add(new PickupComponent
-        {
-            Type = PickupType.ExpOrb,
-            Value = monster.Reward,
-            LifeTime = PickupData.ExpOrbLifeTime
-        });
-        orb.Add(new VelocityComponent
-        {
-            Velocity = Vector2.Zero,
-            Speed = 0f
-        });
+            SpawnItemDrop(transform.Position);
+        }
 
         // Decrement alive monster count
         var waveEntities = World.GetEntitiesWith<WaveComponent>();
@@ -70,12 +62,67 @@ public class DeathSystem : GameSystem
         World.DestroyEntity(entity.Id);
     }
 
-    private void HandlePlayerDeath(Entity entity, HealthComponent health)
+    private void SpawnExpOrb(Vector2 position, int xpValue)
     {
-        // Clamp HP to zero (don't go negative)
-        health.Hp = 0;
+        var orb = World.CreateEntity();
+        orb.Add(new TransformComponent { Position = position, Rotation = 0f });
+        orb.Add(new ColliderComponent
+        {
+            Radius = 10f,
+            Layer = CollisionLayers.Pickup,
+            Mask = CollisionLayers.Player
+        });
+        orb.Add(new PickupComponent
+        {
+            Type = PickupType.ExpOrb,
+            Value = xpValue,
+            LifeTime = PickupData.ExpOrbLifeTime
+        });
+        orb.Add(new VelocityComponent { Velocity = Vector2.Zero, Speed = 0f });
+    }
 
-        // TODO: Phase 2 — handle death screen / revive logic
-        GD.Print($"[DeathSystem] Player {entity.Get<PlayerComponent>().PlayerIndex} has died!");
+    private void SpawnItemDrop(Vector2 position)
+    {
+        // Roll which item drops
+        double roll = _rng.NextDouble() * PickupData.TotalDropChance;
+        PickupType itemType;
+        int value = 0;
+
+        if (roll < PickupData.HealthPotionChance)
+        {
+            itemType = PickupType.HealthPotion;
+        }
+        else if (roll < PickupData.HealthPotionChance + PickupData.FrenzyChance)
+        {
+            itemType = PickupType.Frenzy;
+        }
+        else if (roll < PickupData.HealthPotionChance + PickupData.FrenzyChance + PickupData.InvincibleChance)
+        {
+            itemType = PickupType.Invincible;
+        }
+        else
+        {
+            itemType = PickupType.Bomb;
+        }
+
+        var item = World.CreateEntity();
+        item.Add(new TransformComponent
+        {
+            Position = position + new Vector2((float)GD.RandRange(-20, 20), (float)GD.RandRange(-20, 20)),
+            Rotation = 0f
+        });
+        item.Add(new ColliderComponent
+        {
+            Radius = 12f,
+            Layer = CollisionLayers.Pickup,
+            Mask = CollisionLayers.Player
+        });
+        item.Add(new PickupComponent
+        {
+            Type = itemType,
+            Value = value,
+            LifeTime = PickupData.ExpOrbLifeTime // items also last 30s
+        });
+        item.Add(new VelocityComponent { Velocity = Vector2.Zero, Speed = 0f });
     }
 }

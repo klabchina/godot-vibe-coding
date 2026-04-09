@@ -116,6 +116,12 @@ public class WaveSpawnSystem : GameSystem
             Mask = CollisionLayers.Arrow | CollisionLayers.Player,
         });
 
+        // Boss gets phase AI component
+        if (type == MonsterType.Boss)
+        {
+            entity.Add(new BossPhaseComponent());
+        }
+
         wave.SpawnCountInEntry++;
         wave.TotalSpawned++;
         wave.AliveMonsters++;

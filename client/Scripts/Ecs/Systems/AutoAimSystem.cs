@@ -21,6 +21,7 @@ public class AutoAimSystem : GameSystem
             var bow = player.Get<BowComponent>();
             var playerTransform = player.Get<TransformComponent>();
             var upgrade = player.Get<UpgradeComponent>();
+            var buff = player.Get<BuffComponent>();
 
             // Apply upgrades to bow stats each frame
             if (upgrade != null)
@@ -29,6 +30,13 @@ public class AutoAimSystem : GameSystem
                 bow.SpreadAngle = UpgradeData.GetSpreadAngle(upgrade.MultiShotLevel);
                 bow.Cooldown = UpgradeData.GetCooldown(upgrade.AttackSpeedLevel);
                 bow.Damage = UpgradeData.GetArrowDamage(upgrade.DamageLevel);
+            }
+
+            // Frenzy buff: halve cooldown
+            float effectiveCooldown = bow.Cooldown;
+            if (buff != null && buff.ActiveTimedBuff == BuffType.Frenzy)
+            {
+                effectiveCooldown /= PickupData.FrenzyShootMultiplier;
             }
 
             // Update cooldown
@@ -55,26 +63,26 @@ public class AutoAimSystem : GameSystem
             // Fire arrows when ready and has target
             if (bow.CooldownTimer <= 0 && nearestMonster != null)
             {
-                bow.CooldownTimer = bow.Cooldown;
+                bow.CooldownTimer = effectiveCooldown;
 
                 var targetTransform = nearestMonster.Get<TransformComponent>();
                 Vector2 direction = (targetTransform.Position - playerTransform.Position).Normalized();
 
                 int pierceCount = upgrade != null ? UpgradeData.GetPierceCount(upgrade.PierceLevel) : 0;
+                bool hasBounce = upgrade?.HasBounce ?? false;
+                bool hasExplosion = upgrade?.HasExplosion ?? false;
+                bool hasFreeze = upgrade?.HasFreeze ?? false;
+                bool hasBurn = upgrade?.HasBurn ?? false;
 
                 if (bow.ArrowCount <= 1)
                 {
-                    SpawnArrow(player, direction, bow, pierceCount);
+                    SpawnArrow(player, direction, bow, pierceCount, hasBounce, hasExplosion, hasFreeze, hasBurn);
                 }
                 else
                 {
                     float totalSpread = bow.SpreadAngle;
                     int count = bow.ArrowCount;
 
-                    // Even count: symmetric around center with a minimum gap
-                    // e.g. 2 arrows → offsets: -half_gap, +half_gap (no overlap, both near forward)
-                    // Odd count:  center arrow at 0°, others spread evenly
-                    // MinGap ensures 2 arrows never overlap
                     const float MinGapDeg = 5f;
 
                     for (int i = 0; i < count; i++)
@@ -82,27 +90,24 @@ public class AutoAimSystem : GameSystem
                         float offset;
                         if (count % 2 == 1)
                         {
-                            // Odd: middle arrow at 0, others evenly spaced
                             offset = (i - (count - 1) / 2.0f) * (totalSpread / Mathf.Max(count - 1, 1));
                         }
                         else
                         {
-                            // Even: no arrow at center; place symmetrically around 0
-                            // gap = max(totalSpread / count, MinGap) is the spacing between arrows
                             float gap = Mathf.Max(totalSpread / Mathf.Max(count - 1, 1), MinGapDeg);
-                            // index from center: -1.5, -0.5, +0.5, +1.5 for count=4
                             offset = (i - (count - 1) / 2.0f) * gap;
                         }
                         float angleRad = Mathf.DegToRad(offset);
                         Vector2 dir = direction.Rotated(angleRad);
-                        SpawnArrow(player, dir, bow, pierceCount);
+                        SpawnArrow(player, dir, bow, pierceCount, hasBounce, hasExplosion, hasFreeze, hasBurn);
                     }
                 }
             }
         }
     }
 
-    private void SpawnArrow(Entity owner, Vector2 direction, BowComponent bow, int pierceCount)
+    private void SpawnArrow(Entity owner, Vector2 direction, BowComponent bow, int pierceCount,
+        bool bouncing, bool explosive, bool freezing, bool burning)
     {
         var arrow = World.CreateEntity();
 
@@ -122,7 +127,11 @@ public class AutoAimSystem : GameSystem
         {
             Damage = bow.Damage,
             OwnerId = owner.Id,
-            PierceCount = pierceCount
+            PierceCount = pierceCount,
+            Bouncing = bouncing,
+            Explosive = explosive,
+            Freezing = freezing,
+            Burning = burning
         });
 
         arrow.Add(new ColliderComponent

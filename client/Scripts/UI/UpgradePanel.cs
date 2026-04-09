@@ -151,6 +151,26 @@ public partial class UpgradePanel : Control
                 }
                 break;
             }
+            case UpgradeId.Shield:
+            {
+                // Immediately grant shield on first acquire
+                var buff = _playerEntity.Get<BuffComponent>();
+                if (buff != null)
+                {
+                    buff.ShieldActive = true;
+                    buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                }
+                break;
+            }
+            case UpgradeId.OrbitGuard:
+            {
+                var orbit = _playerEntity.Get<OrbitComponent>();
+                if (orbit != null)
+                {
+                    orbit.Count = _playerEntity.Get<UpgradeComponent>()?.OrbitCount ?? 1;
+                }
+                break;
+            }
         }
     }
 

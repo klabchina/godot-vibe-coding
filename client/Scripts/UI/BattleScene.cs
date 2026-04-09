@@ -61,35 +61,41 @@ public partial class BattleScene : Node2D
 			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
 		});
 		player.Add(new UpgradeComponent());
+		player.Add(new BuffComponent());
+		player.Add(new OrbitComponent());
 
 		// Create wave spawner entity
 		var spawner = _world.CreateEntity();
 		var wave = spawner.Add(new WaveComponent());
 
-		// Register systems in execution order
-		_world.AddSystem(new InputSystem());
-		// NetworkRecvSystem — Phase 6
+		// Register systems in execution order (see battle-gameplay-design.md §6.4)
+		_world.AddSystem(new InputSystem());                 // 1. Movement input
+		// NetworkRecvSystem — Phase 6                       // 2.
 		var waveSpawnSystem = new WaveSpawnSystem();
-		_world.AddSystem(waveSpawnSystem);
-		// BossAISystem — Phase 4
-		_world.AddSystem(new MonsterAISystem());
-		_world.AddSystem(new AutoAimSystem());
-		_world.AddSystem(new MovementSystem());
-		// OrbitSystem — Phase 4
-		_world.AddSystem(new CollisionSystem());
+		_world.AddSystem(waveSpawnSystem);                   // 3. Wave spawning
+
+		var bossAISystem = new BossAISystem();
+		bossAISystem.OnBossPhaseChange = OnBossPhaseChange;
+		_world.AddSystem(bossAISystem);                      // 4. Boss AI
+
+		_world.AddSystem(new MonsterAISystem());             // 4b. Monster AI (chase/dodge/charge)
+		_world.AddSystem(new AutoAimSystem());               // 5. Auto aim + fire
+		_world.AddSystem(new MovementSystem());              // 6. Movement
+		_world.AddSystem(new OrbitSystem());                 // 7. Orbit guard
+		_world.AddSystem(new CollisionSystem());             // 8. Collision detection
 
 		var pickupSystem = new PickupSystem();
 		pickupSystem.OnLevelUp = OnPlayerLevelUp;
-		_world.AddSystem(pickupSystem);
+		_world.AddSystem(pickupSystem);                      // 9. Pickup processing
 
-		_world.AddSystem(new DamageSystem());
-		// EffectSystem — Phase 4
-		// BuffSystem — Phase 4
-		_world.AddSystem(new DeathSystem());
-		// NetworkSendSystem — Phase 6
+		_world.AddSystem(new DamageSystem());                // 10. Damage + revive
+		_world.AddSystem(new EffectSystem());                // 11. Arrow effects (bounce/explode/freeze/burn)
+		_world.AddSystem(new BuffSystem());                  // 12. Buff tick (frenzy/shield/regen)
+		_world.AddSystem(new DeathSystem());                 // 13. Death + drops
+		// NetworkSendSystem — Phase 6                       // 14.
 
 		_renderSystem = new RenderSystem { RenderRoot = _renderRoot };
-		_world.AddSystem(_renderSystem);
+		_world.AddSystem(_renderSystem);                     // 15. Render
 
 		// Start wave 1
 		waveSpawnSystem.StartNextWave(wave);
@@ -106,6 +112,24 @@ public partial class BattleScene : Node2D
 	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
 	{
 		_pendingLevelUps.Enqueue((playerEntity, newLevel));
+	}
+
+	private void OnBossPhaseChange(int xpReward)
+	{
+		// Award XP to all players when Boss changes phase
+		var players = _world.GetEntitiesWith<PlayerComponent>();
+		foreach (var player in players)
+		{
+			var playerComp = player.Get<PlayerComponent>();
+			playerComp.TotalXp += xpReward;
+
+			int newLevel = LevelData.GetLevel(playerComp.TotalXp);
+			if (newLevel > playerComp.CurrentLevel)
+			{
+				playerComp.CurrentLevel = newLevel;
+				OnPlayerLevelUp(player, newLevel);
+			}
+		}
 	}
 
 	private void ProcessPendingLevelUps()
