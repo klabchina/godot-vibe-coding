@@ -5,19 +5,20 @@ using Game.Data;
 namespace Game.Ecs.Systems;
 
 /// <summary>
-/// Monster AI: chase nearest player, with per-type special behaviors.
-/// - Slime/Elite: straight chase
-/// - Skeleton: every 3s random lateral dodge for 0.5s
-/// - Orc: charge at 150px/s within 150px, then 1s stun
-/// - Boss: speed handled by BossAISystem
-/// Frozen monsters have their speed reduced.
+/// Monster AI: per-type movement and attack behaviors.
+/// - Slime:    straight chase
+/// - Skeleton: ranged (lateral wander → stop → fire single constant-speed arrow)
+/// - Orc:      straight chase + charge+stun when close
+/// - Elite:    ranged (lateral wander → stop → fire 2-4 accelerating arrows in spread)
+/// - Boss:     direction set here; speed set by BossAISystem
+/// Frozen monsters have speed reduced by EffectComponent.FreezeSlowPercent.
 /// </summary>
 public class MonsterAISystem : GameSystem
 {
     public override void Update(float delta)
     {
         var monsters = World.GetEntitiesWith<MonsterComponent, TransformComponent, VelocityComponent>();
-        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
+        var players  = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
 
         if (players.Count == 0) return;
 
@@ -25,13 +26,13 @@ public class MonsterAISystem : GameSystem
         {
             if (!monster.IsAlive) continue;
 
-            var monsterComp = monster.Get<MonsterComponent>();
+            var monsterComp      = monster.Get<MonsterComponent>();
             var monsterTransform = monster.Get<TransformComponent>();
-            var velocity = monster.Get<VelocityComponent>();
+            var velocity         = monster.Get<VelocityComponent>();
 
             // Find nearest alive player
             float nearestDist = float.MaxValue;
-            Vec2 nearestPos = Vec2.Zero;
+            Vec2  nearestPos  = Vec2.Zero;
 
             foreach (var player in players)
             {
@@ -43,7 +44,7 @@ public class MonsterAISystem : GameSystem
                 if (dist < nearestDist)
                 {
                     nearestDist = dist;
-                    nearestPos = playerTransform.Position;
+                    nearestPos  = playerTransform.Position;
                 }
             }
 
@@ -55,94 +56,207 @@ public class MonsterAISystem : GameSystem
 
             Vec2 toPlayer = (nearestPos - monsterTransform.Position).Normalized();
 
-            // Ensure AI state exists
+            // Ensure AI state exists for types that need it
             var ai = monster.Get<MonsterAIState>();
-            if (ai == null && (monsterComp.Type == MonsterType.Skeleton || monsterComp.Type == MonsterType.Orc))
+            if (ai == null && (monsterComp.Type == MonsterType.Skeleton ||
+                               monsterComp.Type == MonsterType.Orc      ||
+                               monsterComp.Type == MonsterType.Elite))
             {
                 ai = new MonsterAIState();
                 monster.Add(ai);
             }
 
-            // Calculate effective speed (apply freeze slow)
-            float baseSpeed = velocity.Speed;
+            // Apply freeze slow
+            float baseSpeed       = velocity.Speed;
             float speedMultiplier = 1f;
             var effect = monster.Get<EffectComponent>();
             if (effect != null && effect.IsFrozen)
-            {
                 speedMultiplier = 1f - effect.FreezeSlowPercent;
-            }
 
             switch (monsterComp.Type)
             {
                 case MonsterType.Skeleton:
-                    UpdateSkeleton(velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
+                    UpdateSkeletonRanged(monster, velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
+                    break;
+                case MonsterType.Elite:
+                    UpdateEliteRanged(monster, velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Orc:
                     UpdateOrc(velocity, ai, toPlayer, nearestDist, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Boss:
-                    // Boss direction: chase, but speed is set by BossAISystem
+                    // Speed is overridden by BossAISystem; just set direction
                     velocity.Velocity = toPlayer * velocity.Speed * speedMultiplier;
                     break;
                 default:
-                    // Slime, Elite: straight chase
+                    // Slime: straight chase
                     velocity.Velocity = toPlayer * baseSpeed * speedMultiplier;
                     break;
             }
         }
     }
 
-    private void UpdateSkeleton(VelocityComponent velocity, MonsterAIState ai,
+    // ─── Skeleton — ranged, single constant-speed arrow ───────────────────────
+
+    private void UpdateSkeletonRanged(Entity monster, VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, float baseSpeed, float speedMul, float delta)
     {
-        if (ai == null)
-        {
-            velocity.Velocity = toPlayer * baseSpeed * speedMul;
-            return;
-        }
+        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
 
-        if (ai.DodgeDuration > 0)
+        if (ai.RangedPhase == RangedPhase.Wander)
         {
-            // Currently dodging: move laterally
-            ai.DodgeDuration -= delta;
-            velocity.Velocity = ai.DodgeDir * baseSpeed * 1.5f * speedMul;
-        }
-        else
-        {
-            // Normal chase
-            velocity.Velocity = toPlayer * baseSpeed * speedMul;
-
-            // Count up to next dodge
-            ai.DodgeTimer += delta;
-            if (ai.DodgeTimer >= MonsterData.SkeletonDodgeInterval)
+            // Re-initialize direction at the start of each wander phase (PhaseTimer == 0)
+            if (ai.PhaseTimer <= 0f)
             {
-                ai.DodgeTimer = 0;
-                ai.DodgeDuration = MonsterData.SkeletonDodgeDuration;
+                Vec2  perp = new Vec2(-toPlayer.Y, toPlayer.X);
+                float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
+                ai.WanderDir  = (toPlayer + perp * bias).Normalized();
+                ai.PhaseTimer = MonsterData.SkeletonWanderDuration;
+            }
 
-                // Random lateral direction (perpendicular to toPlayer)
-                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
-                ai.DodgeDir = GameRandom.Randf() > 0.5f ? perp : -perp;
+            velocity.Velocity  = ai.WanderDir * baseSpeed * speedMul;
+            ai.PhaseTimer     -= delta;
+
+            if (ai.PhaseTimer <= 0f)
+            {
+                ai.RangedPhase    = RangedPhase.Attack;
+                ai.PhaseTimer     = MonsterData.SkeletonAttackDuration;
+                ai.FiredThisCycle = false;
+            }
+        }
+        else // RangedPhase.Attack
+        {
+            velocity.Velocity  = Vec2.Zero; // stop while aiming
+            ai.PhaseTimer     -= delta;
+
+            if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
+            {
+                SpawnSkeletonProjectile(monster, toPlayer);
+                ai.FiredThisCycle = true;
+                ai.RangedPhase    = RangedPhase.Wander;
+                ai.PhaseTimer     = 0f; // triggers re-init next frame
             }
         }
     }
 
+    private void SpawnSkeletonProjectile(Entity monster, Vec2 direction)
+    {
+        Vec2 origin = monster.Get<TransformComponent>().Position;
+
+        var proj = World.CreateEntity();
+        proj.Add(new TransformComponent { Position = origin, Rotation = direction.Angle() });
+        proj.Add(new VelocityComponent
+        {
+            Velocity = direction * MonsterData.SkeletonProjectileSpeed,
+            Speed    = MonsterData.SkeletonProjectileSpeed
+        });
+        proj.Add(new MonsterProjectileComponent
+        {
+            Damage       = MonsterData.SkeletonProjectileDamage,
+            OwnerId      = monster.Id,
+            Acceleration = 0f
+        });
+        proj.Add(new ColliderComponent
+        {
+            Radius = 5f,
+            Layer  = CollisionLayers.MonsterArrow,
+            Mask   = CollisionLayers.Player
+        });
+    }
+
+    // ─── Elite — ranged, 2-4 accelerating arrows in fan spread ────────────────
+
+    private void UpdateEliteRanged(Entity monster, VelocityComponent velocity, MonsterAIState ai,
+        Vec2 toPlayer, float baseSpeed, float speedMul, float delta)
+    {
+        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
+
+        if (ai.RangedPhase == RangedPhase.Wander)
+        {
+            if (ai.PhaseTimer <= 0f)
+            {
+                Vec2  perp = new Vec2(-toPlayer.Y, toPlayer.X);
+                float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
+                ai.WanderDir  = (toPlayer + perp * bias).Normalized();
+                ai.PhaseTimer = MonsterData.EliteWanderDuration;
+            }
+
+            velocity.Velocity  = ai.WanderDir * baseSpeed * speedMul;
+            ai.PhaseTimer     -= delta;
+
+            if (ai.PhaseTimer <= 0f)
+            {
+                ai.RangedPhase    = RangedPhase.Attack;
+                ai.PhaseTimer     = MonsterData.EliteAttackDuration;
+                ai.FiredThisCycle = false;
+            }
+        }
+        else // RangedPhase.Attack
+        {
+            velocity.Velocity  = Vec2.Zero;
+            ai.PhaseTimer     -= delta;
+
+            if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
+            {
+                SpawnEliteProjectiles(monster, toPlayer);
+                ai.FiredThisCycle = true;
+                ai.RangedPhase    = RangedPhase.Wander;
+                ai.PhaseTimer     = 0f;
+            }
+        }
+    }
+
+    private void SpawnEliteProjectiles(Entity monster, Vec2 toPlayer)
+    {
+        Vec2 origin = monster.Get<TransformComponent>().Position;
+
+        // 2-4 arrows, random count each burst
+        int count = GameRandom.Next(
+            MonsterData.EliteProjectileMaxCount - MonsterData.EliteProjectileMinCount + 1
+        ) + MonsterData.EliteProjectileMinCount;
+
+        for (int i = 0; i < count; i++)
+        {
+            // Fan spread: center the burst on toPlayer direction
+            float offsetDeg = (i - (count - 1) / 2.0f) * MonsterData.EliteProjectileSpreadDeg;
+            Vec2  dir       = toPlayer.Rotated(GMath.DegToRad(offsetDeg));
+
+            var proj = World.CreateEntity();
+            proj.Add(new TransformComponent { Position = origin, Rotation = dir.Angle() });
+            proj.Add(new VelocityComponent
+            {
+                Velocity = dir * MonsterData.EliteProjectileInitSpeed,
+                Speed    = MonsterData.EliteProjectileInitSpeed
+            });
+            proj.Add(new MonsterProjectileComponent
+            {
+                Damage       = MonsterData.EliteProjectileDamage,
+                OwnerId      = monster.Id,
+                Acceleration = MonsterData.EliteProjectileAccel
+            });
+            proj.Add(new ColliderComponent
+            {
+                Radius = 5f,
+                Layer  = CollisionLayers.MonsterArrow,
+                Mask   = CollisionLayers.Player
+            });
+        }
+    }
+
+    // ─── Orc — unchanged ──────────────────────────────────────────────────────
+
     private void UpdateOrc(VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, float distToPlayer, float baseSpeed, float speedMul, float delta)
     {
-        if (ai == null)
-        {
-            velocity.Velocity = toPlayer * baseSpeed * speedMul;
-            return;
-        }
+        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
 
         if (ai.IsStunned)
         {
-            // Stunned after charge: don't move
-            velocity.Velocity = Vec2.Zero;
-            ai.StunTimer -= delta;
+            velocity.Velocity  = Vec2.Zero;
+            ai.StunTimer      -= delta;
             if (ai.StunTimer <= 0)
             {
-                ai.IsStunned = false;
+                ai.IsStunned  = false;
                 ai.IsCharging = false;
             }
             return;
@@ -150,27 +264,19 @@ public class MonsterAISystem : GameSystem
 
         if (ai.IsCharging)
         {
-            // Charging: move fast toward player
             velocity.Velocity = toPlayer * MonsterData.OrcChargeSpeed * speedMul;
-
-            // If very close, end charge with stun
             if (distToPlayer < 30f)
             {
-                ai.IsCharging = false;
-                ai.IsStunned = true;
-                ai.StunTimer = MonsterData.OrcStunDuration;
+                ai.IsCharging     = false;
+                ai.IsStunned      = true;
+                ai.StunTimer      = MonsterData.OrcStunDuration;
                 velocity.Velocity = Vec2.Zero;
             }
             return;
         }
 
-        // Normal movement
         velocity.Velocity = toPlayer * baseSpeed * speedMul;
-
-        // Start charge when within range
         if (distToPlayer <= MonsterData.OrcChargeRange)
-        {
             ai.IsCharging = true;
-        }
     }
 }
