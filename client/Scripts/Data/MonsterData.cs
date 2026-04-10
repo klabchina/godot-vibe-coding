@@ -46,7 +46,22 @@ public static class MonsterData
     public const float OrcChargeSpeed      = 150f;
     public const float OrcStunDuration     = 1.0f;
 
-    // Skeleton dodge parameters
-    public const float SkeletonDodgeInterval = 3.0f;
-    public const float SkeletonDodgeDuration = 0.5f;
+    // Shared ranged parameters
+    public const float RangedLateralBias = 0.6f; // max lateral component added to forward dir
+
+    // Skeleton ranged parameters
+    public const float SkeletonWanderDuration   = 2.0f;  // seconds in wander phase
+    public const float SkeletonAttackDuration   = 0.4f;  // pause before firing
+    public const float SkeletonProjectileSpeed  = 280f;  // px/s (constant)
+    public const int   SkeletonProjectileDamage = 6;
+
+    // Elite ranged parameters
+    public const float EliteWanderDuration      = 2.5f;  // seconds in wander phase
+    public const float EliteAttackDuration      = 0.6f;  // pause before firing
+    public const float EliteProjectileInitSpeed = 150f;  // px/s at spawn
+    public const float EliteProjectileAccel     = 250f;  // px/s² linear acceleration
+    public const int   EliteProjectileMinCount  = 2;
+    public const int   EliteProjectileMaxCount  = 4;
+    public const float EliteProjectileSpreadDeg = 12f;   // degrees between adjacent shots
+    public const int   EliteProjectileDamage    = 10;
 }
