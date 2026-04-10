@@ -17,6 +17,7 @@ public class CollisionSystem : GameSystem
 
         CheckArrowVsMonster();
         CheckMonsterVsPlayer();
+        CheckMonsterProjectileVsPlayer();
     }
 
     private void CheckArrowVsMonster()
@@ -95,6 +96,37 @@ public class CollisionSystem : GameSystem
 
                 int damage = (int)MonsterData.GetDamage(monsterComp.Type, waveNum);
                 Hits.Add(new HitEvent(monsterEntity.Id, playerEntity.Id, damage, false));
+            }
+        }
+    }
+
+    private void CheckMonsterProjectileVsPlayer()
+    {
+        var projectiles = World.GetEntitiesWith<MonsterProjectileComponent, TransformComponent, ColliderComponent>();
+        var players     = World.GetEntitiesWith<PlayerComponent, TransformComponent, ColliderComponent>();
+
+        foreach (var projEntity in projectiles)
+        {
+            if (!projEntity.IsAlive) continue;
+
+            var projTransform = projEntity.Get<TransformComponent>();
+            var projCollider  = projEntity.Get<ColliderComponent>();
+            var projComp      = projEntity.Get<MonsterProjectileComponent>();
+
+            foreach (var playerEntity in players)
+            {
+                if (!playerEntity.IsAlive) continue;
+
+                var playerTransform = playerEntity.Get<TransformComponent>();
+                var playerCollider  = playerEntity.Get<ColliderComponent>();
+
+                float dist = projTransform.Position.DistanceTo(playerTransform.Position);
+                if (dist > projCollider.Radius + playerCollider.Radius) continue;
+
+                // Register hit with IsArrow=false so DamageSystem applies shield/invincible checks
+                Hits.Add(new HitEvent(projEntity.Id, playerEntity.Id, projComp.Damage, false));
+                World.DestroyEntity(projEntity.Id); // consumed on first hit
+                break; // projectile is gone; skip remaining players
             }
         }
     }
