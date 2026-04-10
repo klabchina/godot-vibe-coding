@@ -230,7 +230,14 @@ public partial class BattleScene : Node2D
 
 		foreach (var hit in collisionSystem.Hits)
 		{
-			if (!hit.IsArrow) continue;
+			// Show for player arrows hitting monsters, OR monster projectiles hitting players
+			bool isMonsterProjectileHit = false;
+			if (!hit.IsArrow)
+			{
+				var attacker = _world.GetEntity(hit.AttackerId);
+				isMonsterProjectileHit = attacker != null && attacker.Has<MonsterProjectileComponent>();
+			}
+			if (!hit.IsArrow && !isMonsterProjectileHit) continue;
 
 			var defender = _world.GetEntity(hit.DefenderId);
 			if (defender == null) continue;

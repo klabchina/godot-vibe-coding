@@ -46,8 +46,7 @@ public class RenderSystem : GameSystem
 
             node.Position = ToGodot(transform.Position);
 
-            var arrow = entity.Get<ArrowComponent>();
-            if (arrow != null)
+            if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
                 node.Rotation = transform.Rotation;
 
             UpdateEffectVisuals(entity, node);
@@ -193,6 +192,13 @@ public class RenderSystem : GameSystem
                 rect.Color = Colors.Yellow;
             rect.Size = new Vector2(8, 4);
             rect.Position = new Vector2(-4, -2);
+        }
+        else if (entity.Has<MonsterProjectileComponent>())
+        {
+            rect = new ColorRect();
+            rect.Color = new Color(1.0f, 0.3f, 0.1f); // orange-red, distinct from yellow player arrows
+            rect.Size = new Vector2(8, 8);
+            rect.Position = new Vector2(-4, -4);
         }
         else if (entity.Has<PickupComponent>())
         {
