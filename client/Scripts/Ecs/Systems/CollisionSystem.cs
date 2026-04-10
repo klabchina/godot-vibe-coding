@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Godot;
+using Game.Ecs.Core;
 using Game.Data;
 using Game.Ecs.Components;
 

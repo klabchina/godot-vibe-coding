@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs;
 using Game.Ecs.Components;
 using Game.Data;
@@ -62,7 +62,7 @@ public class DeathSystem : GameSystem
         World.DestroyEntity(entity.Id);
     }
 
-    private void SpawnExpOrb(Vector2 position, int xpValue)
+    private void SpawnExpOrb(Vec2 position, int xpValue)
     {
         var orb = World.CreateEntity();
         orb.Add(new TransformComponent { Position = position, Rotation = 0f });
@@ -78,10 +78,10 @@ public class DeathSystem : GameSystem
             Value = xpValue,
             LifeTime = PickupData.ExpOrbLifeTime
         });
-        orb.Add(new VelocityComponent { Velocity = Vector2.Zero, Speed = 0f });
+        orb.Add(new VelocityComponent { Velocity = Vec2.Zero, Speed = 0f });
     }
 
-    private void SpawnItemDrop(Vector2 position)
+    private void SpawnItemDrop(Vec2 position)
     {
         // Roll which item drops
         double roll = _rng.NextDouble() * PickupData.TotalDropChance;
@@ -108,7 +108,7 @@ public class DeathSystem : GameSystem
         var item = World.CreateEntity();
         item.Add(new TransformComponent
         {
-            Position = position + new Vector2((float)GD.RandRange(-20, 20), (float)GD.RandRange(-20, 20)),
+            Position = position + new Vec2((float)GameRandom.RandRange(-20, 20), (float)GameRandom.RandRange(-20, 20)),
             Rotation = 0f
         });
         item.Add(new ColliderComponent
@@ -123,6 +123,6 @@ public class DeathSystem : GameSystem
             Value = value,
             LifeTime = PickupData.ExpOrbLifeTime // items also last 30s
         });
-        item.Add(new VelocityComponent { Velocity = Vector2.Zero, Speed = 0f });
+        item.Add(new VelocityComponent { Velocity = Vec2.Zero, Speed = 0f });
     }
 }

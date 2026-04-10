@@ -1,9 +1,9 @@
-using Godot;
+using Game.Ecs.Core;
 
 namespace Game.Ecs.Components;
 
 public class TransformComponent
 {
-    public Vector2 Position;
+    public Vec2 Position;
     public float Rotation;
 }

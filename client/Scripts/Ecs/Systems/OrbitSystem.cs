@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -36,10 +36,10 @@ public class OrbitSystem : GameSystem
 
             for (int i = 0; i < orbit.Count; i++)
             {
-                float angle = Mathf.DegToRad(orbit.CurrentAngle + angleStep * i);
-                Vector2 orbitPos = playerTransform.Position + new Vector2(
-                    Mathf.Cos(angle) * UpgradeData.OrbitRadius,
-                    Mathf.Sin(angle) * UpgradeData.OrbitRadius
+                float angle = GMath.DegToRad(orbit.CurrentAngle + angleStep * i);
+                Vec2 orbitPos = playerTransform.Position + new Vec2(
+                    GMath.Cos(angle) * UpgradeData.OrbitRadius,
+                    GMath.Sin(angle) * UpgradeData.OrbitRadius
                 );
 
                 // Ensure cooldown dict exists for this orbit index

@@ -1,24 +1,30 @@
 using Godot;
 using System.Collections.Generic;
 using Game.Ecs;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
-namespace Game.Ecs.Systems;
+namespace Game.Ecs.ClientSystems;
 
+/// <summary>
+/// Client-only: syncs ECS state to Godot visual nodes.
+/// </summary>
 public class RenderSystem : GameSystem
 {
     public Node2D RenderRoot { get; set; }
 
     private readonly Dictionary<int, Node2D> _entityNodes = new();
-    private readonly Dictionary<int, List<Node2D>> _orbitNodes = new(); // playerId → orbit arrow visuals
+    private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
+
+    /// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
+    private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
 
     public override void Update(float delta)
     {
         if (RenderRoot == null)
             return;
 
-        // Update or create visuals for alive entities
         foreach (var (id, entity) in World.Entities)
         {
             if (!entity.IsAlive)
@@ -38,17 +44,15 @@ public class RenderSystem : GameSystem
                 _entityNodes[id] = node;
             }
 
-            node.Position = transform.Position;
+            node.Position = ToGodot(transform.Position);
 
             var arrow = entity.Get<ArrowComponent>();
             if (arrow != null)
                 node.Rotation = transform.Rotation;
 
-            // Update freeze/burn visual tint
             UpdateEffectVisuals(entity, node);
         }
 
-        // Clean up nodes for dead or removed entities
         var toRemove = new List<int>();
         foreach (var (id, node) in _entityNodes)
         {
@@ -59,11 +63,9 @@ public class RenderSystem : GameSystem
                 toRemove.Add(id);
             }
         }
-
         foreach (var id in toRemove)
             _entityNodes.Remove(id);
 
-        // Render orbit arrows
         RenderOrbitArrows();
     }
 
@@ -81,11 +83,11 @@ public class RenderSystem : GameSystem
         Color baseColor = GetMonsterColor(monster.Type);
 
         if (effect.IsFrozen && effect.IsBurning)
-            rect.Color = new Color(0.5f, 0.3f, 0.8f); // purple-ish for both
+            rect.Color = new Color(0.5f, 0.3f, 0.8f);
         else if (effect.IsFrozen)
-            rect.Color = new Color(0.4f, 0.7f, 1.0f); // ice blue
+            rect.Color = new Color(0.4f, 0.7f, 1.0f);
         else if (effect.IsBurning)
-            rect.Color = new Color(1.0f, 0.5f, 0.1f); // orange flame
+            rect.Color = new Color(1.0f, 0.5f, 0.1f);
         else
             rect.Color = baseColor;
     }
@@ -93,8 +95,6 @@ public class RenderSystem : GameSystem
     private void RenderOrbitArrows()
     {
         var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, OrbitComponent>();
-
-        // Collect active player IDs
         var activePlayerIds = new HashSet<int>();
 
         foreach (var player in players)
@@ -108,7 +108,6 @@ public class RenderSystem : GameSystem
 
             var nodes = _orbitNodes[player.Id];
 
-            // Ensure correct number of orbit visual nodes
             while (nodes.Count < orbit.Count)
             {
                 var orbitVisual = new Node2D();
@@ -128,23 +127,22 @@ public class RenderSystem : GameSystem
                 nodes.RemoveAt(nodes.Count - 1);
             }
 
-            // Position orbit arrows
             if (orbit.Count > 0)
             {
                 float angleStep = 360f / orbit.Count;
                 for (int i = 0; i < orbit.Count; i++)
                 {
-                    float angle = Mathf.DegToRad(orbit.CurrentAngle + angleStep * i);
-                    nodes[i].Position = playerTransform.Position + new Vector2(
-                        Mathf.Cos(angle) * UpgradeData.OrbitRadius,
-                        Mathf.Sin(angle) * UpgradeData.OrbitRadius
+                    float angle = GMath.DegToRad(orbit.CurrentAngle + angleStep * i);
+                    var pos = playerTransform.Position + new Vec2(
+                        GMath.Cos(angle) * UpgradeData.OrbitRadius,
+                        GMath.Sin(angle) * UpgradeData.OrbitRadius
                     );
+                    nodes[i].Position = ToGodot(pos);
                     nodes[i].Rotation = angle;
                 }
             }
         }
 
-        // Clean up orbit nodes for removed players
         var toRemove = new List<int>();
         foreach (var (playerId, nodes) in _orbitNodes)
         {
@@ -185,7 +183,6 @@ public class RenderSystem : GameSystem
         {
             rect = new ColorRect();
             var arrowComp = entity.Get<ArrowComponent>();
-            // Color-code special arrows
             if (arrowComp.Freezing)
                 rect.Color = new Color(0.4f, 0.8f, 1.0f);
             else if (arrowComp.Burning)
@@ -233,10 +230,10 @@ public class RenderSystem : GameSystem
         return type switch
         {
             PickupType.ExpOrb => Colors.LimeGreen,
-            PickupType.HealthPotion => new Color(1.0f, 0.2f, 0.4f), // pink-red
-            PickupType.Frenzy => new Color(1.0f, 0.8f, 0.0f),       // gold
+            PickupType.HealthPotion => new Color(1.0f, 0.2f, 0.4f),
+            PickupType.Frenzy => new Color(1.0f, 0.8f, 0.0f),
             PickupType.Invincible => Colors.White,
-            PickupType.Bomb => new Color(1.0f, 0.0f, 0.0f),          // red
+            PickupType.Bomb => new Color(1.0f, 0.0f, 0.0f),
             _ => Colors.White,
         };
     }

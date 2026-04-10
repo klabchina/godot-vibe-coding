@@ -1,3 +1,5 @@
+using Game.Ecs.Core;
+
 namespace Game.Ecs.Components;
 
 /// <summary>
@@ -8,7 +10,7 @@ public class MonsterAIState
     // Skeleton dodge
     public float DodgeTimer;         // counts up to DodgeInterval (3s)
     public float DodgeDuration;      // remaining dodge move time (0.5s)
-    public Godot.Vector2 DodgeDir;   // random lateral direction
+    public Vec2 DodgeDir;            // random lateral direction
 
     // Orc charge
     public bool IsCharging;

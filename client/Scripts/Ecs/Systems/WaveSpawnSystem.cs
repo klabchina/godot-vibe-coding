@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs;
 using Game.Ecs.Components;
 using Game.Data;
@@ -37,7 +37,7 @@ public class WaveSpawnSystem : GameSystem
             if (wave.SpawnTimer <= 0f)
             {
                 SpawnMonster(wave);
-                wave.SpawnTimer = (float)GD.RandRange(WaveData.SpawnIntervalMin, WaveData.SpawnIntervalMax);
+                wave.SpawnTimer = (float)GameRandom.RandRange(WaveData.SpawnIntervalMin, WaveData.SpawnIntervalMax);
             }
             return;
         }
@@ -141,32 +141,32 @@ public class WaveSpawnSystem : GameSystem
         }
     }
 
-    private static Vector2 GetRandomEdgePosition()
+    private static Vec2 GetRandomEdgePosition()
     {
-        int edge = (int)(GD.Randf() * 4f) % 4;
+        int edge = (int)(GameRandom.Randf() * 4f) % 4;
 
         float x, y;
         switch (edge)
         {
             case 0: // Top
-                x = (float)GD.RandRange(0, ArenaData.Size.X);
+                x = (float)GameRandom.RandRange(0, ArenaData.Size.X);
                 y = -SpawnOffset;
                 break;
             case 1: // Bottom
-                x = (float)GD.RandRange(0, ArenaData.Size.X);
+                x = (float)GameRandom.RandRange(0, ArenaData.Size.X);
                 y = ArenaData.Size.Y + SpawnOffset;
                 break;
             case 2: // Left
                 x = -SpawnOffset;
-                y = (float)GD.RandRange(0, ArenaData.Size.Y);
+                y = (float)GameRandom.RandRange(0, ArenaData.Size.Y);
                 break;
             default: // Right
                 x = ArenaData.Size.X + SpawnOffset;
-                y = (float)GD.RandRange(0, ArenaData.Size.Y);
+                y = (float)GameRandom.RandRange(0, ArenaData.Size.Y);
                 break;
         }
 
-        return new Vector2(x, y);
+        return new Vec2(x, y);
     }
 
     /// <summary>
@@ -191,7 +191,7 @@ public class WaveSpawnSystem : GameSystem
 
             // Find nearest player
             float nearestDist = float.MaxValue;
-            Vector2 nearestPos = Vector2.Zero;
+            Vec2 nearestPos = Vec2.Zero;
             foreach (var player in players)
             {
                 var pt = player.Get<TransformComponent>();
@@ -205,7 +205,7 @@ public class WaveSpawnSystem : GameSystem
 
             // Set high-speed fly toward player (2x normal attract speed)
             var vel = pickupEntity.Get<VelocityComponent>();
-            Vector2 dir = (nearestPos - pickupTransform.Position).Normalized();
+            Vec2 dir = (nearestPos - pickupTransform.Position).Normalized();
             vel.Velocity = dir * PickupData.ExpOrbFlySpeed * 2f;
         }
     }

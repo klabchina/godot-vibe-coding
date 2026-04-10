@@ -1,9 +1,9 @@
-using Godot;
+using Game.Ecs.Core;
 
 namespace Game.Ecs.Components;
 
 public class VelocityComponent
 {
-    public Vector2 Velocity;
+    public Vec2 Velocity;
     public float Speed;
 }

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -113,7 +113,7 @@ public class EffectSystem : GameSystem
 
     private void SpawnBounceArrow(Entity originalArrow, Entity hitTarget, ArrowComponent originalArrowComp)
     {
-        var hitPos = hitTarget.Get<TransformComponent>()?.Position ?? Vector2.Zero;
+        var hitPos = hitTarget.Get<TransformComponent>()?.Position ?? Vec2.Zero;
 
         // Find nearest un-hit monster within bounce radius
         Entity bounceTarget = null;
@@ -135,7 +135,7 @@ public class EffectSystem : GameSystem
         if (bounceTarget == null) return;
 
         var targetPos = bounceTarget.Get<TransformComponent>().Position;
-        Vector2 dir = (targetPos - hitPos).Normalized();
+        Vec2 dir = (targetPos - hitPos).Normalized();
         int bounceDamage = (int)(originalArrowComp.Damage * UpgradeData.BounceDamageRatio);
 
         var arrow = World.CreateEntity();

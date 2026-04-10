@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -56,9 +56,9 @@ public class PickupSystem : GameSystem
                     // Attract: fly toward player
                     if (vel != null)
                     {
-                        Vector2 dir = (playerTransform.Position - pickupTransform.Position).Normalized();
+                        Vec2 dir = (playerTransform.Position - pickupTransform.Position).Normalized();
                         float speed = alreadyFlying
-                            ? Mathf.Max(vel.Velocity.Length(), PickupData.ExpOrbFlySpeed)
+                            ? GMath.Max(vel.Velocity.Length(), PickupData.ExpOrbFlySpeed)
                             : PickupData.ExpOrbFlySpeed;
                         vel.Velocity = dir * speed;
                     }
@@ -119,7 +119,7 @@ public class PickupSystem : GameSystem
         if (health == null) return;
 
         int healAmount = (int)(health.MaxHp * PickupData.HealthPotionHealPercent);
-        health.Hp = Mathf.Min(health.Hp + healAmount, health.MaxHp);
+        health.Hp = GMath.Min(health.Hp + healAmount, health.MaxHp);
     }
 
     private void CollectFrenzy(Entity playerEntity)

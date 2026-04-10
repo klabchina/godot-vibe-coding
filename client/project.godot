@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GameManager="*res://Scripts/Game/GameManager.cs"
 SceneManager="*res://Scripts/Game/SceneManager.cs"
+NetManager="*res://Scripts/Net/NetManager.cs"
 
 [display]
 

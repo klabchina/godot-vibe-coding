@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -61,7 +61,7 @@ public class BuffSystem : GameSystem
                 {
                     int heal = (int)buff.RegenAccumulator;
                     buff.RegenAccumulator -= heal;
-                    health.Hp = Mathf.Min(health.Hp + heal, health.MaxHp);
+                    health.Hp = GMath.Min(health.Hp + heal, health.MaxHp);
                 }
             }
         }

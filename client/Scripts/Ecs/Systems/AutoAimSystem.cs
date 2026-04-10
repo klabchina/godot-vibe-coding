@@ -1,5 +1,5 @@
 using System;
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -66,7 +66,7 @@ public class AutoAimSystem : GameSystem
                 bow.CooldownTimer = effectiveCooldown;
 
                 var targetTransform = nearestMonster.Get<TransformComponent>();
-                Vector2 direction = (targetTransform.Position - playerTransform.Position).Normalized();
+                Vec2 direction = (targetTransform.Position - playerTransform.Position).Normalized();
 
                 int pierceCount = upgrade != null ? UpgradeData.GetPierceCount(upgrade.PierceLevel) : 0;
                 bool hasBounce = upgrade?.HasBounce ?? false;
@@ -90,15 +90,15 @@ public class AutoAimSystem : GameSystem
                         float offset;
                         if (count % 2 == 1)
                         {
-                            offset = (i - (count - 1) / 2.0f) * (totalSpread / Mathf.Max(count - 1, 1));
+                            offset = (i - (count - 1) / 2.0f) * (totalSpread / GMath.Max(count - 1, 1));
                         }
                         else
                         {
-                            float gap = Mathf.Max(totalSpread / Mathf.Max(count - 1, 1), MinGapDeg);
+                            float gap = GMath.Max(totalSpread / GMath.Max(count - 1, 1), MinGapDeg);
                             offset = (i - (count - 1) / 2.0f) * gap;
                         }
-                        float angleRad = Mathf.DegToRad(offset);
-                        Vector2 dir = direction.Rotated(angleRad);
+                        float angleRad = GMath.DegToRad(offset);
+                        Vec2 dir = direction.Rotated(angleRad);
                         SpawnArrow(player, dir, bow, pierceCount, hasBounce, hasExplosion, hasFreeze, hasBurn);
                     }
                 }
@@ -106,7 +106,7 @@ public class AutoAimSystem : GameSystem
         }
     }
 
-    private void SpawnArrow(Entity owner, Vector2 direction, BowComponent bow, int pierceCount,
+    private void SpawnArrow(Entity owner, Vec2 direction, BowComponent bow, int pierceCount,
         bool bouncing, bool explosive, bool freezing, bool burning)
     {
         var arrow = World.CreateEntity();

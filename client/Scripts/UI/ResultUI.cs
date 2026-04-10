@@ -20,7 +20,7 @@ public partial class ResultUI : Control
         vbox.GrowHorizontal = GrowDirection.Both;
         vbox.GrowVertical = GrowDirection.Both;
         vbox.AddThemeConstantOverride("separation", 16);
-        vbox.Position = new Vector2(-220, -220);
+        vbox.Position = new Vector2(0, -120);
         AddChild(vbox);
 
         var gm = GameManager.Instance;

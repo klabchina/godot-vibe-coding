@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -26,9 +26,9 @@ public class MovementSystem : GameSystem
 
             if (entity.Has<PlayerComponent>())
             {
-                transform.Position = new Vector2(
-                    Mathf.Clamp(transform.Position.X, PlayerRadius, ArenaData.Size.X - PlayerRadius),
-                    Mathf.Clamp(transform.Position.Y, PlayerRadius, ArenaData.Size.Y - PlayerRadius)
+                transform.Position = new Vec2(
+                    GMath.Clamp(transform.Position.X, PlayerRadius, ArenaData.Size.X - PlayerRadius),
+                    GMath.Clamp(transform.Position.Y, PlayerRadius, ArenaData.Size.Y - PlayerRadius)
                 );
             }
             else if (entity.Has<ArrowComponent>())

@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -94,7 +94,6 @@ public class DamageSystem : GameSystem
                 // Revive with 50% HP
                 health.Hp = health.MaxHp / 2;
                 revive.HasRevived = true;
-                GD.Print($"[DamageSystem] Player {playerComp.PlayerIndex} revived!");
             }
         }
     }

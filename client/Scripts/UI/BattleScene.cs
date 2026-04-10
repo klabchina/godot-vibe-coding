@@ -1,7 +1,9 @@
 using Godot;
 using Game.Ecs;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Ecs.Systems;
+using Game.Ecs.ClientSystems;
 using Game.Data;
 
 namespace Game.UI;
@@ -238,7 +240,8 @@ public partial class BattleScene : Node2D
 
 			var dmgNum = new DamageNumber();
 			_canvasLayer.AddChild(dmgNum);
-			dmgNum.Show(transform.Position + new Vector2(-10, -30), hit.Damage);
+			var pos = transform.Position;
+			dmgNum.Show(new Vector2(pos.X - 10, pos.Y - 30), hit.Damage);
 		}
 	}
 

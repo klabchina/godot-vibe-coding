@@ -1,9 +1,13 @@
 using Godot;
 using Game.Ecs;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 
-namespace Game.Ecs.Systems;
+namespace Game.Ecs.ClientSystems;
 
+/// <summary>
+/// Client-only: reads Godot input and writes to ECS VelocityComponent.
+/// </summary>
 public class InputSystem : GameSystem
 {
     public override void Update(float delta)
@@ -19,7 +23,8 @@ public class InputSystem : GameSystem
             var velocity = entity.Get<VelocityComponent>();
 
             Vector2 inputDir = Input.GetVector("move_left", "move_right", "move_up", "move_down");
-            velocity.Velocity = inputDir.Normalized() * velocity.Speed;
+            var dir = new Vec2(inputDir.X, inputDir.Y).Normalized();
+            velocity.Velocity = dir * velocity.Speed;
         }
     }
 }

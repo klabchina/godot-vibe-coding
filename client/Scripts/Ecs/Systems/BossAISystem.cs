@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -72,7 +72,7 @@ public class BossAISystem : GameSystem
     {
         // Stop moving during summon phase
         velocity.Speed = 0;
-        velocity.Velocity = Vector2.Zero;
+        velocity.Velocity = Vec2.Zero;
 
         phase.SummonDuration -= delta;
         phase.SummonTimer -= delta;
@@ -119,8 +119,8 @@ public class BossAISystem : GameSystem
             var slime = World.CreateEntity();
 
             // Spawn near boss with slight offset
-            float angle = (float)GD.RandRange(0, Mathf.Tau);
-            Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 50f;
+            float angle = (float)GameRandom.RandRange(0, GMath.Tau);
+            Vec2 offset = new Vec2(GMath.Cos(angle), GMath.Sin(angle)) * 50f;
 
             slime.Add(new TransformComponent
             {

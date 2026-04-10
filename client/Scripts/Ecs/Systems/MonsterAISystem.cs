@@ -1,4 +1,4 @@
-using Godot;
+using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Data;
 
@@ -31,7 +31,7 @@ public class MonsterAISystem : GameSystem
 
             // Find nearest alive player
             float nearestDist = float.MaxValue;
-            Vector2 nearestPos = Vector2.Zero;
+            Vec2 nearestPos = Vec2.Zero;
 
             foreach (var player in players)
             {
@@ -49,11 +49,11 @@ public class MonsterAISystem : GameSystem
 
             if (nearestDist >= float.MaxValue)
             {
-                velocity.Velocity = Vector2.Zero;
+                velocity.Velocity = Vec2.Zero;
                 continue;
             }
 
-            Vector2 toPlayer = (nearestPos - monsterTransform.Position).Normalized();
+            Vec2 toPlayer = (nearestPos - monsterTransform.Position).Normalized();
 
             // Ensure AI state exists
             var ai = monster.Get<MonsterAIState>();
@@ -93,7 +93,7 @@ public class MonsterAISystem : GameSystem
     }
 
     private void UpdateSkeleton(VelocityComponent velocity, MonsterAIState ai,
-        Vector2 toPlayer, float baseSpeed, float speedMul, float delta)
+        Vec2 toPlayer, float baseSpeed, float speedMul, float delta)
     {
         if (ai == null)
         {
@@ -120,14 +120,14 @@ public class MonsterAISystem : GameSystem
                 ai.DodgeDuration = MonsterData.SkeletonDodgeDuration;
 
                 // Random lateral direction (perpendicular to toPlayer)
-                Vector2 perp = new Vector2(-toPlayer.Y, toPlayer.X);
-                ai.DodgeDir = GD.Randf() > 0.5f ? perp : -perp;
+                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
+                ai.DodgeDir = GameRandom.Randf() > 0.5f ? perp : -perp;
             }
         }
     }
 
     private void UpdateOrc(VelocityComponent velocity, MonsterAIState ai,
-        Vector2 toPlayer, float distToPlayer, float baseSpeed, float speedMul, float delta)
+        Vec2 toPlayer, float distToPlayer, float baseSpeed, float speedMul, float delta)
     {
         if (ai == null)
         {
@@ -138,7 +138,7 @@ public class MonsterAISystem : GameSystem
         if (ai.IsStunned)
         {
             // Stunned after charge: don't move
-            velocity.Velocity = Vector2.Zero;
+            velocity.Velocity = Vec2.Zero;
             ai.StunTimer -= delta;
             if (ai.StunTimer <= 0)
             {
@@ -159,7 +159,7 @@ public class MonsterAISystem : GameSystem
                 ai.IsCharging = false;
                 ai.IsStunned = true;
                 ai.StunTimer = MonsterData.OrcStunDuration;
-                velocity.Velocity = Vector2.Zero;
+                velocity.Velocity = Vec2.Zero;
             }
             return;
         }
