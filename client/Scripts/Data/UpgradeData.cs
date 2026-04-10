@@ -49,8 +49,8 @@ public static class UpgradeData
     public static int GetArrowCount(int level) => 1 + level;
 
     // MultiShot: spread angle in degrees
-    private static readonly float[] SpreadAngles = { 0f, 15f, 21f, 28f, 35f, 42f, 49f, 56f };
-    public static float GetSpreadAngle(int level) => level >= 0 && level < SpreadAngles.Length ? SpreadAngles[level] : 56f;
+    private static readonly float[] SpreadAngles = { 0f, 0f, 0f, 8f, 12f, 16f, 20f, 24f };
+    public static float GetSpreadAngle(int level) => level >= 0 && level < SpreadAngles.Length ? SpreadAngles[level] : SpreadAngles[SpreadAngles.Length - 1];
 
     // AttackSpeed: cooldown = 0.80 * 0.85^level
     public static float GetCooldown(int level) => (float)(PlayerData.BaseCooldown * Math.Pow(0.85, level));

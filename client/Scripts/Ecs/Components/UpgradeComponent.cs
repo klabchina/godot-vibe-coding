@@ -28,20 +28,20 @@ public class UpgradeComponent
     /// <summary>Get current level for a given upgrade ID.</summary>
     public int GetLevel(Data.UpgradeId id) => id switch
     {
-        Data.UpgradeId.MultiShot   => MultiShotLevel,
+        Data.UpgradeId.MultiShot => MultiShotLevel,
         Data.UpgradeId.AttackSpeed => AttackSpeedLevel,
-        Data.UpgradeId.DamageUp    => DamageLevel,
-        Data.UpgradeId.Pierce      => PierceLevel,
-        Data.UpgradeId.Bounce      => HasBounce ? 1 : 0,
-        Data.UpgradeId.Explosion   => HasExplosion ? 1 : 0,
-        Data.UpgradeId.MaxHpUp     => MaxHpLevel,
+        Data.UpgradeId.DamageUp => DamageLevel,
+        Data.UpgradeId.Pierce => PierceLevel,
+        Data.UpgradeId.Bounce => HasBounce ? 1 : 0,
+        Data.UpgradeId.Explosion => HasExplosion ? 1 : 0,
+        Data.UpgradeId.MaxHpUp => MaxHpLevel,
         Data.UpgradeId.MoveSpeedUp => MoveSpeedLevel,
-        Data.UpgradeId.Shield      => HasShield ? 1 : 0,
-        Data.UpgradeId.Regen       => HasRegen ? 1 : 0,
-        Data.UpgradeId.Magnet      => MagnetLevel,
+        Data.UpgradeId.Shield => HasShield ? 1 : 0,
+        Data.UpgradeId.Regen => HasRegen ? 1 : 0,
+        Data.UpgradeId.Magnet => MagnetLevel,
         Data.UpgradeId.FreezeArrow => HasFreeze ? 1 : 0,
-        Data.UpgradeId.BurnArrow   => HasBurn ? 1 : 0,
-        Data.UpgradeId.OrbitGuard  => OrbitCount,
+        Data.UpgradeId.BurnArrow => HasBurn ? 1 : 0,
+        Data.UpgradeId.OrbitGuard => OrbitCount,
         _ => 0,
     };
 
@@ -50,20 +50,20 @@ public class UpgradeComponent
     {
         switch (id)
         {
-            case Data.UpgradeId.MultiShot:   MultiShotLevel++;   break;
+            case Data.UpgradeId.MultiShot: MultiShotLevel++; break;
             case Data.UpgradeId.AttackSpeed: AttackSpeedLevel++; break;
-            case Data.UpgradeId.DamageUp:    DamageLevel++;      break;
-            case Data.UpgradeId.Pierce:      PierceLevel++;      break;
-            case Data.UpgradeId.Bounce:      HasBounce = true;   break;
-            case Data.UpgradeId.Explosion:   HasExplosion = true; break;
-            case Data.UpgradeId.MaxHpUp:     MaxHpLevel++;       break;
-            case Data.UpgradeId.MoveSpeedUp: MoveSpeedLevel++;   break;
-            case Data.UpgradeId.Shield:      HasShield = true;   break;
-            case Data.UpgradeId.Regen:       HasRegen = true;    break;
-            case Data.UpgradeId.Magnet:      MagnetLevel++;      break;
-            case Data.UpgradeId.FreezeArrow: HasFreeze = true;   break;
-            case Data.UpgradeId.BurnArrow:   HasBurn = true;     break;
-            case Data.UpgradeId.OrbitGuard:  OrbitCount++;        break;
+            case Data.UpgradeId.DamageUp: DamageLevel++; break;
+            case Data.UpgradeId.Pierce: PierceLevel++; break;
+            case Data.UpgradeId.Bounce: HasBounce = true; break;
+            case Data.UpgradeId.Explosion: HasExplosion = true; break;
+            case Data.UpgradeId.MaxHpUp: MaxHpLevel++; break;
+            case Data.UpgradeId.MoveSpeedUp: MoveSpeedLevel++; break;
+            case Data.UpgradeId.Shield: HasShield = true; break;
+            case Data.UpgradeId.Regen: HasRegen = true; break;
+            case Data.UpgradeId.Magnet: MagnetLevel++; break;
+            case Data.UpgradeId.FreezeArrow: HasFreeze = true; break;
+            case Data.UpgradeId.BurnArrow: HasBurn = true; break;
+            case Data.UpgradeId.OrbitGuard: OrbitCount++; break;
         }
     }
 }

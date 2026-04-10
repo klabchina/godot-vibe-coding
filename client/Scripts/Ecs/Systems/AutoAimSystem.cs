@@ -74,9 +74,19 @@ public class AutoAimSystem : GameSystem
                 bool hasFreeze = upgrade?.HasFreeze ?? false;
                 bool hasBurn = upgrade?.HasBurn ?? false;
 
-                if (bow.ArrowCount <= 1)
+                if (bow.ArrowCount <= 3)
                 {
-                    SpawnArrow(player, direction, bow, pierceCount, hasBounce, hasExplosion, hasFreeze, hasBurn);
+                    // No angle offset; offset spawn position left/right perpendicular to forward direction
+                    int count = bow.ArrowCount;
+                    const float LateralGap = 15f;
+                    Vec2 perpendicular = new Vec2(-direction.Y, direction.X); // 90° left of direction
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        float lateralOffset = (i - (count - 1) / 2.0f) * LateralGap;
+                        Vec2 spawnOffset = perpendicular * lateralOffset;
+                        SpawnArrow(player, direction, bow, pierceCount, hasBounce, hasExplosion, hasFreeze, hasBurn, spawnOffset);
+                    }
                 }
                 else
                 {
@@ -107,13 +117,13 @@ public class AutoAimSystem : GameSystem
     }
 
     private void SpawnArrow(Entity owner, Vec2 direction, BowComponent bow, int pierceCount,
-        bool bouncing, bool explosive, bool freezing, bool burning)
+        bool bouncing, bool explosive, bool freezing, bool burning, Vec2 positionOffset = default)
     {
         var arrow = World.CreateEntity();
 
         arrow.Add(new TransformComponent
         {
-            Position = owner.Get<TransformComponent>().Position,
+            Position = owner.Get<TransformComponent>().Position + positionOffset,
             Rotation = direction.Angle()
         });
 
