@@ -127,6 +127,7 @@ public class MonsterAISystem : GameSystem
         else // RangedPhase.Attack
         {
             velocity.Velocity  = Vec2.Zero; // stop while aiming
+            // Freeze only reduces move speed; attack timing is unaffected by design.
             ai.PhaseTimer     -= delta;
 
             if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
@@ -194,6 +195,7 @@ public class MonsterAISystem : GameSystem
         else // RangedPhase.Attack
         {
             velocity.Velocity  = Vec2.Zero;
+            // Freeze only reduces move speed; attack timing is unaffected by design.
             ai.PhaseTimer     -= delta;
 
             if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
@@ -218,6 +220,7 @@ public class MonsterAISystem : GameSystem
         for (int i = 0; i < count; i++)
         {
             // Fan spread: center the burst on toPlayer direction
+            // 2.0f ensures float division so the spread is symmetrically centered on toPlayer.
             float offsetDeg = (i - (count - 1) / 2.0f) * MonsterData.EliteProjectileSpreadDeg;
             Vec2  dir       = toPlayer.Rotated(GMath.DegToRad(offsetDeg));
 
