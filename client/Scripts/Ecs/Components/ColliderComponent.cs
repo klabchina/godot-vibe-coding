@@ -13,8 +13,9 @@ public class ColliderComponent
 /// <summary>Collision layer constants.</summary>
 public static class CollisionLayers
 {
-    public const int Player  = 1;
-    public const int Monster = 2;
-    public const int Arrow   = 4;
-    public const int Pickup  = 8;
+    public const int Player       = 1;
+    public const int Monster      = 2;
+    public const int Arrow        = 4;
+    public const int Pickup       = 8;
+    public const int MonsterArrow = 16; // Monster projectiles; collide with Player only
 }
