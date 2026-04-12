@@ -8,30 +8,30 @@ namespace Game;
 /// </summary>
 public partial class GameManager : Node
 {
-    public static GameManager Instance { get; private set; }
+	public static GameManager Instance { get; private set; }
 
-    public enum GamePhase { MainMenu, Matching, Battle, Result }
+	public enum GamePhase { MainMenu, Matching, Battle, Result }
 
-    public GamePhase CurrentPhase { get; set; } = GamePhase.MainMenu;
+	public GamePhase CurrentPhase { get; set; } = GamePhase.MainMenu;
 
-    // Per-session battle stats
-    public int KillCount { get; set; }
-    public int TotalDamage { get; set; }
-    public int TotalXpCollected { get; set; }
-    public int WavesCompleted { get; set; }
-    public float RemainingHpPercent { get; set; }
+	// Per-session battle stats
+	public int KillCount { get; set; }
+	public int TotalDamage { get; set; }
+	public int TotalXpCollected { get; set; }
+	public int WavesCompleted { get; set; }
+	public float RemainingHpPercent { get; set; }
 
-    public override void _Ready()
-    {
-        Instance = this;
-    }
+	public override void _Ready()
+	{
+		Instance = this;
+	}
 
-    public void ResetBattleStats()
-    {
-        KillCount = 0;
-        TotalDamage = 0;
-        TotalXpCollected = 0;
-        WavesCompleted = 0;
-        RemainingHpPercent = 1.0f;
-    }
+	public void ResetBattleStats()
+	{
+		KillCount = 0;
+		TotalDamage = 0;
+		TotalXpCollected = 0;
+		WavesCompleted = 0;
+		RemainingHpPercent = 1.0f;
+	}
 }
