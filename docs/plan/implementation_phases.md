@@ -458,3 +458,15 @@ Phase 6 (网络多人)
 | 4 | ~8 | EffectComponent.cs, BuffComponent.cs, OrbitComponent.cs, BossPhaseComponent.cs, BossAISystem.cs, OrbitSystem.cs, EffectSystem.cs, BuffSystem.cs |
 | 5 | ~9 | MainMenu.tscn, Matching.tscn, Result.tscn, MainMenuUI.cs, MatchingUI.cs, ResultUI.cs, BuffBar.cs, UpgradeBar.cs, DamageNumber.cs |
 | 6 | ~7 | NetManager.cs, Protocol.cs, MatchClient.cs, SyncClient.cs, NetworkSyncComponent.cs, NetworkRecvSystem.cs, NetworkSendSystem.cs |
+
+---
+
+## 后续玩法调整
+
+### 调整 A：行走时禁止射击
+
+**文件**: `Scripts/Ecs/Systems/AutoAimSystem.cs`
+
+**变更内容**: 玩家移动时（VelocityComponent.Velocity.LengthSquared() > 0.1）跳过射击逻辑，停止移动后才恢复自动射击。
+
+**设计意图**: 强化走位与输出之间的博弈感——玩家需要停下来才能攻击，移动躲避和持续输出不可兼得，提升操作深度。

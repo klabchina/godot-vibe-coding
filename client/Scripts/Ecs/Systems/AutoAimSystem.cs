@@ -60,6 +60,11 @@ public class AutoAimSystem : GameSystem
 
             autoAim.TargetId = nearestMonster?.Id ?? -1;
 
+            // 行走时禁止射击
+            var velocity = player.Get<VelocityComponent>();
+            if (velocity != null && velocity.Velocity.LengthSquared() > 0.1f)
+                continue;
+
             // Fire arrows when ready and has target
             if (bow.CooldownTimer <= 0 && nearestMonster != null)
             {
