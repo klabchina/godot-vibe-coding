@@ -146,6 +146,7 @@ dreamina image2image \
 
 > 注意：使用 image2image + rule.png 参考图后，角色位于 5 个 400×650 的区域内，
 > 裁切脚本会自动按内容边界框裁剪并对齐脚底锚点。
+> 输出目录 client/Assets/Sprites/Roles/
 
 ```bash
 python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <action_name>
