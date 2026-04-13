@@ -17,6 +17,13 @@ public class RenderSystem : GameSystem
     private readonly Dictionary<int, Node2D> _entityNodes = new();
     private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
 
+    // 玩家动画状态跟踪
+    private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
+    private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
+
+    private const float AttackAnimDuration = 0.5f; // 5帧 × 10fps = 0.5秒
+    private const float AnimFps = 10f;
+
     /// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
     private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
 
@@ -48,6 +55,9 @@ public class RenderSystem : GameSystem
 
             if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
                 node.Rotation = transform.Rotation;
+
+            if (entity.Has<PlayerComponent>())
+                UpdatePlayerAnimation(entity, node, delta);
 
             UpdateEffectVisuals(entity, node);
         }
@@ -162,10 +172,11 @@ public class RenderSystem : GameSystem
 
         if (entity.Has<PlayerComponent>())
         {
-            rect = new ColorRect();
-            rect.Color = Colors.DodgerBlue;
-            rect.Size = new Vector2(32, 32);
-            rect.Position = new Vector2(-16, -16);
+            var animSprite = new AnimatedSprite2D();
+            animSprite.SpriteFrames = CreateArcherSpriteFrames();
+            animSprite.Play("idle");
+            wrapper.AddChild(animSprite);
+            return wrapper;
         }
         else if (entity.Has<MonsterComponent>())
         {
@@ -216,6 +227,70 @@ public class RenderSystem : GameSystem
 
         wrapper.AddChild(rect);
         return wrapper;
+    }
+
+    private static SpriteFrames CreateArcherSpriteFrames()
+    {
+        var frames = new SpriteFrames();
+        frames.RemoveAnimation("default");
+
+        foreach (var anim in new[] { "idle", "walk", "attack" })
+        {
+            frames.AddAnimation(anim);
+            for (int i = 1; i <= 5; i++)
+            {
+                var tex = GD.Load<Texture2D>($"res://Assets/Sprites/Roles/archer_{anim}_{i}.png");
+                frames.AddFrame(anim, tex);
+            }
+            frames.SetAnimationSpeed(anim, AnimFps);
+            frames.SetAnimationLoop(anim, anim != "attack");
+        }
+
+        return frames;
+    }
+
+    private void UpdatePlayerAnimation(Entity entity, Node2D node, float delta)
+    {
+        var animSprite = node.GetChildOrNull<AnimatedSprite2D>(0);
+        if (animSprite == null)
+            return;
+
+        int id = entity.Id;
+
+        // 检测攻击触发：BowComponent 的 CooldownTimer 重置（从小值跳大）时说明刚发射
+        var bow = entity.Get<BowComponent>();
+        if (bow != null)
+        {
+            _prevBowTimers.TryGetValue(id, out float prev);
+            if (bow.CooldownTimer > prev + delta * 0.5f)
+                _attackAnimTimers[id] = AttackAnimDuration;
+            _prevBowTimers[id] = bow.CooldownTimer;
+        }
+
+        // 倒计攻击动画剩余时间
+        _attackAnimTimers.TryGetValue(id, out float attackLeft);
+        if (attackLeft > 0f)
+            _attackAnimTimers[id] = attackLeft - delta;
+
+        // 判断移动状态
+        var velocity = entity.Get<VelocityComponent>();
+        bool isMoving = velocity != null && velocity.Velocity.LengthSquared() > 0.1f;
+
+        // 根据水平速度翻转精灵
+        if (velocity != null && Mathf.Abs(velocity.Velocity.X) > 0.1f)
+            animSprite.FlipH = velocity.Velocity.X < 0;
+
+        // 动画优先级：攻击 > 行走 > 待机
+        string targetAnim;
+        if (_attackAnimTimers.GetValueOrDefault(id) > 0f)
+            targetAnim = "attack";
+        else if (isMoving)
+            targetAnim = "walk";
+        else
+            targetAnim = "idle";
+
+        if (animSprite.Animation != targetAnim)
+            animSprite.Play(targetAnim);
     }
 
     private static Color GetMonsterColor(MonsterType type)
