@@ -2,13 +2,14 @@
 """
 split_sprite_sheet.py
 从 rule.png 自动检测 5 个黑色区域坐标，按相同坐标从生成的 sprite sheet 中裁切，
-等比缩放到 80×130，去除白色背景，保存为透明 PNG。
+等比缩放到 80×130，去除白色/浅灰色背景，保存为透明 PNG。
 
 用法:
-    python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <action_name> [output_dir]
+    python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <character> <action> [output_dir]
 
 示例:
-    python3 scripts/split_sprite_sheet.py ./seedance-output/archer_idle_sheet_v2.png idle
+    python3 scripts/split_sprite_sheet.py ./seedance-output/455ad0105f056f95_image_1.png slime attack
+    python3 scripts/split_sprite_sheet.py ./seedance-output/cceedecf65e9ce8b_image_1.png slime death
 """
 
 import sys
@@ -22,7 +23,10 @@ from PIL import Image
 RULE_PNG_PATH  = "seedance-input/rule.png"
 TARGET_W       = 80     # 最终帧宽度
 TARGET_H       = 130    # 最终帧高度
-WHITE_THRESH   = 240    # 白色阈值 (>240 视为白色)
+BG_THRESH      = 230    # 背景阈值 (R,G,B 均 > 此值视为背景白色)
+GRAY_LOW       = 180    # 灰色线条下限
+GRAY_HIGH      = 235    # 灰色线条上限
+GRAY_DIFF      = 15     # R/G/B 最大差值（中性灰判定）
 BLACK_THRESH   = 30     # 黑色阈值 (<30 视为黑色)
 # ───────────────────────────────────────────────────────────────────────────────
 
@@ -58,7 +62,7 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
             x_start = x
             in_black = True
         elif not row_data[x] and in_black:
-            rects.append((x_start, y_top, x, y_bottom + 1))  # right/bottom 为不含边界
+            rects.append((x_start, y_top, x, y_bottom + 1))
             in_black = False
     if in_black:
         rects.append((x_start, y_top, len(row_data), y_bottom + 1))
@@ -66,15 +70,77 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
     return rects
 
 
-def remove_white_background(img: Image.Image) -> Image.Image:
-    """将白色像素 (R,G,B 均 > WHITE_THRESH) 的 alpha 设为 0。"""
-    arr = img.load()
-    for y in range(img.height):
-        for x in range(img.width):
-            r, g, b, a = arr[x, y]
-            if r > WHITE_THRESH and g > WHITE_THRESH and b > WHITE_THRESH:
-                arr[x, y] = (r, g, b, 0)
-    return img
+def remove_background(img: Image.Image) -> Image.Image:
+    """将白色背景和中性灰像素的 alpha 设为 0。
+    - 白色: R,G,B 均 > BG_THRESH
+    - 中性灰: R,G,B 在 GRAY_LOW~GRAY_HIGH 且彼此差值 < GRAY_DIFF
+    """
+    arr = np.array(img)  # shape: (H, W, 4) for RGBA
+    r = arr[:, :, 0].astype(int)
+    g = arr[:, :, 1].astype(int)
+    b = arr[:, :, 2].astype(int)
+
+    # 白色背景
+    is_white = (r > BG_THRESH) & (g > BG_THRESH) & (b > BG_THRESH)
+
+    # 中性灰 (R≈G≈B, 非角色色彩)
+    is_neutral_gray = (
+        (r > GRAY_LOW) & (r < GRAY_HIGH) &
+        (g > GRAY_LOW) & (g < GRAY_HIGH) &
+        (b > GRAY_LOW) & (b < GRAY_HIGH) &
+        (np.abs(r - g) < GRAY_DIFF) &
+        (np.abs(g - b) < GRAY_DIFF) &
+        (np.abs(r - b) < GRAY_DIFF)
+    )
+
+    arr[is_white | is_neutral_gray, 3] = 0
+
+    return Image.fromarray(arr)
+
+
+def remove_rect_frame_lines(img: Image.Image, margin: int = 8) -> Image.Image:
+    """
+    去除模型生成的灰色矩形框线。
+    框线特征：沿帧边缘的灰色细线 (R=G=B ∈ [150,235])，位于帧的最外层 margin 像素内。
+    只去除边缘区域的灰色像素，保留帧内部角色的所有像素。
+    """
+    arr = np.array(img)  # RGBA
+    h, w = arr.shape[:2]
+
+    # 灰色掩码: R≈G≈B 且在灰色范围内 (非白非黑)
+    r, g, b = arr[:, :, 0].astype(int), arr[:, :, 1].astype(int), arr[:, :, 2].astype(int)
+    avg = (r + g + b) / 3
+    is_gray = (avg > 140) & (avg < 236) & (np.abs(r - g) < 20) & (np.abs(g - b) < 20) & (np.abs(r - b) < 20)
+
+    # 只在帧边缘区域去除灰色像素
+    edge_mask = np.zeros((h, w), dtype=bool)
+    edge_mask[:margin, :] = True       # 上边
+    edge_mask[h-margin:, :] = True     # 下边
+    edge_mask[:, :margin] = True       # 左边
+    edge_mask[:, w-margin:] = True     # 右边
+
+    # 去除边缘灰色像素
+    to_remove = is_gray & edge_mask
+    arr[to_remove, 3] = 0
+
+    return Image.fromarray(arr)
+
+
+def auto_crop_content(img: Image.Image) -> Image.Image:
+    """自动裁剪到非透明内容的最小包围框，去除帧内多余边距。"""
+    arr = np.array(img)
+    alpha = arr[:, :, 3]
+
+    rows = np.any(alpha > 0, axis=1)
+    cols = np.any(alpha > 0, axis=0)
+
+    if not rows.any():
+        return img  # 全透明，返回原图
+
+    y_min, y_max = np.where(rows)[0][[0, -1]]
+    x_min, x_max = np.where(cols)[0][[0, -1]]
+
+    return img.crop((int(x_min), int(y_min), int(x_max) + 1, int(y_max) + 1))
 
 
 def scale_to_fit(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
@@ -94,7 +160,7 @@ def center_on_canvas(img: Image.Image, canvas_w: int, canvas_h: int) -> Image.Im
     return canvas
 
 
-def split_sheet(sheet_path: str, action_name: str, output_dir: str, rule_path: str) -> list[str]:
+def split_sheet(sheet_path: str, character: str, action: str, output_dir: str, rule_path: str) -> list[str]:
     """裁切主函数，返回各帧输出路径列表。"""
 
     # ── 步骤1: 从 rule.png 检测黑色区域坐标 ──────────────────────────────────
@@ -113,16 +179,24 @@ def split_sheet(sheet_path: str, action_name: str, output_dir: str, rule_path: s
         raw_frames.append(frame)
         print(f"  帧 {i+1}: 裁切 ({left}, {top}) → ({right}, {bottom})  尺寸 {frame.width}×{frame.height}")
 
-    # ── 步骤3: 等比缩放到 80×130 ─────────────────────────────────────────────
-    scaled = [scale_to_fit(f, TARGET_W, TARGET_H) for f in raw_frames]
+    # ── 步骤3: 去除白色/浅灰色背景 ─────────────────────────────────────────
+    cleaned = [remove_background(f) for f in raw_frames]
+
+    # ── 步骤3.5: 去除灰色矩形框线 ──────────────────────────────────────────
+    cleaned = [remove_rect_frame_lines(c) for c in cleaned]
+
+    # ── 步骤4: 自动裁剪到内容包围框（去除灰色边框残留的空白） ──────────────
+    cropped = [auto_crop_content(c) for c in cleaned]
+    for i, c in enumerate(cropped):
+        print(f"  帧 {i+1}: 内容裁剪后 {c.width}×{c.height}")
+
+    # ── 步骤5: 等比缩放到 80×130 ─────────────────────────────────────────────
+    scaled = [scale_to_fit(c, TARGET_W, TARGET_H) for c in cropped]
     for i, s in enumerate(scaled):
         print(f"  帧 {i+1}: 缩放后 {s.width}×{s.height}")
 
-    # ── 步骤4: 去除白色背景 ──────────────────────────────────────────────────
-    cleaned = [remove_white_background(s.copy()) for s in scaled]
-
-    # ── 步骤5: 居中放置在 80×130 透明画布上 ──────────────────────────────────
-    final_frames = [center_on_canvas(c, TARGET_W, TARGET_H) for c in cleaned]
+    # ── 步骤6: 居中放置在 80×130 透明画布上 ──────────────────────────────────
+    final_frames = [center_on_canvas(s, TARGET_W, TARGET_H) for s in scaled]
 
     # ── 保存 ─────────────────────────────────────────────────────────────────
     out_dir = Path(output_dir)
@@ -130,7 +204,7 @@ def split_sheet(sheet_path: str, action_name: str, output_dir: str, rule_path: s
 
     paths = []
     for i, frame in enumerate(final_frames, start=1):
-        out_path = out_dir / f"archer_{action_name}_{i}.png"
+        out_path = out_dir / f"{character}_{action}_{i}.png"
         frame.save(out_path, "PNG")
         paths.append(str(out_path))
         print(f"  ✓ 帧 {i}: {out_path}  ({frame.width}×{frame.height})")
@@ -139,20 +213,22 @@ def split_sheet(sheet_path: str, action_name: str, output_dir: str, rule_path: s
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
         print(__doc__)
         sys.exit(1)
 
     sheet_path  = sys.argv[1]
-    action_name = sys.argv[2]
-    output_dir  = sys.argv[3] if len(sys.argv) > 3 else "client/Assets/Sprites/Roles"
-    rule_path   = sys.argv[4] if len(sys.argv) > 4 else RULE_PNG_PATH
+    character   = sys.argv[2]
+    action      = sys.argv[3]
+    output_dir  = sys.argv[4] if len(sys.argv) > 4 else "client/Assets/Sprites/Roles"
+    rule_path   = sys.argv[5] if len(sys.argv) > 5 else RULE_PNG_PATH
 
     print(f"\n裁切 sprite sheet: {sheet_path}")
-    print(f"动作: {action_name}")
+    print(f"角色: {character}")
+    print(f"动作: {action}")
     print(f"输出目录: {output_dir}")
     print(f"参考图: {rule_path}")
     print(f"目标尺寸: {TARGET_W}×{TARGET_H}\n")
 
-    paths = split_sheet(sheet_path, action_name, output_dir, rule_path)
-    print(f"\n✅ 完成，共输出 {len(paths)} 帧")
+    paths = split_sheet(sheet_path, character, action, output_dir, rule_path)
+    print(f"\n完成，共输出 {len(paths)} 帧")
