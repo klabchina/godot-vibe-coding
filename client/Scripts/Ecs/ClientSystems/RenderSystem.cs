@@ -335,34 +335,49 @@ public class RenderSystem : GameSystem
         var monster = entity.Get<MonsterComponent>();
         var transform = entity.Get<TransformComponent>();
 
-        // 根据朝向翻转（锁定目标在怪物左侧时翻转）
-        bool flipH = false;
-        if (transform != null && monster != null)
+        // 新增：检测 DeathPendingComponent → 强制播放死亡动画
+        bool isDying = entity.Has<DeathPendingComponent>();
+
+        if (isDying)
         {
-            var ai = entity.Get<MonsterAIState>();
-            if (ai != null && ai.TargetId >= 0)
+            // 强制播放死亡动画
+            if (_monsterAnims.GetValueOrDefault(id) != AnimNames.Death)
             {
-                var targetEntity = World.GetEntity(ai.TargetId);
-                var targetTransform = targetEntity?.Get<TransformComponent>();
-                if (targetTransform != null)
-                    flipH = targetTransform.Position.X < transform.Position.X;
+                _monsterAnims[id] = AnimNames.Death;
+                animSprite.Play(AnimNames.Death);
+            }
+
+            // 死亡动画播完后标记 entity 为 dead（World.Update 会自动清理）
+            if (!animSprite.IsPlaying())
+            {
+                entity.IsAlive = false;
             }
         }
-        animSprite.FlipH = flipH;
-
-        // 根据状态决定动画
-        string targetAnim = GetMonsterTargetAnim(entity, monster);
-
-        if (_monsterAnims.GetValueOrDefault(id) != targetAnim)
+        else
         {
-            _monsterAnims[id] = targetAnim;
-            animSprite.Play(targetAnim);
-        }
+            // 根据朝向翻转（锁定目标在怪物左侧时翻转）
+            bool flipH = false;
+            if (transform != null && monster != null)
+            {
+                var ai = entity.Get<MonsterAIState>();
+                if (ai != null && ai.TargetId >= 0)
+                {
+                    var targetEntity = World.GetEntity(ai.TargetId);
+                    var targetTransform = targetEntity?.Get<TransformComponent>();
+                    if (targetTransform != null)
+                        flipH = targetTransform.Position.X < transform.Position.X;
+                }
+            }
+            animSprite.FlipH = flipH;
 
-        // 死亡动画播完后标记 entity 为 dead（由 DeathSystem 清理）
-        if (targetAnim == AnimNames.Death && !animSprite.IsPlaying())
-        {
-            entity.IsAlive = false;
+            // 根据状态决定动画
+            string targetAnim = GetMonsterTargetAnim(entity, monster);
+
+            if (_monsterAnims.GetValueOrDefault(id) != targetAnim)
+            {
+                _monsterAnims[id] = targetAnim;
+                animSprite.Play(targetAnim);
+            }
         }
     }
 

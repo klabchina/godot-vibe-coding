@@ -39,6 +39,7 @@ public class CollisionSystem : GameSystem
             {
                 if (!monsterEntity.IsAlive) continue;
                 if (alreadyHit.Contains(monsterEntity.Id)) continue;
+                if (monsterEntity.Has<DeathPendingComponent>()) continue;
 
                 var monsterTransform = monsterEntity.Get<TransformComponent>();
                 var monsterCollider = monsterEntity.Get<ColliderComponent>();
@@ -79,6 +80,7 @@ public class CollisionSystem : GameSystem
         foreach (var monsterEntity in monsters)
         {
             if (!monsterEntity.IsAlive) continue;
+            if (monsterEntity.Has<DeathPendingComponent>()) continue;
 
             var monsterTransform = monsterEntity.Get<TransformComponent>();
             var monsterCollider = monsterEntity.Get<ColliderComponent>();

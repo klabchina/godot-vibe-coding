@@ -48,6 +48,10 @@ public class AutoAimSystem : GameSystem
 
             foreach (var monster in monsters)
             {
+                // 跳过正在播放死亡动画的敌人
+                if (monster.Has<DeathPendingComponent>())
+                    continue;
+
                 var monsterTransform = monster.Get<TransformComponent>();
                 float dist = playerTransform.Position.DistanceTo(monsterTransform.Position);
 

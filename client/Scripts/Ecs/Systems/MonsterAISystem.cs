@@ -25,6 +25,7 @@ public class MonsterAISystem : GameSystem
         foreach (var monster in monsters)
         {
             if (!monster.IsAlive) continue;
+            if (monster.Has<DeathPendingComponent>()) continue;
 
             var monsterComp = monster.Get<MonsterComponent>();
             var monsterTransform = monster.Get<TransformComponent>();

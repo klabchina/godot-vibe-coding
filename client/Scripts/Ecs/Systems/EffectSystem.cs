@@ -98,6 +98,7 @@ public class EffectSystem : GameSystem
             float dist = targetTransform.Position.DistanceTo(monsterTransform.Position);
             if (dist <= radius)
             {
+                if (monster.Has<DeathPendingComponent>()) continue;
                 var health = monster.Get<HealthComponent>();
                 health.Hp -= aoeDamage;
                 if (health.Hp < 0) health.Hp = 0;
@@ -123,6 +124,7 @@ public class EffectSystem : GameSystem
         foreach (var monster in monsters)
         {
             if (!monster.IsAlive || monster.Id == hitTarget.Id) continue;
+            if (monster.Has<DeathPendingComponent>()) continue;
             var monsterTransform = monster.Get<TransformComponent>();
             float dist = hitPos.DistanceTo(monsterTransform.Position);
             if (dist < nearestDist)
@@ -166,6 +168,7 @@ public class EffectSystem : GameSystem
         foreach (var entity in entities)
         {
             if (!entity.IsAlive) continue;
+            if (entity.Has<DeathPendingComponent>()) continue;
 
             var effect = entity.Get<EffectComponent>();
             if (!effect.IsBurning) continue;
@@ -196,6 +199,7 @@ public class EffectSystem : GameSystem
         foreach (var entity in entities)
         {
             if (!entity.IsAlive) continue;
+            if (entity.Has<DeathPendingComponent>()) continue;
 
             var effect = entity.Get<EffectComponent>();
             if (!effect.IsFrozen) continue;

@@ -59,7 +59,13 @@ public class DeathSystem : GameSystem
             break;
         }
 
+        // 客户端：标记待死亡状态，等待 RenderSystem 播放死亡动画后由 World 清理
+        // 服务端：直接销毁（无渲染层）
+#if CLIENT
+        entity.Add(new DeathPendingComponent());
+#else
         World.DestroyEntity(entity.Id);
+#endif
     }
 
     private void SpawnExpOrb(Vec2 position, int xpValue)

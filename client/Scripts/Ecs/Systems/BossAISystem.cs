@@ -21,6 +21,7 @@ public class BossAISystem : GameSystem
         foreach (var boss in bosses)
         {
             if (!boss.IsAlive) continue;
+            if (boss.Has<DeathPendingComponent>()) continue;
 
             var phase = boss.Get<BossPhaseComponent>();
             var health = boss.Get<HealthComponent>();
