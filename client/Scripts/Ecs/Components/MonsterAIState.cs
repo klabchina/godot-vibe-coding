@@ -14,6 +14,9 @@ public enum RangedPhase { Wander, Attack }
 /// </summary>
 public class MonsterAIState
 {
+    // 当前锁定的目标玩家 ID（-1 = 无目标），用于 RenderSystem 翻转判定
+    public int TargetId = -1;
+
     // Orc charge
     public bool  IsCharging;
     public bool  IsStunned;

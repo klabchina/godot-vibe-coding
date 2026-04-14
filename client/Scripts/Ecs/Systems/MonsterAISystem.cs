@@ -18,7 +18,7 @@ public class MonsterAISystem : GameSystem
     public override void Update(float delta)
     {
         var monsters = World.GetEntitiesWith<MonsterComponent, TransformComponent, VelocityComponent>();
-        var players  = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
 
         if (players.Count == 0) return;
 
@@ -26,13 +26,14 @@ public class MonsterAISystem : GameSystem
         {
             if (!monster.IsAlive) continue;
 
-            var monsterComp      = monster.Get<MonsterComponent>();
+            var monsterComp = monster.Get<MonsterComponent>();
             var monsterTransform = monster.Get<TransformComponent>();
-            var velocity         = monster.Get<VelocityComponent>();
+            var velocity = monster.Get<VelocityComponent>();
 
             // Find nearest alive player
             float nearestDist = float.MaxValue;
-            Vec2  nearestPos  = Vec2.Zero;
+            Vec2 nearestPos = Vec2.Zero;
+            int nearestId = -1;
 
             foreach (var player in players)
             {
@@ -44,7 +45,8 @@ public class MonsterAISystem : GameSystem
                 if (dist < nearestDist)
                 {
                     nearestDist = dist;
-                    nearestPos  = playerTransform.Position;
+                    nearestPos = playerTransform.Position;
+                    nearestId = player.Id;
                 }
             }
 
@@ -54,20 +56,21 @@ public class MonsterAISystem : GameSystem
                 continue;
             }
 
-            Vec2 toPlayer = (nearestPos - monsterTransform.Position).Normalized();
-
-            // Ensure AI state exists for types that need it
+            // Ensure AI state exists before writing TargetId
             var ai = monster.Get<MonsterAIState>();
-            if (ai == null && (monsterComp.Type == MonsterType.Skeleton ||
-                               monsterComp.Type == MonsterType.Orc      ||
-                               monsterComp.Type == MonsterType.Elite))
+            if (ai == null)
             {
                 ai = new MonsterAIState();
                 monster.Add(ai);
             }
 
+            // 记录当前锁定的目标玩家 ID（供 RenderSystem 翻转判定用）
+            ai.TargetId = nearestId;
+
+            Vec2 toPlayer = (nearestPos - monsterTransform.Position).Normalized();
+
             // Apply freeze slow
-            float baseSpeed       = velocity.Speed;
+            float baseSpeed = velocity.Speed;
             float speedMultiplier = 1f;
             var effect = monster.Get<EffectComponent>();
             if (effect != null && effect.IsFrozen)
@@ -108,34 +111,34 @@ public class MonsterAISystem : GameSystem
             // Re-initialize direction at the start of each wander phase (PhaseTimer == 0)
             if (ai.PhaseTimer <= 0f)
             {
-                Vec2  perp = new Vec2(-toPlayer.Y, toPlayer.X);
+                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
                 float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
-                ai.WanderDir  = (toPlayer + perp * bias).Normalized();
+                ai.WanderDir = (toPlayer + perp * bias).Normalized();
                 ai.PhaseTimer = MonsterData.SkeletonWanderDuration;
             }
 
-            velocity.Velocity  = ai.WanderDir * baseSpeed * speedMul;
-            ai.PhaseTimer     -= delta;
+            velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
+            ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
             {
-                ai.RangedPhase    = RangedPhase.Attack;
-                ai.PhaseTimer     = MonsterData.SkeletonAttackDuration;
+                ai.RangedPhase = RangedPhase.Attack;
+                ai.PhaseTimer = MonsterData.SkeletonAttackDuration;
                 ai.FiredThisCycle = false;
             }
         }
         else // RangedPhase.Attack
         {
-            velocity.Velocity  = Vec2.Zero; // stop while aiming
+            velocity.Velocity = Vec2.Zero; // stop while aiming
             // Freeze only reduces move speed; attack timing is unaffected by design.
-            ai.PhaseTimer     -= delta;
+            ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
             {
                 SpawnSkeletonProjectile(monster, toPlayer);
                 ai.FiredThisCycle = true;
-                ai.RangedPhase    = RangedPhase.Wander;
-                ai.PhaseTimer     = 0f; // triggers re-init next frame
+                ai.RangedPhase = RangedPhase.Wander;
+                ai.PhaseTimer = 0f; // triggers re-init next frame
             }
         }
     }
@@ -149,19 +152,19 @@ public class MonsterAISystem : GameSystem
         proj.Add(new VelocityComponent
         {
             Velocity = direction * MonsterData.SkeletonProjectileSpeed,
-            Speed    = MonsterData.SkeletonProjectileSpeed
+            Speed = MonsterData.SkeletonProjectileSpeed
         });
         proj.Add(new MonsterProjectileComponent
         {
-            Damage       = MonsterData.SkeletonProjectileDamage,
-            OwnerId      = monster.Id,
+            Damage = MonsterData.SkeletonProjectileDamage,
+            OwnerId = monster.Id,
             Acceleration = 0f
         });
         proj.Add(new ColliderComponent
         {
             Radius = 5f,
-            Layer  = CollisionLayers.MonsterArrow,
-            Mask   = CollisionLayers.Player
+            Layer = CollisionLayers.MonsterArrow,
+            Mask = CollisionLayers.Player
         });
     }
 
@@ -176,34 +179,34 @@ public class MonsterAISystem : GameSystem
         {
             if (ai.PhaseTimer <= 0f)
             {
-                Vec2  perp = new Vec2(-toPlayer.Y, toPlayer.X);
+                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
                 float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
-                ai.WanderDir  = (toPlayer + perp * bias).Normalized();
+                ai.WanderDir = (toPlayer + perp * bias).Normalized();
                 ai.PhaseTimer = MonsterData.EliteWanderDuration;
             }
 
-            velocity.Velocity  = ai.WanderDir * baseSpeed * speedMul;
-            ai.PhaseTimer     -= delta;
+            velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
+            ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
             {
-                ai.RangedPhase    = RangedPhase.Attack;
-                ai.PhaseTimer     = MonsterData.EliteAttackDuration;
+                ai.RangedPhase = RangedPhase.Attack;
+                ai.PhaseTimer = MonsterData.EliteAttackDuration;
                 ai.FiredThisCycle = false;
             }
         }
         else // RangedPhase.Attack
         {
-            velocity.Velocity  = Vec2.Zero;
+            velocity.Velocity = Vec2.Zero;
             // Freeze only reduces move speed; attack timing is unaffected by design.
-            ai.PhaseTimer     -= delta;
+            ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f && !ai.FiredThisCycle)
             {
                 SpawnEliteProjectiles(monster, toPlayer);
                 ai.FiredThisCycle = true;
-                ai.RangedPhase    = RangedPhase.Wander;
-                ai.PhaseTimer     = 0f;
+                ai.RangedPhase = RangedPhase.Wander;
+                ai.PhaseTimer = 0f;
             }
         }
     }
@@ -222,26 +225,26 @@ public class MonsterAISystem : GameSystem
             // Fan spread: center the burst on toPlayer direction
             // 2.0f ensures float division so the spread is symmetrically centered on toPlayer.
             float offsetDeg = (i - (count - 1) / 2.0f) * MonsterData.EliteProjectileSpreadDeg;
-            Vec2  dir       = toPlayer.Rotated(GMath.DegToRad(offsetDeg));
+            Vec2 dir = toPlayer.Rotated(GMath.DegToRad(offsetDeg));
 
             var proj = World.CreateEntity();
             proj.Add(new TransformComponent { Position = origin, Rotation = dir.Angle() });
             proj.Add(new VelocityComponent
             {
                 Velocity = dir * MonsterData.EliteProjectileInitSpeed,
-                Speed    = MonsterData.EliteProjectileInitSpeed
+                Speed = MonsterData.EliteProjectileInitSpeed
             });
             proj.Add(new MonsterProjectileComponent
             {
-                Damage       = MonsterData.EliteProjectileDamage,
-                OwnerId      = monster.Id,
+                Damage = MonsterData.EliteProjectileDamage,
+                OwnerId = monster.Id,
                 Acceleration = MonsterData.EliteProjectileAccel
             });
             proj.Add(new ColliderComponent
             {
                 Radius = 5f,
-                Layer  = CollisionLayers.MonsterArrow,
-                Mask   = CollisionLayers.Player
+                Layer = CollisionLayers.MonsterArrow,
+                Mask = CollisionLayers.Player
             });
         }
     }
@@ -255,11 +258,11 @@ public class MonsterAISystem : GameSystem
 
         if (ai.IsStunned)
         {
-            velocity.Velocity  = Vec2.Zero;
-            ai.StunTimer      -= delta;
+            velocity.Velocity = Vec2.Zero;
+            ai.StunTimer -= delta;
             if (ai.StunTimer <= 0)
             {
-                ai.IsStunned  = false;
+                ai.IsStunned = false;
                 ai.IsCharging = false;
             }
             return;
@@ -270,9 +273,9 @@ public class MonsterAISystem : GameSystem
             velocity.Velocity = toPlayer * MonsterData.OrcChargeSpeed * speedMul;
             if (distToPlayer < 30f)
             {
-                ai.IsCharging     = false;
-                ai.IsStunned      = true;
-                ai.StunTimer      = MonsterData.OrcStunDuration;
+                ai.IsCharging = false;
+                ai.IsStunned = true;
+                ai.StunTimer = MonsterData.OrcStunDuration;
                 velocity.Velocity = Vec2.Zero;
             }
             return;

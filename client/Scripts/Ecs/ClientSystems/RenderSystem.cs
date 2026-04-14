@@ -335,9 +335,20 @@ public class RenderSystem : GameSystem
         var monster = entity.Get<MonsterComponent>();
         var transform = entity.Get<TransformComponent>();
 
-        // 根据朝向翻转（向左移动时翻转）
-        if (transform != null)
-            animSprite.FlipH = Mathf.Abs(transform.Rotation) > GMath.PiOver2;
+        // 根据朝向翻转（锁定目标在怪物左侧时翻转）
+        bool flipH = false;
+        if (transform != null && monster != null)
+        {
+            var ai = entity.Get<MonsterAIState>();
+            if (ai != null && ai.TargetId >= 0)
+            {
+                var targetEntity = World.GetEntity(ai.TargetId);
+                var targetTransform = targetEntity?.Get<TransformComponent>();
+                if (targetTransform != null)
+                    flipH = targetTransform.Position.X < transform.Position.X;
+            }
+        }
+        animSprite.FlipH = flipH;
 
         // 根据状态决定动画
         string targetAnim = GetMonsterTargetAnim(entity, monster);
