@@ -115,6 +115,7 @@ public class MonsterAISystem : GameSystem
                 float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
                 ai.WanderDir = (toPlayer + perp * bias).Normalized();
                 ai.PhaseTimer = MonsterData.SkeletonWanderDuration;
+                ai.FiredThisCycle = false;
             }
 
             velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
@@ -183,6 +184,7 @@ public class MonsterAISystem : GameSystem
                 float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
                 ai.WanderDir = (toPlayer + perp * bias).Normalized();
                 ai.PhaseTimer = MonsterData.EliteWanderDuration;
+                ai.FiredThisCycle = false;
             }
 
             velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
