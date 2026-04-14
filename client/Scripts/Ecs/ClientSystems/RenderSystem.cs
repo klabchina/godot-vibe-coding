@@ -24,6 +24,9 @@ public class RenderSystem : GameSystem
     private const float AttackAnimDuration = 0.5f; // 5帧 × 10fps = 0.5秒
     private const float AnimFps = 10f;
 
+    // 怪物动画状态跟踪
+    private readonly Dictionary<int, string> _monsterAnims = new(); // entityId -> current anim
+
     /// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
     private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
 
@@ -58,6 +61,8 @@ public class RenderSystem : GameSystem
 
             if (entity.Has<PlayerComponent>())
                 UpdatePlayerAnimation(entity, node, delta);
+            else if (entity.Has<MonsterComponent>())
+                UpdateMonsterAnimation(entity, node, delta);
 
             UpdateEffectVisuals(entity, node);
         }
@@ -168,7 +173,6 @@ public class RenderSystem : GameSystem
     private Node2D CreateVisualNode(Entity entity)
     {
         var wrapper = new Node2D();
-        ColorRect rect = null;
 
         if (entity.Has<PlayerComponent>())
         {
@@ -180,18 +184,16 @@ public class RenderSystem : GameSystem
         }
         else if (entity.Has<MonsterComponent>())
         {
+            var animSprite = new AnimatedSprite2D();
             var monster = entity.Get<MonsterComponent>();
-            var collider = entity.Get<ColliderComponent>();
-            float size = collider != null ? collider.Radius * 2 : 24;
-
-            rect = new ColorRect();
-            rect.Color = GetMonsterColor(monster.Type);
-            rect.Size = new Vector2(size, size);
-            rect.Position = new Vector2(-size / 2, -size / 2);
+            animSprite.SpriteFrames = CreateMonsterSpriteFrames(monster.Type);
+            animSprite.Play(AnimNames.Walk);
+            wrapper.AddChild(animSprite);
+            return wrapper;
         }
         else if (entity.Has<ArrowComponent>())
         {
-            rect = new ColorRect();
+            var rect = new ColorRect();
             var arrowComp = entity.Get<ArrowComponent>();
             if (arrowComp.Freezing)
                 rect.Color = new Color(0.4f, 0.8f, 1.0f);
@@ -203,30 +205,31 @@ public class RenderSystem : GameSystem
                 rect.Color = Colors.Yellow;
             rect.Size = new Vector2(8, 4);
             rect.Position = new Vector2(-4, -2);
+            wrapper.AddChild(rect);
+            return wrapper;
         }
         else if (entity.Has<MonsterProjectileComponent>())
         {
-            rect = new ColorRect();
+            var rect = new ColorRect();
             rect.Color = new Color(1.0f, 0.3f, 0.1f); // orange-red, distinct from yellow player arrows
             rect.Size = new Vector2(8, 8);
             rect.Position = new Vector2(-4, -4);
+            wrapper.AddChild(rect);
+            return wrapper;
         }
         else if (entity.Has<PickupComponent>())
         {
             var pickup = entity.Get<PickupComponent>();
-            rect = new ColorRect();
+            var rect = new ColorRect();
             rect.Color = GetPickupColor(pickup.Type);
             float size = pickup.Type == PickupType.ExpOrb ? 10 : 14;
             rect.Size = new Vector2(size, size);
             rect.Position = new Vector2(-size / 2, -size / 2);
-        }
-        else
-        {
-            return null;
+            wrapper.AddChild(rect);
+            return wrapper;
         }
 
-        wrapper.AddChild(rect);
-        return wrapper;
+        return null;
     }
 
     private static SpriteFrames CreateArcherSpriteFrames()
@@ -234,16 +237,45 @@ public class RenderSystem : GameSystem
         var frames = new SpriteFrames();
         frames.RemoveAnimation("default");
 
-        foreach (var anim in new[] { "idle", "walk", "attack" })
+        foreach (var anim in AnimNames.PlayerAnims)
         {
             frames.AddAnimation(anim);
-            for (int i = 1; i <= 5; i++)
+            for (int i = 1; i <= SpriteFramesConstant.ArcherFrameCount; i++)
             {
-                var tex = GD.Load<Texture2D>($"res://Assets/Sprites/Roles/archer_{anim}_{i}.png");
+                var path = anim switch
+                {
+                    "idle" => $"{SpriteFramesConstant.ArcherIdlePrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    "walk" => $"{SpriteFramesConstant.ArcherWalkPrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    "attack" => $"{SpriteFramesConstant.ArcherAttackPrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    _ => $"res://Assets/Sprites/Roles/archer_{anim}_{i}.png"
+                };
+                var tex = GD.Load<Texture2D>(path);
                 frames.AddFrame(anim, tex);
             }
             frames.SetAnimationSpeed(anim, AnimFps);
             frames.SetAnimationLoop(anim, anim != "attack");
+        }
+
+        return frames;
+    }
+
+    private static Godot.SpriteFrames CreateMonsterSpriteFrames(MonsterType type)
+    {
+        var frames = new Godot.SpriteFrames();
+        frames.RemoveAnimation("default");
+
+        foreach (var anim in SpriteFramesConstant.MonsterAnims)
+        {
+            frames.AddAnimation(anim);
+            for (int i = 1; i <= SpriteFramesConstant.ArcherFrameCount; i++)
+            {
+                var path = SpriteFramesConstant.GetMonsterPath(type, anim, i);
+                var tex = GD.Load<Texture2D>(path);
+                frames.AddFrame(anim, tex);
+            }
+            bool loop = anim != "death" && anim != "attack"; // death 和 attack 不循环
+            frames.SetAnimationLoop(anim, loop);
+            frames.SetAnimationSpeed(anim, AnimFps);
         }
 
         return frames;
@@ -283,14 +315,59 @@ public class RenderSystem : GameSystem
         // 动画优先级：攻击 > 行走 > 待机
         string targetAnim;
         if (_attackAnimTimers.GetValueOrDefault(id) > 0f)
-            targetAnim = "attack";
+            targetAnim = AnimNames.Attack;
         else if (isMoving)
-            targetAnim = "walk";
+            targetAnim = AnimNames.Walk;
         else
-            targetAnim = "idle";
+            targetAnim = AnimNames.Idle;
 
         if (animSprite.Animation != targetAnim)
             animSprite.Play(targetAnim);
+    }
+
+    private void UpdateMonsterAnimation(Entity entity, Node2D node, float delta)
+    {
+        var animSprite = node.GetChildOrNull<AnimatedSprite2D>(0);
+        if (animSprite == null)
+            return;
+
+        int id = entity.Id;
+        var monster = entity.Get<MonsterComponent>();
+        var transform = entity.Get<TransformComponent>();
+
+        // 根据朝向翻转（向左移动时翻转）
+        if (transform != null)
+            animSprite.FlipH = Mathf.Abs(transform.Rotation) > GMath.PiOver2;
+
+        // 根据状态决定动画
+        string targetAnim = GetMonsterTargetAnim(entity, monster);
+
+        if (_monsterAnims.GetValueOrDefault(id) != targetAnim)
+        {
+            _monsterAnims[id] = targetAnim;
+            animSprite.Play(targetAnim);
+        }
+
+        // 死亡动画播完后标记 entity 为 dead（由 DeathSystem 清理）
+        if (targetAnim == AnimNames.Death && !animSprite.IsPlaying())
+        {
+            entity.IsAlive = false;
+        }
+    }
+
+    private static string GetMonsterTargetAnim(Entity entity, MonsterComponent monster)
+    {
+        // 优先死亡动画
+        var health = entity.Get<HealthComponent>();
+        if (health != null && health.Hp <= 0)
+            return AnimNames.Death;
+
+        // 有攻击意图时播放攻击动画（由 AI System 标记）
+        var aiState = entity.Get<MonsterAIState>();
+        if (aiState != null && aiState.FiredThisCycle)
+            return AnimNames.Attack;
+
+        return AnimNames.Walk;
     }
 
     private static Color GetMonsterColor(MonsterType type)
@@ -318,4 +395,18 @@ public class RenderSystem : GameSystem
             _ => Colors.White,
         };
     }
+}
+
+/// <summary>
+/// 动画名称常量
+/// </summary>
+public static class AnimNames
+{
+    public const string Idle = "idle";
+    public const string Walk = "walk";
+    public const string Attack = "attack";
+    public const string Death = "death";
+
+    public static string[] PlayerAnims => new[] { Idle, Walk, Attack };
+    public static string[] MonsterAnims => new[] { Walk, Attack, Death };
 }
