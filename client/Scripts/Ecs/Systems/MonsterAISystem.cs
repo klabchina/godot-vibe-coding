@@ -112,8 +112,8 @@ public class MonsterAISystem : GameSystem
             // Re-initialize direction at the start of each wander phase (PhaseTimer == 0)
             if (ai.PhaseTimer <= 0f)
             {
-                float angle = GameRandom.Randf() * GMath.Tau;
-                ai.WanderDir = new Vec2(GMath.Cos(angle), GMath.Sin(angle));
+                var monsterPos = monster.Get<TransformComponent>().Position;
+                ai.WanderDir = GetWanderDirWithBoundaryCheck(monsterPos, 150f);
                 ai.PhaseTimer = MonsterData.SkeletonWanderDuration;
                 ai.FiredThisCycle = false;
             }
@@ -180,8 +180,8 @@ public class MonsterAISystem : GameSystem
         {
             if (ai.PhaseTimer <= 0f)
             {
-                float angle = GameRandom.Randf() * GMath.Tau;
-                ai.WanderDir = new Vec2(GMath.Cos(angle), GMath.Sin(angle));
+                var monsterPos = monster.Get<TransformComponent>().Position;
+                ai.WanderDir = GetWanderDirWithBoundaryCheck(monsterPos, 150f);
                 ai.PhaseTimer = MonsterData.EliteWanderDuration;
                 ai.FiredThisCycle = false;
             }
@@ -285,5 +285,35 @@ public class MonsterAISystem : GameSystem
         velocity.Velocity = toPlayer * baseSpeed * speedMul;
         if (distToPlayer <= MonsterData.OrcChargeRange)
             ai.IsCharging = true;
+    }
+
+    // ─── Boundary-aware wander direction ────────────────────────────────────
+
+    /// <summary>
+    /// 边界检查：靠近边界时返回指向中心的方向，否则返回随机方向。
+    /// </summary>
+    private Vec2 GetWanderDirWithBoundaryCheck(Vec2 monsterPos, float margin)
+    {
+        float left   = margin;
+        float right  = ArenaData.Size.X - margin;
+        float top    = margin;
+        float bottom = ArenaData.Size.Y - margin;
+
+        bool nearLeft   = monsterPos.X < left;
+        bool nearRight  = monsterPos.X > right;
+        bool nearTop    = monsterPos.Y < top;
+        bool nearBottom = monsterPos.Y > bottom;
+
+        if (!nearLeft && !nearRight && !nearTop && !nearBottom)
+        {
+            // 场景中央，随机游荡
+            float angle = GameRandom.Randf() * GMath.Tau;
+            return new Vec2(GMath.Cos(angle), GMath.Sin(angle));
+        }
+
+        // 向中心方向偏移，叠加一定随机性
+        Vec2 toCenter = ((ArenaData.Size * 0.5f) - monsterPos).Normalized();
+        float randAngle = GameRandom.Randf() * GMath.Pi * 0.5f - GMath.Pi * 0.25f; // ±45° 随机扰动
+        return toCenter.Rotated(randAngle);
     }
 }

@@ -19,6 +19,10 @@ public class DeathSystem : GameSystem
             if (health.Hp > 0)
                 continue;
 
+            // 跳过已标记待死亡的实体（客户端：经验球/掉落已在第一帧生成）
+            if (entity.Has<DeathPendingComponent>())
+                continue;
+
             if (entity.Has<MonsterComponent>())
             {
                 HandleMonsterDeath(entity);

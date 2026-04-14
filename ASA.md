@@ -70,6 +70,7 @@ cd server && dotnet run --project ProtoGen
 | 服务端架构 | `docs/project_server.md` |
 | 战斗玩法设计 | `docs/superpowers/specs/2026-04-07-battle-gameplay-design.md` |
 | 远程敌人行为 | `docs/superpowers/plans/2026-04-10-ranged-enemy-behavior.md` |
+| 怪物死亡动画延迟销毁设计 | `docs/superpowers/specs/2026-04-14-monster-death-animation-design.md` |
 | 怪物 AI 源码 | `client/Scripts/Ecs/Systems/MonsterAISystem.cs` |
 | 升级配置 | `client/Scripts/Data/UpgradeData.cs` |
 | 消息 ID | `server/src/Proto/MsgIds.cs` |

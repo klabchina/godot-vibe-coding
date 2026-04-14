@@ -18,7 +18,7 @@ public partial class MatchingUI : Control
     {
         _statusLabel = GetNode<Label>("ContentBox/StatusLabel");
         _countdownLabel = GetNode<Label>("ContentBox/CountdownLabel");
-        _cancelBtn = GetNode<Button>("ContentBox/CancelButton");
+        _cancelBtn = GetNode<Button>("CancelButton");
     }
 
     public override void _Process(double delta)
