@@ -16,31 +16,9 @@ public partial class MatchingUI : Control
 
     public override void _Ready()
     {
-        var vbox = new VBoxContainer();
-        vbox.SetAnchorsPreset(LayoutPreset.Center);
-        vbox.GrowHorizontal = GrowDirection.Both;
-        vbox.GrowVertical = GrowDirection.Both;
-        vbox.AddThemeConstantOverride("separation", 20);
-        vbox.Position = new Vector2(0, -100);
-        AddChild(vbox);
-
-        _statusLabel = new Label();
-        _statusLabel.Text = "Searching for opponent...";
-        _statusLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _statusLabel.AddThemeFontSizeOverride("font_size", 28);
-        vbox.AddChild(_statusLabel);
-
-        _countdownLabel = new Label();
-        _countdownLabel.Text = "";
-        _countdownLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _countdownLabel.AddThemeFontSizeOverride("font_size", 40);
-        vbox.AddChild(_countdownLabel);
-
-        _cancelBtn = new Button();
-        _cancelBtn.Text = "Cancel";
-        _cancelBtn.CustomMinimumSize = new Vector2(200, 50);
-        _cancelBtn.Pressed += OnCancelPressed;
-        vbox.AddChild(_cancelBtn);
+        _statusLabel = GetNode<Label>("ContentBox/StatusLabel");
+        _countdownLabel = GetNode<Label>("ContentBox/CountdownLabel");
+        _cancelBtn = GetNode<Button>("ContentBox/CancelButton");
     }
 
     public override void _Process(double delta)

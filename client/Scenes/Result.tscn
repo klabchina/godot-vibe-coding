@@ -1,8 +1,11 @@
 [gd_scene format=3 uid="uid://result"]
 
-[ext_resource type="Script" path="res://Scripts/UI/ResultUI.cs" id="1"]
+[ext_resource type="Script" uid="uid://cj63sd8pfhgih" path="res://Scripts/UI/ResultUI.cs" id="1"]
+[ext_resource type="Texture2D" uid="uid://bdowql5qvxaaq" path="res://Assets/UI/result_bg.png" id="2"]
 
-[node name="Result" type="Control"]
+[sub_resource type="Theme" id="Theme_x2cm7"]
+
+[node name="Result" type="Control" unique_id=410791274]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,3 +13,169 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
+
+[node name="Background" type="TextureRect" parent="." unique_id=1344129143]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2")
+stretch_mode = 6
+
+[node name="ContentBox" type="VBoxContainer" parent="." unique_id=1570410926]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -365.0
+offset_top = -507.0
+offset_right = 367.0
+offset_bottom = 469.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="ContentBox" unique_id=684527548]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_font_sizes/font_size = 40
+text = "BATTLE RESULT"
+horizontal_alignment = 1
+vertical_alignment = 2
+
+[node name="GradeLabel" type="Label" parent="ContentBox" unique_id=827180834]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_font_sizes/font_size = 56
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Space" type="Container" parent="ContentBox" unique_id=261917138]
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+
+[node name="WavesRow" type="HBoxContainer" parent="ContentBox" unique_id=1675377230]
+custom_minimum_size = Vector2(650, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="WavesName" type="Label" parent="ContentBox/WavesRow" unique_id=1339896350]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+text = "Waves Completed"
+vertical_alignment = 1
+
+[node name="WavesValue" type="Label" parent="ContentBox/WavesRow" unique_id=1782698428]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="KillsRow" type="HBoxContainer" parent="ContentBox" unique_id=1793372769]
+custom_minimum_size = Vector2(650, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="KillsName" type="Label" parent="ContentBox/KillsRow" unique_id=543044085]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+text = "Kills"
+vertical_alignment = 1
+
+[node name="KillsValue" type="Label" parent="ContentBox/KillsRow" unique_id=333271413]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="DamageRow" type="HBoxContainer" parent="ContentBox" unique_id=1381791510]
+custom_minimum_size = Vector2(650, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="DamageName" type="Label" parent="ContentBox/DamageRow" unique_id=183715217]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+text = "Total Damage"
+vertical_alignment = 1
+
+[node name="DamageValue" type="Label" parent="ContentBox/DamageRow" unique_id=1400736923]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="XpRow" type="HBoxContainer" parent="ContentBox" unique_id=1187062423]
+custom_minimum_size = Vector2(650, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="XpName" type="Label" parent="ContentBox/XpRow" unique_id=607931449]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+text = "XP Collected"
+vertical_alignment = 1
+
+[node name="XpValue" type="Label" parent="ContentBox/XpRow" unique_id=791507052]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="HpRow" type="HBoxContainer" parent="ContentBox" unique_id=163743495]
+custom_minimum_size = Vector2(650, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 20
+
+[node name="HpName" type="Label" parent="ContentBox/HpRow" unique_id=688324849]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+text = "Remaining HP"
+vertical_alignment = 1
+
+[node name="HpValue" type="Label" parent="ContentBox/HpRow" unique_id=1837609054]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="Space2" type="Container" parent="ContentBox" unique_id=949068509]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+
+[node name="ReturnButton" type="Button" parent="ContentBox" unique_id=2066571257]
+custom_minimum_size = Vector2(400, 90)
+layout_mode = 2
+size_flags_horizontal = 4
+theme = SubResource("Theme_x2cm7")
+theme_override_font_sizes/font_size = 32
+text = "Return to Menu"
+flat = true
+
+[connection signal="pressed" from="ContentBox/ReturnButton" to="." method="OnReturnPressed"]
