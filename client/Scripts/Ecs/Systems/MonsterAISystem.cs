@@ -111,9 +111,8 @@ public class MonsterAISystem : GameSystem
             // Re-initialize direction at the start of each wander phase (PhaseTimer == 0)
             if (ai.PhaseTimer <= 0f)
             {
-                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
-                float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
-                ai.WanderDir = (toPlayer + perp * bias).Normalized();
+                float angle = GameRandom.Randf() * GMath.Tau;
+                ai.WanderDir = new Vec2(GMath.Cos(angle), GMath.Sin(angle));
                 ai.PhaseTimer = MonsterData.SkeletonWanderDuration;
                 ai.FiredThisCycle = false;
             }
@@ -180,9 +179,8 @@ public class MonsterAISystem : GameSystem
         {
             if (ai.PhaseTimer <= 0f)
             {
-                Vec2 perp = new Vec2(-toPlayer.Y, toPlayer.X);
-                float bias = (GameRandom.Randf() * 2f - 1f) * MonsterData.RangedLateralBias;
-                ai.WanderDir = (toPlayer + perp * bias).Normalized();
+                float angle = GameRandom.Randf() * GMath.Tau;
+                ai.WanderDir = new Vec2(GMath.Cos(angle), GMath.Sin(angle));
                 ai.PhaseTimer = MonsterData.EliteWanderDuration;
                 ai.FiredThisCycle = false;
             }

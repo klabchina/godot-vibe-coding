@@ -46,9 +46,6 @@ public static class MonsterData
     public const float OrcChargeSpeed      = 150f;
     public const float OrcStunDuration     = 1.0f;
 
-    // Shared ranged parameters
-    public const float RangedLateralBias = 0.6f; // max lateral component added to forward dir
-
     // Skeleton ranged parameters
     public const float SkeletonWanderDuration   = 2.0f;  // seconds in wander phase
     public const float SkeletonAttackDuration   = 0.4f;  // pause before firing
