@@ -178,7 +178,7 @@ public class RenderSystem : GameSystem
         {
             var animSprite = new AnimatedSprite2D();
             animSprite.SpriteFrames = CreateArcherSpriteFrames();
-            animSprite.Play("idle");
+            animSprite.Play(AnimNames.Idle);
             wrapper.AddChild(animSprite);
             return wrapper;
         }
@@ -244,16 +244,16 @@ public class RenderSystem : GameSystem
             {
                 var path = anim switch
                 {
-                    "idle" => $"{SpriteFramesConstant.ArcherIdlePrefix}{i}{SpriteFramesConstant.ArcherExt}",
-                    "walk" => $"{SpriteFramesConstant.ArcherWalkPrefix}{i}{SpriteFramesConstant.ArcherExt}",
-                    "attack" => $"{SpriteFramesConstant.ArcherAttackPrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    AnimNames.Idle   => $"{SpriteFramesConstant.ArcherIdlePrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    AnimNames.Walk   => $"{SpriteFramesConstant.ArcherWalkPrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    AnimNames.Attack => $"{SpriteFramesConstant.ArcherAttackPrefix}{i}{SpriteFramesConstant.ArcherExt}",
                     _ => $"res://Assets/Sprites/Roles/archer_{anim}_{i}.png"
                 };
                 var tex = GD.Load<Texture2D>(path);
                 frames.AddFrame(anim, tex);
             }
             frames.SetAnimationSpeed(anim, AnimFps);
-            frames.SetAnimationLoop(anim, anim != "attack");
+            frames.SetAnimationLoop(anim, anim != AnimNames.Attack);
         }
 
         return frames;
@@ -273,7 +273,7 @@ public class RenderSystem : GameSystem
                 var tex = GD.Load<Texture2D>(path);
                 frames.AddFrame(anim, tex);
             }
-            bool loop = anim != "death" && anim != "attack"; // death 和 attack 不循环
+            bool loop = anim != AnimNames.Death && anim != AnimNames.Attack; // death 和 attack 不循环
             frames.SetAnimationLoop(anim, loop);
             frames.SetAnimationSpeed(anim, AnimFps);
         }
