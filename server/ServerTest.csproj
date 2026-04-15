@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GameServer</AssemblyName>
+    <!-- SERVER 模式：DeathSystem 直接销毁实体，不走 DeathPendingComponent 渲染路径 -->
+    <DefineConstants>SERVER</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 共享 ECS / Data 源码（直接链接，不复制） -->
+  <!-- 排除：ClientSystems（Godot UI/渲染）、NetworkRecvSystem/NetworkSendSystem（Game.Net 依赖） -->
+  <ItemGroup>
+    <!-- ECS 核心 -->
+    <Compile Include="../client/Scripts/Ecs/Entity.cs" />
+    <Compile Include="../client/Scripts/Ecs/World.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/Vec2.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/GMath.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/GameRandom.cs" />
+
+    <!-- Components -->
+    <Compile Include="../client/Scripts/Ecs/Components/ArrowComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/AutoAimComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BossPhaseComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BowComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BuffComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/ColliderComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/DeathPendingComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/EffectComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/HealthComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterAIState.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterProjectileComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/OrbitComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/PickupComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/PlayerComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/ReviveComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/TransformComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/UpgradeComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/VelocityComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/WaveComponent.cs" />
+
+    <!-- Systems（排除 Network* 和 ClientSystems） -->
+    <Compile Include="../client/Scripts/Ecs/Systems/AutoAimSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/BossAISystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/BuffSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/CollisionSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/DamageSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/DeathSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/EffectSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/MonsterAISystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/MovementSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/OrbitSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/PickupSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/WaveSpawnSystem.cs" />
+
+    <!-- Data -->
+    <Compile Include="../client/Scripts/Data/ArenaData.cs" />
+    <Compile Include="../client/Scripts/Data/Enums.cs" />
+    <Compile Include="../client/Scripts/Data/LevelData.cs" />
+    <Compile Include="../client/Scripts/Data/MonsterData.cs" />
+    <Compile Include="../client/Scripts/Data/PickupData.cs" />
+    <Compile Include="../client/Scripts/Data/PlayerData.cs" />
+    <Compile Include="../client/Scripts/Data/UpgradeData.cs" />
+    <Compile Include="../client/Scripts/Data/UpgradeRoller.cs" />
+    <Compile Include="../client/Scripts/Data/WaveData.cs" />
+  </ItemGroup>
+
+</Project>

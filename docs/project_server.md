@@ -789,3 +789,262 @@ Docker 部署：
 | 启动内存 | ~30 MB（.NET 运行时） |
 
 对于 2 人小规模对战游戏，单台低配服务器即可支撑数百同时对战。
+
+---
+
+# ECS 服务端测试程序
+
+独立于 Godot 引擎的服务端 ECS 测试程序，链接客户端共享逻辑（`Systems/`、`Core/`、`Data/`），不含 `ClientSystems/` 和网络层。
+
+---
+
+## 项目结构
+
+```
+server/
+├── ServerTest.csproj      # 项目文件（OutputType=Exe，DefineConstants=SERVER）
+├── ServerGameManager.cs   # ECS World 初始化与系统注册（对应客户端 GameManager）
+└── Program.cs             # 入口：生成玩家、启动波次、20 tick/s 主循环
+```
+
+### `ServerTest.csproj`
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GameServer</AssemblyName>
+    <!-- SERVER 模式：DeathSystem 直接销毁实体，不走 DeathPendingComponent 渲染路径 -->
+    <DefineConstants>SERVER</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 共享 ECS / Data 源码（直接链接，不复制） -->
+  <!-- 排除：ClientSystems（Godot UI/渲染）、NetworkRecvSystem/NetworkSendSystem（Game.Net 依赖） -->
+  <ItemGroup>
+    <!-- ECS 核心 -->
+    <Compile Include="../client/Scripts/Ecs/Entity.cs" />
+    <Compile Include="../client/Scripts/Ecs/World.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/Vec2.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/GMath.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/GameRandom.cs" />
+
+    <!-- Components -->
+    <Compile Include="../client/Scripts/Ecs/Components/ArrowComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/AutoAimComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BossPhaseComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BowComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/BuffComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/ColliderComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/DeathPendingComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/EffectComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/HealthComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterAIState.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MonsterProjectileComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/OrbitComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/PickupComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/PlayerComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/ReviveComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/TransformComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/UpgradeComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/VelocityComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/WaveComponent.cs" />
+
+    <!-- Systems（排除 Network* 和 ClientSystems） -->
+    <Compile Include="../client/Scripts/Ecs/Systems/AutoAimSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/BossAISystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/BuffSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/CollisionSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/DamageSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/DeathSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/EffectSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/MonsterAISystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/MovementSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/OrbitSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/PickupSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/WaveSpawnSystem.cs" />
+
+    <!-- Data -->
+    <Compile Include="../client/Scripts/Data/ArenaData.cs" />
+    <Compile Include="../client/Scripts/Data/Enums.cs" />
+    <Compile Include="../client/Scripts/Data/LevelData.cs" />
+    <Compile Include="../client/Scripts/Data/MonsterData.cs" />
+    <Compile Include="../client/Scripts/Data/PickupData.cs" />
+    <Compile Include="../client/Scripts/Data/PlayerData.cs" />
+    <Compile Include="../client/Scripts/Data/UpgradeData.cs" />
+    <Compile Include="../client/Scripts/Data/UpgradeRoller.cs" />
+    <Compile Include="../client/Scripts/Data/WaveData.cs" />
+  </ItemGroup>
+
+</Project>
+```
+
+---
+
+## `ServerGameManager.cs`
+
+ECS World 初始化与系统注册，对应客户端的 `GameManager.cs`。
+
+```csharp
+using Game.Ecs;
+using Game.Ecs.Components;
+using Game.Ecs.Systems;
+using Game.Data;
+
+namespace Game.Server;
+
+/// <summary>
+/// 服务端游戏实例管理器，对应客户端的 GameManager。
+/// 维护一个独立的 ECS World，包含全部服务端系统（不含 ClientSystems）。
+/// </summary>
+public class ServerGameManager
+{
+    public static ServerGameManager Instance { get; private set; } = new();
+
+    public World World { get; private set; }
+    public bool IsRunning { get; private set; }
+
+    // 战局统计
+    public int KillCount       { get; private set; }
+    public int TotalDamage     { get; private set; }
+    public int WavesCompleted  { get; private set; }
+
+    private ServerGameManager() { }
+
+    /// <summary>初始化 ECS World 并注册所有服务端系统。</summary>
+    public void Initialize()
+    {
+        World = new World();
+
+        // 顺序决定每帧执行次序
+        World.AddSystem(new MonsterAISystem());
+        World.AddSystem(new BossAISystem());
+        World.AddSystem(new AutoAimSystem());
+        World.AddSystem(new BuffSystem());
+        World.AddSystem(new MovementSystem());
+        World.AddSystem(new CollisionSystem());
+        World.AddSystem(new DamageSystem());
+        World.AddSystem(new EffectSystem());
+        World.AddSystem(new OrbitSystem());
+        World.AddSystem(new PickupSystem());
+        World.AddSystem(new WaveSpawnSystem());
+        World.AddSystem(new DeathSystem());
+
+        Console.WriteLine("[ServerGameManager] World initialized with all server systems.");
+    }
+
+    /// <summary>创建玩家实体并添加到 World。</summary>
+    public Entity SpawnPlayer(int playerIndex, float x, float y)
+    {
+        var player = World.CreateEntity();
+        player.Add(new TransformComponent { Position = new(x, y) });
+        player.Add(new VelocityComponent  { Speed = PlayerData.BaseMoveSpeed });
+        player.Add(new HealthComponent    { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
+        player.Add(new PlayerComponent    { PlayerIndex = playerIndex, IsLocal = false });
+        player.Add(new BowComponent
+        {
+            Damage      = PlayerData.BaseArrowDamage,
+            Cooldown    = PlayerData.BaseCooldown,
+            ArrowCount  = PlayerData.BaseArrowCount,
+        });
+        player.Add(new BuffComponent());
+        player.Add(new UpgradeComponent());
+        player.Add(new AutoAimComponent());
+        player.Add(new ColliderComponent
+        {
+            Radius = PlayerData.PlayerRadius,
+            Layer  = CollisionLayers.Player,
+            Mask   = CollisionLayers.Monster | CollisionLayers.MonsterArrow,
+        });
+
+        Console.WriteLine($"[ServerGameManager] Player {playerIndex} spawned at ({x}, {y}).");
+        return player;
+    }
+
+    /// <summary>创建 WaveComponent 实体并启动第一波。</summary>
+    public Entity StartWaves()
+    {
+        var waveEntity = World.CreateEntity();
+        waveEntity.Add(new WaveComponent());
+        World.GetSystem<WaveSpawnSystem>()!.StartNextWave(waveEntity.Get<WaveComponent>());
+
+        Console.WriteLine("[ServerGameManager] Wave 1 started.");
+        return waveEntity;
+    }
+
+    /// <summary>推进一帧（delta 单位：秒）。</summary>
+    public void Tick(float delta)
+    {
+        World.Update(delta);
+    }
+
+    /// <summary>重置战局数据并清空 World。</summary>
+    public void Reset()
+    {
+        IsRunning     = false;
+        KillCount     = 0;
+        TotalDamage   = 0;
+        WavesCompleted = 0;
+        World?.Clear();
+    }
+}
+```
+
+---
+
+## `Program.cs`
+
+入口程序：生成玩家、启动波次、20 tick/s 主循环。
+
+```csharp
+using Game.Server;
+
+var gm = ServerGameManager.Instance;
+gm.Initialize();
+
+// 生成玩家
+gm.SpawnPlayer(playerIndex: 0, x: 990f, y: 640f);
+
+// 启动第一波怪物
+gm.StartWaves();
+
+// 20 tick/s 主循环（每帧 50ms）
+const float DeltaTime = 0.05f;
+const int   TargetHz  = 20;
+int tickCount = 0;
+
+Console.WriteLine("[Server] Game loop starting at 20 tick/s. Press Ctrl+C to stop.");
+
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
+var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000f / TargetHz));
+
+while (!cts.IsCancellationRequested && await timer.WaitForNextTickAsync(cts.Token))
+{
+    gm.Tick(DeltaTime);
+    tickCount++;
+
+    // 每 200 tick（10 秒）打印一次存活实体数
+    if (tickCount % 200 == 0)
+    {
+        Console.WriteLine($"[Tick {tickCount,6}] Entities alive: {gm.World.Entities.Count}");
+    }
+}
+
+Console.WriteLine("[Server] Shutting down.");
+gm.Reset();
+```
+
+---
+
+## 运行方式
+
+```bash
+cd server
+dotnet run
+```
