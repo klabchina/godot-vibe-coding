@@ -25,4 +25,9 @@ public static class SpriteFramesConstant
 
     /// <summary>攻击动画是否只播放一次（死亡/攻击）</summary>
     public static bool AnimOnce(MonsterType type, string anim) => anim is "attack" or "death";
+
+    // ========== 道具 / 投射物 (Props) ==========
+    public const string ArrowNormal = "res://Assets/Sprites/Props/arrow_normal.png";
+    public const string ArrowFire   = "res://Assets/Sprites/Props/arrow_fire.png";
+    public const string ArrowStar   = "res://Assets/Sprites/Props/arrow_star.png";
 }

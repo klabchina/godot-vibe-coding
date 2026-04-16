@@ -193,28 +193,22 @@ public class RenderSystem : GameSystem
         }
         else if (entity.Has<ArrowComponent>())
         {
-            var rect = new ColorRect();
-            var arrowComp = entity.Get<ArrowComponent>();
-            if (arrowComp.Freezing)
-                rect.Color = new Color(0.4f, 0.8f, 1.0f);
-            else if (arrowComp.Burning)
-                rect.Color = new Color(1.0f, 0.5f, 0.0f);
-            else if (arrowComp.Explosive)
-                rect.Color = new Color(1.0f, 0.2f, 0.2f);
-            else
-                rect.Color = Colors.Yellow;
-            rect.Size = new Vector2(8, 4);
-            rect.Position = new Vector2(-4, -2);
-            wrapper.AddChild(rect);
+            // 玩家箭矢使用 arrow_normal.png 图片
+            var sprite = new Sprite2D();
+            sprite.Texture = GD.Load<Texture2D>(SpriteFramesConstant.ArrowNormal);
+            wrapper.AddChild(sprite);
             return wrapper;
         }
         else if (entity.Has<MonsterProjectileComponent>())
         {
-            var rect = new ColorRect();
-            rect.Color = new Color(1.0f, 0.3f, 0.1f); // orange-red, distinct from yellow player arrows
-            rect.Size = new Vector2(8, 8);
-            rect.Position = new Vector2(-4, -4);
-            wrapper.AddChild(rect);
+            var proj = entity.Get<MonsterProjectileComponent>();
+            var sprite = new Sprite2D();
+            // 骷髅（匀速）→ fire，精英（加速）→ star
+            string texPath = proj.Acceleration > 0
+                ? SpriteFramesConstant.ArrowStar
+                : SpriteFramesConstant.ArrowFire;
+            sprite.Texture = GD.Load<Texture2D>(texPath);
+            wrapper.AddChild(sprite);
             return wrapper;
         }
         else if (entity.Has<PickupComponent>())
