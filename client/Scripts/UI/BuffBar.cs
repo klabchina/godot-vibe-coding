@@ -14,7 +14,7 @@ public partial class BuffBar : HBoxContainer
     public override void _Ready()
     {
         _buffLabel = new Label();
-        _buffLabel.AddThemeFontSizeOverride("font_size", 16);
+        _buffLabel.AddThemeFontSizeOverride("font_size", 24);
         AddChild(_buffLabel);
     }
 

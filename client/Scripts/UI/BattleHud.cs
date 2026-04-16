@@ -1,18 +1,19 @@
 using Godot;
 using Game.Ecs.Components;
+using Game.Data;
 
 namespace Game.UI;
 
 /// <summary>
-/// Battle HUD: wave counter, HP bar, level, XP, kills, BuffBar, UpgradeBar.
+/// Battle HUD: wave counter, HP bar, XP bar, kills, BuffBar, UpgradeBar.
 /// </summary>
 public partial class BattleHud : Control
 {
     private Label _waveLabel;
     private ProgressBar _hpBar;
     private Label _hpLabel;
-    private Label _levelLabel;
-    private Label _xpLabel;
+    private ProgressBar _xpBar;
+    private Label _xpBarLabel;
     private Label _killLabel;
     private BuffBar _buffBar;
     private UpgradeBar _upgradeBar;
@@ -22,8 +23,8 @@ public partial class BattleHud : Control
         _waveLabel = GetNodeOrNull<Label>("WaveLabel");
         _hpBar = GetNodeOrNull<ProgressBar>("HpBar");
         _hpLabel = GetNodeOrNull<Label>("HpLabel");
-        _levelLabel = GetNodeOrNull<Label>("LevelLabel");
-        _xpLabel = GetNodeOrNull<Label>("XpLabel");
+        _xpBar = GetNodeOrNull<ProgressBar>("XpBar");
+        _xpBarLabel = GetNodeOrNull<Label>("XpBarLabel");
         _killLabel = GetNodeOrNull<Label>("KillLabel");
 
         // Create BuffBar dynamically (top-right area)
@@ -33,14 +34,14 @@ public partial class BattleHud : Control
 
         // Create UpgradeBar dynamically (bottom-left area)
         _upgradeBar = new UpgradeBar();
-        _upgradeBar.Position = new Vector2(20, 100);
+        _upgradeBar.Position = new Vector2(20, 140);
         AddChild(_upgradeBar);
     }
 
     public void UpdateWave(int current, int total)
     {
         if (_waveLabel != null)
-            _waveLabel.Text = $"Wave {current}/{total}";
+            _waveLabel.Text = $"⚔ Wave {current}/{total}";
     }
 
     public void UpdateHp(int hp, int maxHp)
@@ -51,25 +52,50 @@ public partial class BattleHud : Control
             _hpBar.Value = hp;
         }
         if (_hpLabel != null)
-            _hpLabel.Text = $"{hp}/{maxHp}";
+            _hpLabel.Text = $"♥ {hp}/{maxHp}";
     }
 
     public void UpdateLevel(int level)
     {
-        if (_levelLabel != null)
-            _levelLabel.Text = $"Lv.{level}";
+        // Level is now shown inside XpBarLabel; no separate update needed.
     }
 
-    public void UpdateXp(int xp)
+    public void UpdateXp(int totalXp)
     {
-        if (_xpLabel != null)
-            _xpLabel.Text = $"XP: {xp}";
+        int level = LevelData.GetLevel(totalXp);
+
+        // 展示等级最低为 1（升级前也显示 Lv.1）
+        int displayLevel = System.Math.Max(1, level);
+
+        // 本级起始累积 XP（Lv.1 之前起始为 0）
+        int prevCumXp = displayLevel <= 1 ? 0 : LevelData.GetCumulativeXp(displayLevel - 1);
+        // 本级目标累积 XP
+        int nextCumXp = displayLevel >= LevelData.MaxLevel
+            ? LevelData.GetCumulativeXp(LevelData.MaxLevel)
+            : LevelData.GetCumulativeXp(displayLevel);
+
+        int levelXp   = nextCumXp - prevCumXp;          // 本级需要的 XP 段长
+        int currentXp = totalXp - prevCumXp;            // 本级已积累的 XP
+
+        if (_xpBar != null)
+        {
+            _xpBar.MaxValue = levelXp > 0 ? levelXp : 1;
+            _xpBar.Value    = displayLevel >= LevelData.MaxLevel ? levelXp : currentXp;
+        }
+
+        if (_xpBarLabel != null)
+        {
+            if (displayLevel >= LevelData.MaxLevel)
+                _xpBarLabel.Text = $"Lv.{displayLevel}  MAX";
+            else
+                _xpBarLabel.Text = $"Lv.{displayLevel}  XP {currentXp}/{levelXp}";
+        }
     }
 
     public void UpdateKills(int kills)
     {
         if (_killLabel != null)
-            _killLabel.Text = $"Kills: {kills}";
+            _killLabel.Text = $"⚔ Kills: {kills}";
     }
 
     public void UpdateBuffs(BuffComponent buff)
