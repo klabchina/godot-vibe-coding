@@ -88,7 +88,6 @@ public partial class BattleScene : Node2D
 		_world.AddSystem(new MovementSystem());
 		_world.AddSystem(new OrbitSystem());
 		_world.AddSystem(new CollisionSystem());
-
 		var pickupSystem = new PickupSystem();
 		pickupSystem.OnLevelUp = OnPlayerLevelUp;
 		_world.AddSystem(pickupSystem);

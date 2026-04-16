@@ -1,5 +1,6 @@
 using Game.Ecs;
 using Game.Ecs.Components;
+using Game.Ecs.Core;
 using Game.Ecs.Systems;
 using Game.Data;
 
@@ -38,7 +39,9 @@ public class ServerGameManager
         World.AddSystem(new DamageSystem());
         World.AddSystem(new EffectSystem());
         World.AddSystem(new OrbitSystem());
-        World.AddSystem(new PickupSystem());
+        var pickupSystem = new PickupSystem();
+        pickupSystem.OnLevelUp = OnPlayerLevelUp;
+        World.AddSystem(pickupSystem);
         World.AddSystem(new WaveSpawnSystem());
         World.AddSystem(new DeathSystem());
 
@@ -98,5 +101,74 @@ public class ServerGameManager
         TotalDamage   = 0;
         WavesCompleted = 0;
         World?.Clear();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 升级回调（服务端模式：无 UI，自动处理）
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 玩家升级回调。服务端模式下使用 UpgradeRoller 随机抽取 3 个选项，
+    /// 自动选择第 1 项并应用，同时触发即时效果（血量上限/移速/护盾/轨道卫）。
+    /// </summary>
+    private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
+    {
+        var player = playerEntity.Get<PlayerComponent>();
+        if (player == null) return;
+
+        var upgrade = playerEntity.Get<UpgradeComponent>();
+        if (upgrade == null) return;
+
+        var options = UpgradeRoller.Roll(upgrade, newLevel);
+        if (options.Count == 0) return;
+
+        var chosen = options[0];
+        upgrade.Apply(chosen);
+
+        // 即时效果（与 UpgradePanel.ApplyImmediateEffects 保持一致）
+        switch (chosen)
+        {
+            case UpgradeId.MaxHpUp:
+            {
+                var health = playerEntity.Get<HealthComponent>();
+                if (health != null)
+                {
+                    health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
+                    health.Hp = GMath.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                }
+                break;
+            }
+            case UpgradeId.MoveSpeedUp:
+            {
+                var vel = playerEntity.Get<VelocityComponent>();
+                if (vel != null)
+                {
+                    vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                }
+                break;
+            }
+            case UpgradeId.Shield:
+            {
+                var buff = playerEntity.Get<BuffComponent>();
+                if (buff != null)
+                {
+                    buff.ShieldActive = true;
+                    buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                }
+                break;
+            }
+            case UpgradeId.OrbitGuard:
+            {
+                var orbit = playerEntity.Get<OrbitComponent>();
+                if (orbit != null)
+                {
+                    orbit.Count = upgrade.OrbitCount;
+                }
+                break;
+            }
+        }
+
+        var def = UpgradeData.Definitions[chosen];
+        Console.WriteLine($"[LevelUp] Player {player.PlayerIndex} leveled up to Lv.{newLevel} → {def.Name}");
     }
 }
