@@ -9,54 +9,27 @@ namespace Game.UI;
 /// <summary>
 /// 3-choice upgrade panel with 5-second countdown.
 /// Game does NOT pause while panel is open.
+/// Scene: res://Scenes/UpgradePanel.tscn
 /// </summary>
 public partial class UpgradePanel : Control
 {
-    private readonly List<Button> _buttons = new();
-    private Label _timerLabel;
-    private List<UpgradeId> _options;
+    [Export] private Button _button0 = null!;
+    [Export] private Button _button1 = null!;
+    [Export] private Button _button2 = null!;
+    [Export] private Label _timerLabel = null!;
+
+    private Button[] _buttons = null!;
+    private List<UpgradeId> _options = null!;
     private Entity _playerEntity;
     private float _countdown;
     private bool _isActive;
 
     public override void _Ready()
     {
-        // Semi-transparent dark background covering full screen
-        var bg = new ColorRect();
-        bg.Color = new Color(0, 0, 0, 0.6f);
-        bg.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(bg);
+        _buttons = new[] { _button0, _button1, _button2 };
 
-        // Build UI dynamically
-        var vbox = new VBoxContainer();
-        vbox.Name = "VBox";
-        vbox.SetAnchorsPreset(LayoutPreset.Center);
-        vbox.GrowHorizontal = GrowDirection.Both;
-        vbox.GrowVertical = GrowDirection.Both;
-        vbox.AddThemeConstantOverride("separation", 10);
-        AddChild(vbox);
-
-        var title = new Label();
-        title.Text = "LEVEL UP!";
-        title.HorizontalAlignment = HorizontalAlignment.Center;
-        vbox.AddChild(title);
-
-        for (int i = 0; i < UpgradeData.ChoiceCount; i++)
-        {
-            var btn = new Button();
-            btn.CustomMinimumSize = new Vector2(280, 50);
-            int index = i;
-            btn.Pressed += () => OnChoiceSelected(index);
-            vbox.AddChild(btn);
-            _buttons.Add(btn);
-        }
-
-        _timerLabel = new Label();
-        _timerLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        vbox.AddChild(_timerLabel);
-
-        // Center the VBox
-        vbox.Position = new Vector2(-150, -120);
+        foreach (var btn in _buttons)
+            btn.Visible = false;
 
         Visible = false;
         _isActive = false;
@@ -71,7 +44,6 @@ public partial class UpgradePanel : Control
 
         if (_countdown <= 0)
         {
-            // Auto-select first option
             OnChoiceSelected(0);
         }
     }
@@ -88,7 +60,7 @@ public partial class UpgradePanel : Control
         _countdown = UpgradeData.ChoiceTimeoutSec;
         _isActive = true;
 
-        for (int i = 0; i < _buttons.Count; i++)
+        for (int i = 0; i < _buttons.Length; i++)
         {
             if (i < options.Count)
             {
@@ -107,6 +79,10 @@ public partial class UpgradePanel : Control
         Visible = true;
     }
 
+    private void OnButton0Pressed() => OnChoiceSelected(0);
+    private void OnButton1Pressed() => OnChoiceSelected(1);
+    private void OnButton2Pressed() => OnChoiceSelected(2);
+
     private void OnChoiceSelected(int index)
     {
         if (!_isActive || _options == null || index >= _options.Count) return;
@@ -119,8 +95,6 @@ public partial class UpgradePanel : Control
 
         var chosen = _options[index];
         upgrade.Apply(chosen);
-
-        // Apply immediate effects for defense upgrades
         ApplyImmediateEffects(chosen);
     }
 
@@ -153,7 +127,6 @@ public partial class UpgradePanel : Control
             }
             case UpgradeId.Shield:
             {
-                // Immediately grant shield on first acquire
                 var buff = _playerEntity.Get<BuffComponent>();
                 if (buff != null)
                 {

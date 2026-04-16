@@ -32,10 +32,8 @@ public partial class BattleScene : Node2D
 		_canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
 		_hud = GetNode<BattleHud>("CanvasLayer/BattleHud");
 
-		// Create upgrade panel dynamically
-		_upgradePanel = new UpgradePanel();
-		_upgradePanel.Name = "UpgradePanel";
-		_upgradePanel.SetAnchorsPreset(Control.LayoutPreset.Center);
+		_upgradePanel = ResourceLoader.Load<PackedScene>("res://Scenes/UpgradePanel.tscn").Instantiate() as UpgradePanel
+			?? throw new System.InvalidOperationException("Failed to load UpgradePanel scene");
 		_canvasLayer.AddChild(_upgradePanel);
 
 		InitializeWorld();
