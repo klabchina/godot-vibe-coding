@@ -11,40 +11,54 @@ gm.SpawnPlayer(playerIndex: 0, x: 990f, y: 640f);
 // 启动第一波怪物
 gm.StartWaves();
 
-// 20 tick/s 主循环（每帧 50ms）
-const float DeltaTime = 0.033f;
-const int TargetHz = 30;
+const float DeltaTime = 0.05f;  // 50ms 每帧（服务器逻辑步长）
+const int PrintIntervalTicks = 200;  // 每 200 tick 打印一次状态（约 10 秒）
 int tickCount = 0;
+DateTime startTime = DateTime.Now;
 
-Console.WriteLine("[Server] Game loop starting at 20 tick/s. Press Ctrl+C to stop.");
+Console.WriteLine("[ECS] Game loop starting. Press Ctrl+C to stop.");
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000f / TargetHz));
-
-while (!cts.IsCancellationRequested && await timer.WaitForNextTickAsync(cts.Token))
+try
 {
-    gm.Tick(DeltaTime);
-    tickCount++;
-
-    // 每 200 tick（10 秒）打印一次状态
-    if (tickCount % 200 == 0)
+    while (!cts.IsCancellationRequested)
     {
-        var entities = gm.World.Entities;
-        Console.WriteLine($"[Tick {tickCount,6}] Entities alive: {entities.Count}");
-    }
+        gm.Tick(DeltaTime);
+        tickCount++;
 
-    // 检测游戏结束
-    var gameOverResult = GameOverHelper.CheckGameOver(gm);
-    if (gameOverResult != null)
-    {
-        GameOverHelper.PrintGameOverStats(gm, gameOverResult.Value, tickCount);
-        break;
+        // 每 PrintIntervalTicks tick 打印一次状态（含当前波次）
+        if (tickCount % PrintIntervalTicks == 0)
+        {
+            var elapsed = (DateTime.Now - startTime).TotalSeconds;
+            var waveEntities = gm.World.GetEntitiesWith<WaveComponent>();
+            int currentWave = 0, aliveMonsters = 0;
+            foreach (var w in waveEntities)
+            {
+                var wave = w.Get<WaveComponent>();
+                currentWave = wave.CurrentWave;
+                aliveMonsters = wave.AliveMonsters;
+                break;
+            }
+            Console.WriteLine($"[Tick {tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters} | Entities: {gm.World.Entities.Count}");
+        }
+
+        // 检测游戏结束
+        var gameOverResult = GameOverHelper.CheckGameOver(gm);
+        if (gameOverResult != null)
+        {
+            GameOverHelper.PrintGameOverStats(gm, gameOverResult.Value, tickCount, (DateTime.Now - startTime).TotalSeconds);
+            break;
+        }
     }
 }
+catch (OperationCanceledException)
+{
+    Console.WriteLine("[ECS] Interrupted.");
+}
 
-Console.WriteLine("[Server] Shutting down.");
+Console.WriteLine("[ECS] Shutting down.");
 gm.Reset();
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +110,7 @@ static class GameOverHelper
         return null;
     }
 
-    public static void PrintGameOverStats(ServerGameManager gm, GameOverType result, int tickCount)
+    public static void PrintGameOverStats(ServerGameManager gm, GameOverType result, int tickCount, double totalSeconds)
     {
         var divider = new string('=', 50);
 
@@ -129,7 +143,7 @@ static class GameOverHelper
         var aliveCount = gm.World.Entities.Count;
         Console.WriteLine($"  Entities Left: {aliveCount}");
         Console.WriteLine($"  Total Ticks   : {tickCount}");
-        Console.WriteLine($"  Total Time    : {tickCount * 0.05f:F1}s");
+        Console.WriteLine($"  Total Time    : {totalSeconds:F1}s");
 
         Console.WriteLine(divider);
     }
