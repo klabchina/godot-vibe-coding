@@ -1,8 +1,19 @@
 [gd_scene format=3 uid="uid://cy7jofpcuqwb6"]
 
 [ext_resource type="Script" uid="uid://bcqub3ln6p27b" path="res://Scripts/UI/UpgradePanel.cs" id="1"]
+[ext_resource type="Texture2D" uid="uid://d1mlk4ibgr1i7" path="res://Assets/UI/upgrade_panel_bg.png" id="2"]
 
-[node name="UpgradePanel" type="Control" unique_id=1155314862 node_paths=PackedStringArray("_button0", "_button1", "_button2", "_timerLabel")]
+[sub_resource type="Theme" id="Theme_bj1kf"]
+
+[sub_resource type="Theme" id="Theme_n3eup"]
+
+[sub_resource type="Theme" id="Theme_t4put"]
+
+[sub_resource type="Theme" id="Theme_veyrc"]
+
+[sub_resource type="Theme" id="Theme_5uetg"]
+
+[node name="UpgradePanel" type="Control" unique_id=1155314862 node_paths=PackedStringArray("_cardBg", "_button0", "_button1", "_button2", "_timerLabel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,58 +21,96 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
-_button0 = NodePath("VBox/Button0")
-_button1 = NodePath("VBox/Button1")
-_button2 = NodePath("VBox/Button2")
-_timerLabel = NodePath("VBox/TimerLabel")
+_cardBg = NodePath("CardBg")
+_button0 = NodePath("CardBg/VBox/Button0")
+_button1 = NodePath("CardBg/VBox/Button1")
+_button2 = NodePath("CardBg/VBox/Button2")
+_timerLabel = NodePath("CardBg/VBox/TimerLabel")
 
-[node name="Background" type="ColorRect" parent="." unique_id=1600605626]
+[node name="Overlay" type="ColorRect" parent="." unique_id=1600605626]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.6)
+color = Color(0, 0, 0, 0.7)
 
-[node name="VBox" type="VBoxContainer" parent="." unique_id=1763073207]
+[node name="CardBg" type="TextureRect" parent="." unique_id=1763073208]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -120.0
-offset_right = 150.0
-offset_bottom = 120.0
+offset_left = -310.0
+offset_top = -240.0
+offset_right = 290.0
+offset_bottom = 240.0
 grow_horizontal = 2
 grow_vertical = 2
+texture = ExtResource("2")
+
+[node name="VBox" type="VBoxContainer" parent="CardBg" unique_id=1763073207]
+layout_mode = 1
+offset_left = 40.0
+offset_top = 35.0
+offset_right = 563.0
+offset_bottom = 445.0
 theme_override_constants/separation = 10
 
-[node name="TitleLabel" type="Label" parent="VBox" unique_id=662816780]
+[node name="TitleLabel" type="Label" parent="CardBg/VBox" unique_id=662816780]
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
+theme = SubResource("Theme_bj1kf")
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 15
+theme_override_font_sizes/font_size = 32
 text = "LEVEL UP!"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Button0" type="Button" parent="VBox" unique_id=893771103]
-custom_minimum_size = Vector2(280, 50)
+[node name="space" type="Container" parent="CardBg/VBox" unique_id=1066760148]
+custom_minimum_size = Vector2(0, 25)
 layout_mode = 2
 
-[node name="Button1" type="Button" parent="VBox" unique_id=1704237544]
+[node name="Button0" type="Button" parent="CardBg/VBox" unique_id=893771103]
 custom_minimum_size = Vector2(280, 50)
 layout_mode = 2
+theme = SubResource("Theme_n3eup")
+theme_override_font_sizes/font_size = 24
 
-[node name="Button2" type="Button" parent="VBox" unique_id=1350627972]
+[node name="space2" type="Container" parent="CardBg/VBox" unique_id=851649616]
+custom_minimum_size = Vector2(0, 5)
+layout_mode = 2
+
+[node name="Button1" type="Button" parent="CardBg/VBox" unique_id=1704237544]
 custom_minimum_size = Vector2(280, 50)
 layout_mode = 2
+theme = SubResource("Theme_t4put")
+theme_override_font_sizes/font_size = 24
 
-[node name="TimerLabel" type="Label" parent="VBox" unique_id=1420242151]
+[node name="space4" type="Container" parent="CardBg/VBox" unique_id=15678147]
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
+
+[node name="Button2" type="Button" parent="CardBg/VBox" unique_id=1350627972]
+custom_minimum_size = Vector2(280, 50)
+layout_mode = 2
+theme = SubResource("Theme_veyrc")
+theme_override_font_sizes/font_size = 24
+
+[node name="space3" type="Container" parent="CardBg/VBox" unique_id=1171104744]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="TimerLabel" type="Label" parent="CardBg/VBox" unique_id=1420242151]
+layout_mode = 2
+theme = SubResource("Theme_5uetg")
+theme_override_font_sizes/font_size = 24
 text = "5.0s"
 horizontal_alignment = 1
 
-[connection signal="pressed" from="VBox/Button0" to="." method="OnButton0Pressed"]
-[connection signal="pressed" from="VBox/Button1" to="." method="OnButton1Pressed"]
-[connection signal="pressed" from="VBox/Button2" to="." method="OnButton2Pressed"]
+[connection signal="pressed" from="CardBg/VBox/Button0" to="." method="OnButton0Pressed"]
+[connection signal="pressed" from="CardBg/VBox/Button1" to="." method="OnButton1Pressed"]
+[connection signal="pressed" from="CardBg/VBox/Button2" to="." method="OnButton2Pressed"]

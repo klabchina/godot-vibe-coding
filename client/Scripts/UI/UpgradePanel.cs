@@ -13,6 +13,7 @@ namespace Game.UI;
 /// </summary>
 public partial class UpgradePanel : Control
 {
+    [Export] private TextureRect _cardBg = null!;
     [Export] private Button _button0 = null!;
     [Export] private Button _button1 = null!;
     [Export] private Button _button2 = null!;
