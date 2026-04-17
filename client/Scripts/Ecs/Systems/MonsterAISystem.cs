@@ -86,15 +86,19 @@ public class MonsterAISystem : GameSystem
                     UpdateEliteRanged(monster, velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Orc:
-                    UpdateOrc(velocity, ai, toPlayer, nearestDist, baseSpeed, speedMultiplier, delta);
+                    UpdateOrc(monster, velocity, ai, toPlayer, nearestDist, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Boss:
                     // Speed is overridden by BossAISystem; just set direction
-                    velocity.Velocity = toPlayer * velocity.Speed * speedMultiplier;
+                    float bossRadius = monster.Get<ColliderComponent>()?.Radius ?? 40f;
+                    Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, toPlayer, velocity.Speed * speedMultiplier, delta, bossRadius);
+                    velocity.Velocity = bossDir * velocity.Speed * speedMultiplier;
                     break;
                 default:
                     // Slime: straight chase
-                    velocity.Velocity = toPlayer * baseSpeed * speedMultiplier;
+                    float slimeRadius = monster.Get<ColliderComponent>()?.Radius ?? 15f;
+                    Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, toPlayer, baseSpeed * speedMultiplier, delta, slimeRadius);
+                    velocity.Velocity = slimeDir * baseSpeed * speedMultiplier;
                     break;
             }
         }
@@ -118,7 +122,9 @@ public class MonsterAISystem : GameSystem
                 ai.FiredThisCycle = false;
             }
 
-            velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
+            float skelRadius = monster.Get<ColliderComponent>()?.Radius ?? 18f;
+            Vec2 skelDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, ai.WanderDir, baseSpeed * speedMul, delta, skelRadius);
+            velocity.Velocity = skelDir * baseSpeed * speedMul;
             ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
@@ -187,7 +193,9 @@ public class MonsterAISystem : GameSystem
                 ai.FiredThisCycle = false;
             }
 
-            velocity.Velocity = ai.WanderDir * baseSpeed * speedMul;
+            float eliteRadius = monster.Get<ColliderComponent>()?.Radius ?? 25f;
+            Vec2 eliteDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, ai.WanderDir, baseSpeed * speedMul, delta, eliteRadius);
+            velocity.Velocity = eliteDir * baseSpeed * speedMul;
             ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
@@ -254,7 +262,7 @@ public class MonsterAISystem : GameSystem
 
     // ─── Orc — unchanged ──────────────────────────────────────────────────────
 
-    private void UpdateOrc(VelocityComponent velocity, MonsterAIState ai,
+    private void UpdateOrc(Entity monster, VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, float distToPlayer, float baseSpeed, float speedMul, float delta)
     {
         if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
@@ -273,7 +281,9 @@ public class MonsterAISystem : GameSystem
 
         if (ai.IsCharging)
         {
-            velocity.Velocity = toPlayer * MonsterData.OrcChargeSpeed * speedMul;
+            float orcChargeRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
+            Vec2 chargeDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer, MonsterData.OrcChargeSpeed * speedMul, delta, orcChargeRadius);
+            velocity.Velocity = chargeDir * MonsterData.OrcChargeSpeed * speedMul;
             if (distToPlayer < 30f)
             {
                 ai.IsCharging = false;
@@ -284,7 +294,9 @@ public class MonsterAISystem : GameSystem
             return;
         }
 
-        velocity.Velocity = toPlayer * baseSpeed * speedMul;
+        float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
+        Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer, baseSpeed * speedMul, delta, orcRadius);
+        velocity.Velocity = orcDir * baseSpeed * speedMul;
         if (distToPlayer <= MonsterData.OrcChargeRange)
             ai.IsCharging = true;
     }
@@ -317,5 +329,63 @@ public class MonsterAISystem : GameSystem
         Vec2 toCenter = ((ArenaData.Size * 0.5f) - monsterPos).Normalized();
         float randAngle = GameRandom.Randf() * GMath.Pi * 0.5f - GMath.Pi * 0.25f; // ±45° 随机扰动
         return toCenter.Rotated(randAngle);
+    }
+
+    // ─── Obstacle avoidance ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// If moving in desiredDir would overlap an obstacle, try ±90° to slide around it.
+    /// </summary>
+    private Vec2 AdjustForObstacles(Vec2 pos, Vec2 desiredDir, float speed, float delta, float entityRadius)
+    {
+        if (desiredDir == Vec2.Zero) return desiredDir;
+
+        var obstacles = World.GetEntitiesWith<ObstacleComponent, TransformComponent, ColliderComponent>();
+        if (obstacles.Count == 0) return desiredDir;
+
+        Vec2 predictedPos = pos + desiredDir * speed * delta;
+
+        foreach (var obs in obstacles)
+        {
+            var ot = obs.Get<TransformComponent>();
+            var oc = obs.Get<ColliderComponent>();
+
+            float dx = GMath.Abs(predictedPos.X - ot.Position.X);
+            float dy = GMath.Abs(predictedPos.Y - ot.Position.Y);
+            if (dx < entityRadius + oc.HalfWidth && dy < entityRadius + oc.HalfHeight)
+            {
+                Vec2 left = desiredDir.Rotated(GMath.Pi * 0.5f);
+                Vec2 right = desiredDir.Rotated(-GMath.Pi * 0.5f);
+
+                bool leftBlocked = IsBlockedByObstacle(pos + left * speed * delta, entityRadius, obstacles);
+                bool rightBlocked = IsBlockedByObstacle(pos + right * speed * delta, entityRadius, obstacles);
+
+                if (!leftBlocked && !rightBlocked)
+                {
+                    float leftDot = left.X * desiredDir.X + left.Y * desiredDir.Y;
+                    float rightDot = right.X * desiredDir.X + right.Y * desiredDir.Y;
+                    return leftDot >= rightDot ? left : right;
+                }
+                if (!leftBlocked) return left;
+                if (!rightBlocked) return right;
+                return Vec2.Zero;
+            }
+        }
+
+        return desiredDir;
+    }
+
+    private static bool IsBlockedByObstacle(Vec2 pos, float radius, System.Collections.Generic.List<Entity> obstacles)
+    {
+        foreach (var obs in obstacles)
+        {
+            var ot = obs.Get<TransformComponent>();
+            var oc = obs.Get<ColliderComponent>();
+            float dx = GMath.Abs(pos.X - ot.Position.X);
+            float dy = GMath.Abs(pos.Y - ot.Position.Y);
+            if (dx < radius + oc.HalfWidth && dy < radius + oc.HalfHeight)
+                return true;
+        }
+        return false;
     }
 }
