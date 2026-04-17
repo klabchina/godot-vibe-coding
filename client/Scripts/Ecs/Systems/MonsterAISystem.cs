@@ -157,9 +157,10 @@ public class MonsterAISystem : GameSystem
         });
         proj.Add(new MonsterProjectileComponent
         {
-            Damage = MonsterData.SkeletonProjectileDamage,
-            OwnerId = monster.Id,
-            Acceleration = 0f
+            Damage    = MonsterData.SkeletonProjectileDamage,
+            OwnerId   = monster.Id,
+            IsHoming  = false,
+            LifeTimer = 0f
         });
         proj.Add(new ColliderComponent
         {
@@ -232,14 +233,15 @@ public class MonsterAISystem : GameSystem
             proj.Add(new TransformComponent { Position = origin, Rotation = dir.Angle() });
             proj.Add(new VelocityComponent
             {
-                Velocity = dir * MonsterData.EliteProjectileInitSpeed,
-                Speed = MonsterData.EliteProjectileInitSpeed
+                Velocity = dir * MonsterData.EliteProjectileSpeed,
+                Speed    = MonsterData.EliteProjectileSpeed
             });
             proj.Add(new MonsterProjectileComponent
             {
-                Damage = MonsterData.EliteProjectileDamage,
-                OwnerId = monster.Id,
-                Acceleration = MonsterData.EliteProjectileAccel
+                Damage    = MonsterData.EliteProjectileDamage,
+                OwnerId   = monster.Id,
+                IsHoming  = true,
+                LifeTimer = MonsterData.EliteProjectileLifetime
             });
             proj.Add(new ColliderComponent
             {

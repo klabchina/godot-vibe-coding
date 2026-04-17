@@ -203,8 +203,8 @@ public class RenderSystem : GameSystem
         {
             var proj = entity.Get<MonsterProjectileComponent>();
             var sprite = new Sprite2D();
-            // 骷髅（匀速）→ fire，精英（加速）→ star
-            string texPath = proj.Acceleration > 0
+            // 骷髅（直线）→ fire，精英（追踪）→ star
+            string texPath = proj.IsHoming
                 ? SpriteFramesConstant.ArrowStar
                 : SpriteFramesConstant.ArrowFire;
             sprite.Texture = GD.Load<Texture2D>(texPath);

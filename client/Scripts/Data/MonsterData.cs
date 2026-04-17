@@ -53,12 +53,13 @@ public static class MonsterData
     public const int   SkeletonProjectileDamage = 6;
 
     // Elite ranged parameters
-    public const float EliteWanderDuration      = 2.5f;  // seconds in wander phase
-    public const float EliteAttackDuration      = 0.6f;  // pause before firing
-    public const float EliteProjectileInitSpeed = 150f;  // px/s at spawn
-    public const float EliteProjectileAccel     = 250f;  // px/s² linear acceleration
-    public const int   EliteProjectileMinCount  = 2;
-    public const int   EliteProjectileMaxCount  = 4;
-    public const float EliteProjectileSpreadDeg = 12f;   // degrees between adjacent shots
-    public const int   EliteProjectileDamage    = 10;
+    public const float EliteWanderDuration       = 2.5f;  // seconds in wander phase
+    public const float EliteAttackDuration        = 0.6f;  // pause before firing
+    public const float EliteProjectileSpeed       = 120f;  // px/s 慢速追踪
+    public const float EliteProjectileTurnSpeed   = 100f;  // °/s 每秒最大转向角度
+    public const float EliteProjectileLifetime    = 10f;   // 秒，未命中存活时间
+    public const int   EliteProjectileMinCount    = 2;
+    public const int   EliteProjectileMaxCount    = 4;
+    public const float EliteProjectileSpreadDeg   = 12f;   // degrees between adjacent shots
+    public const int   EliteProjectileDamage      = 10;
 }
