@@ -27,4 +27,9 @@ public class MonsterAIState
     public float       PhaseTimer;        // counts down; 0 triggers phase transition/re-init
     public Vec2        WanderDir;         // direction chosen at wander-phase start
     public bool        FiredThisCycle;    // ensures one fire per attack phase
+
+    // Detour memory — commit to a bypass direction until path clears
+    public bool  IsDetouring;
+    public Vec2  DetourDir;
+    public float DetourTimer;
 }

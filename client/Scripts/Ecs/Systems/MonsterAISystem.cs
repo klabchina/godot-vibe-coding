@@ -86,18 +86,20 @@ public class MonsterAISystem : GameSystem
                     UpdateEliteRanged(monster, velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Orc:
-                    UpdateOrc(monster, velocity, ai, toPlayer, nearestDist, baseSpeed, speedMultiplier, delta);
+                    UpdateOrc(monster, velocity, ai, toPlayer, nearestPos, nearestDist, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Boss:
                     // Speed is overridden by BossAISystem; just set direction
                     float bossRadius = monster.Get<ColliderComponent>()?.Radius ?? 40f;
-                    Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, toPlayer, velocity.Speed * speedMultiplier, delta, bossRadius);
+                    Vec2 bossDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, bossRadius, delta);
+                    Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, bossDetour, velocity.Speed * speedMultiplier, delta, bossRadius);
                     velocity.Velocity = bossDir * velocity.Speed * speedMultiplier;
                     break;
                 default:
                     // Slime: straight chase
                     float slimeRadius = monster.Get<ColliderComponent>()?.Radius ?? 15f;
-                    Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, toPlayer, baseSpeed * speedMultiplier, delta, slimeRadius);
+                    Vec2 slimeDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, slimeRadius, delta);
+                    Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, slimeDetour, baseSpeed * speedMultiplier, delta, slimeRadius);
                     velocity.Velocity = slimeDir * baseSpeed * speedMultiplier;
                     break;
             }
@@ -263,7 +265,7 @@ public class MonsterAISystem : GameSystem
     // ─── Orc — unchanged ──────────────────────────────────────────────────────
 
     private void UpdateOrc(Entity monster, VelocityComponent velocity, MonsterAIState ai,
-        Vec2 toPlayer, float distToPlayer, float baseSpeed, float speedMul, float delta)
+        Vec2 toPlayer, Vec2 nearestPos, float distToPlayer, float baseSpeed, float speedMul, float delta)
     {
         if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
 
@@ -282,7 +284,8 @@ public class MonsterAISystem : GameSystem
         if (ai.IsCharging)
         {
             float orcChargeRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
-            Vec2 chargeDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer, MonsterData.OrcChargeSpeed * speedMul, delta, orcChargeRadius);
+            Vec2 chargeDetour = ApplyDetourMemory(ai, monster.Get<TransformComponent>().Position, nearestPos, toPlayer, orcChargeRadius, delta);
+            Vec2 chargeDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, chargeDetour, MonsterData.OrcChargeSpeed * speedMul, delta, orcChargeRadius);
             velocity.Velocity = chargeDir * MonsterData.OrcChargeSpeed * speedMul;
             if (distToPlayer < 30f)
             {
@@ -295,7 +298,8 @@ public class MonsterAISystem : GameSystem
         }
 
         float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
-        Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer, baseSpeed * speedMul, delta, orcRadius);
+        Vec2 orcDetour = ApplyDetourMemory(ai, monster.Get<TransformComponent>().Position, nearestPos, toPlayer, orcRadius, delta);
+        Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, orcDetour, baseSpeed * speedMul, delta, orcRadius);
         velocity.Velocity = orcDir * baseSpeed * speedMul;
         if (distToPlayer <= MonsterData.OrcChargeRange)
             ai.IsCharging = true;
@@ -387,5 +391,163 @@ public class MonsterAISystem : GameSystem
                 return true;
         }
         return false;
+    }
+
+    // ─── Detour memory — path obstruction detection & bypass ──────────────────
+
+    private const float DetourTimeout = 2f;
+
+    /// <summary>
+    /// AABB line-segment intersection: checks if the straight path from start to end
+    /// is blocked by any obstacle (expanded by entityRadius via Minkowski sum).
+    /// Returns the blocking obstacle's position if blocked, or null if clear.
+    /// </summary>
+    private Vec2? FindBlockingObstacle(Vec2 start, Vec2 end, float entityRadius)
+    {
+        var obstacles = World.GetEntitiesWith<ObstacleComponent, TransformComponent, ColliderComponent>();
+        Vec2 dir = end - start;
+
+        foreach (var obs in obstacles)
+        {
+            var ot = obs.Get<TransformComponent>();
+            var oc = obs.Get<ColliderComponent>();
+
+            // Expanded AABB (Minkowski sum with entity circle)
+            float hw = oc.HalfWidth + entityRadius;
+            float hh = oc.HalfHeight + entityRadius;
+            float minX = ot.Position.X - hw;
+            float maxX = ot.Position.X + hw;
+            float minY = ot.Position.Y - hh;
+            float maxY = ot.Position.Y + hh;
+
+            // Slab intersection test (tMin/tMax reset per obstacle)
+            if (RayIntersectsAABB(start, dir, minX, maxX, minY, maxY, 0f, 1f))
+                return ot.Position;
+        }
+        return null;
+    }
+
+    private static bool RayIntersectsAABB(Vec2 origin, Vec2 dir, float minX, float maxX, float minY, float maxY, float tMin, float tMax)
+    {
+        // X slab
+        if (GMath.Abs(dir.X) < 1e-6f)
+        {
+            if (origin.X < minX || origin.X > maxX) return false;
+        }
+        else
+        {
+            float invD = 1f / dir.X;
+            float t1 = (minX - origin.X) * invD;
+            float t2 = (maxX - origin.X) * invD;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            tMin = t1 > tMin ? t1 : tMin;
+            tMax = t2 < tMax ? t2 : tMax;
+            if (tMin > tMax) return false;
+        }
+
+        // Y slab
+        if (GMath.Abs(dir.Y) < 1e-6f)
+        {
+            if (origin.Y < minY || origin.Y > maxY) return false;
+        }
+        else
+        {
+            float invD = 1f / dir.Y;
+            float t1 = (minY - origin.Y) * invD;
+            float t2 = (maxY - origin.Y) * invD;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            tMin = t1 > tMin ? t1 : tMin;
+            tMax = t2 < tMax ? t2 : tMax;
+            if (tMin > tMax) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Choose detour direction based on obstacle position relative to monster→player line.
+    /// Cross product sign determines which side to go around.
+    /// </summary>
+    private Vec2 GetDetourDirection(Vec2 toPlayer, Vec2 monsterPos, Vec2 obstaclePos, float entityRadius)
+    {
+        Vec2 toObs = obstaclePos - monsterPos;
+        // cross = toPlayer.X * toObs.Y - toPlayer.Y * toObs.X
+        float cross = toPlayer.X * toObs.Y - toPlayer.Y * toObs.X;
+
+        var obstacles = World.GetEntitiesWith<ObstacleComponent, TransformComponent, ColliderComponent>();
+
+        // Try ±45° first (keeps forward progress toward player while bypassing)
+        Vec2 primary45 = cross >= 0
+            ? toPlayer.Rotated(-GMath.Pi * 0.25f)
+            : toPlayer.Rotated(GMath.Pi * 0.25f);
+        if (!IsBlockedByObstacle(monsterPos + primary45 * 30f, entityRadius, obstacles))
+            return primary45;
+
+        Vec2 secondary45 = cross >= 0
+            ? toPlayer.Rotated(GMath.Pi * 0.25f)
+            : toPlayer.Rotated(-GMath.Pi * 0.25f);
+        if (!IsBlockedByObstacle(monsterPos + secondary45 * 30f, entityRadius, obstacles))
+            return secondary45;
+
+        // Fallback: ±90° (pure lateral slide)
+        Vec2 primary90 = cross >= 0
+            ? toPlayer.Rotated(-GMath.Pi * 0.5f)
+            : toPlayer.Rotated(GMath.Pi * 0.5f);
+        if (!IsBlockedByObstacle(monsterPos + primary90 * 30f, entityRadius, obstacles))
+            return primary90;
+
+        Vec2 secondary90 = cross >= 0
+            ? toPlayer.Rotated(GMath.Pi * 0.5f)
+            : toPlayer.Rotated(-GMath.Pi * 0.5f);
+        if (!IsBlockedByObstacle(monsterPos + secondary90 * 30f, entityRadius, obstacles))
+            return secondary90;
+
+        // Last resort: ±135°
+        Vec2 wide1 = toPlayer.Rotated(GMath.Pi * 0.75f);
+        if (!IsBlockedByObstacle(monsterPos + wide1 * 30f, entityRadius, obstacles))
+            return wide1;
+        Vec2 wide2 = toPlayer.Rotated(-GMath.Pi * 0.75f);
+        if (!IsBlockedByObstacle(monsterPos + wide2 * 30f, entityRadius, obstacles))
+            return wide2;
+
+        return Vec2.Zero; // completely stuck
+    }
+
+    /// <summary>
+    /// Apply detour memory: if path to player is blocked, commit to a bypass direction
+    /// until the path is clear or the timer expires.
+    /// Returns the adjusted movement direction (still needs AdjustForObstacles as safety net).
+    /// </summary>
+    private Vec2 ApplyDetourMemory(MonsterAIState ai, Vec2 monsterPos, Vec2 nearestPos, Vec2 toPlayer, float entityRadius, float delta)
+    {
+        var blocking = FindBlockingObstacle(monsterPos, nearestPos, entityRadius);
+
+        if (blocking == null)
+        {
+            // Path is clear — stop detouring
+            ai.IsDetouring = false;
+            return toPlayer;
+        }
+
+        // Path is blocked
+        if (!ai.IsDetouring)
+        {
+            // Enter detour mode
+            ai.IsDetouring = true;
+            ai.DetourDir = GetDetourDirection(toPlayer, monsterPos, blocking.Value, entityRadius);
+            ai.DetourTimer = DetourTimeout;
+        }
+        else
+        {
+            ai.DetourTimer -= delta;
+            if (ai.DetourTimer <= 0f)
+            {
+                // Re-evaluate direction
+                ai.DetourDir = GetDetourDirection(toPlayer, monsterPos, blocking.Value, entityRadius);
+                ai.DetourTimer = DetourTimeout;
+            }
+        }
+
+        return ai.DetourDir;
     }
 }
