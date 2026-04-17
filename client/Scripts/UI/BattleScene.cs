@@ -81,6 +81,9 @@ public partial class BattleScene : Node2D
 		var spawner = _world.CreateEntity();
 		var wave = spawner.Add(new WaveComponent());
 
+		// Spawn map obstacles as ECS entities
+		MapLoader.SpawnObstacles(_currentMap, _world);
+
 		// Register systems in execution order
 		_world.AddSystem(new InputSystem());
 		var waveSpawnSystem = new WaveSpawnSystem();
