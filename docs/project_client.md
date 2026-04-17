@@ -75,6 +75,7 @@
 | **Monster** | 每波刷新的敌人（Slime/Skeleton/Orc/Elite/Boss） |
 | **Pickup** | 可拾取物（经验球、临时道具） |
 | **WaveSpawner** | 波次控制器 |
+| **Obstacle** | 不可通行障碍物（AABB 矩形），阻挡玩家/怪物/箭矢 |
 
 ### Component 定义
 
@@ -405,7 +406,8 @@ client/
 │   │   │   ├── EffectComponent.cs
 │   │   │   ├── BuffComponent.cs
 │   │   │   ├── OrbitComponent.cs
-│   │   │   └── BossPhaseComponent.cs
+│   │   │   ├── BossPhaseComponent.cs
+│   │   │   └── ObstacleComponent.cs    # 障碍物标记
 │   │   └── Systems/
 │   │       ├── InputSystem.cs         # 仅处理移动输入
 │   │       ├── NetworkRecvSystem.cs
@@ -442,6 +444,7 @@ client/
 │   ├── Game/
 │   │   ├── GameManager.cs         # 全局游戏状态管理（Autoload）
 │   │   ├── SceneManager.cs        # 场景切换管理（Autoload）
+│   │   ├── MapLoader.cs           # 地图加载（随机选图、创建障碍物 Entity）
 │   │   ├── WaveConfig.cs          # 波次配置数据
 │   │   └── UpgradeConfig.cs       # 升级池配置数据
 │   │
@@ -449,12 +452,19 @@ client/
 │       ├── MonsterData.cs         # 怪物属性配置
 │       ├── WeaponData.cs          # 弓箭属性配置
 │       ├── UpgradeData.cs         # 升级项定义（名称、效果、叠加上限）
-│       └── PickupData.cs          # 掉落物配置（概率、效果）
+│       ├── PickupData.cs          # 掉落物配置（概率、效果）
+│       └── MapConfig.cs           # 地图数据模型（JSON 反序列化）
 │
 └── Assets/
     ├── Sprites/
     ├── Audio/
     └── UI/
+
+Data/
+└── Maps/                          # 地图 JSON 配置文件
+    ├── plain.json
+    ├── mountain.json
+    └── grassland.json
 ```
 
 ---
