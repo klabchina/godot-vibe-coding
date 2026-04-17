@@ -147,6 +147,23 @@ public static class CollisionLayers
 
 受影响实体：有 `PlayerComponent` 或 `MonsterComponent` 的实体。
 
+### MonsterAISystem — 障碍物绕行
+
+怪物追踪玩家时，若直线路径被障碍物阻挡，需要绕行。采用**简单侧滑策略**（不做 A* 寻路，保持轻量）：
+
+1. 怪物每帧计算朝玩家的方向向量 `toPlayer`
+2. 沿 `toPlayer` 做一步预测位置（当前位置 + toPlayer × speed × delta）
+3. 检测预测位置是否与任意障碍物 AABB 重叠
+4. 若重叠：将方向旋转 ±90°（选择离玩家更近的那侧），沿障碍物边缘侧滑
+5. 若不重叠：正常追踪
+
+具体实现：在 MonsterAISystem 中新增辅助方法 `AdjustForObstacles(Vec2 pos, Vec2 desiredDir, float speed, float delta) -> Vec2`，各怪物类型在设置 velocity 前调用此方法修正方向。
+
+受影响的怪物行为：
+- **Slime / Orc（追踪模式）/ Boss**：追踪方向经过障碍物修正
+- **Skeleton / Elite（游荡模式）**：游荡方向经过障碍物修正；攻击阶段静止不动，不受影响
+- **Orc（冲锋模式）**：冲锋方向经过障碍物修正
+
 ### CollisionSystem — 箭矢拦截
 
 在现有箭矢碰撞检测之后，增加箭矢/投射物 vs 障碍物检测：
