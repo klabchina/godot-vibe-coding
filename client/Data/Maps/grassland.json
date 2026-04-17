@@ -2,10 +2,10 @@
   "id": "grassland",
   "background": "res://Assets/Sprites/Scenes/battle_bg_grassland.png",
   "obstacles": [
-    { "x": 600, "y": 300, "w": 100, "h": 80, "sprite": "" },
-    { "x": 1100, "y": 500, "w": 120, "h": 90, "sprite": "" },
-    { "x": 400, "y": 800, "w": 80, "h": 120, "sprite": "" },
-    { "x": 1500, "y": 400, "w": 110, "h": 70, "sprite": "" },
-    { "x": 950, "y": 950, "w": 90, "h": 90, "sprite": "" }
+    { "x": 600, "y": 300, "w": 80, "h": 80, "sprite": "res://Assets/Sprites/Scenes/obstacle_grassland.png" },
+    { "x": 1100, "y": 500, "w": 120, "h": 120, "sprite": "res://Assets/Sprites/Scenes/obstacle_grassland.png" },
+    { "x": 400, "y": 800, "w": 150, "h": 150, "sprite": "res://Assets/Sprites/Scenes/obstacle_grassland.png" },
+    { "x": 1500, "y": 400, "w": 110, "h": 110, "sprite": "res://Assets/Sprites/Scenes/obstacle_grassland.png" },
+    { "x": 1350, "y": 950, "w": 200, "h": 150, "sprite": "res://Assets/Sprites/Scenes/obstacle_grassland.png" }
   ]
 }

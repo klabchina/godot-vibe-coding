@@ -35,7 +35,8 @@ public static class MapLoader
     {
         if (_maps.Count == 0)
             throw new InvalidOperationException("No maps loaded. Call LoadAll() first.");
-        return _maps[_rng.Next(_maps.Count)];
+        // return _maps[_rng.Next(_maps.Count)];
+        return _maps[2];
     }
 
     public static void ApplyBackground(MapConfig map, Node2D sceneRoot)
@@ -69,7 +70,7 @@ public static class MapLoader
                 Layer = CollisionLayers.Obstacle,
                 Mask = 0
             });
-            entity.Add(new ObstacleComponent());
+            entity.Add(new ObstacleComponent { SpritePath = obs.Sprite });
         }
     }
 }

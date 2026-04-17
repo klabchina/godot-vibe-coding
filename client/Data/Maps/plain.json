@@ -2,8 +2,8 @@
   "id": "plain",
   "background": "res://Assets/Sprites/Scenes/battle_bg_plain.png",
   "obstacles": [
-    { "x": 500, "y": 400, "w": 120, "h": 80, "sprite": "" },
-    { "x": 1300, "y": 350, "w": 100, "h": 100, "sprite": "" },
-    { "x": 900, "y": 800, "w": 150, "h": 60, "sprite": "" }
+    { "x": 500, "y": 200, "w": 250, "h": 400, "sprite": "res://Assets/Sprites/Scenes/obstacle_plain.png" },
+    { "x": 1300, "y": 200, "w": 200, "h": 200, "sprite": "res://Assets/Sprites/Scenes/obstacle_plain.png" },
+    { "x": 600, "y": 800, "w": 350, "h": 250, "sprite": "res://Assets/Sprites/Scenes/obstacle_plain.png" }
   ]
 }

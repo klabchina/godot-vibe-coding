@@ -224,11 +224,26 @@ public class RenderSystem : GameSystem
         }
         else if (entity.Has<ObstacleComponent>())
         {
+            var obstacle = entity.Get<ObstacleComponent>();
             var collider = entity.Get<ColliderComponent>();
-            var rect = new ColorRect();
-            rect.Color = new Color(0.3f, 0.25f, 0.2f, 0.8f);
             float w = collider.HalfWidth * 2;
             float h = collider.HalfHeight * 2;
+
+            if (!string.IsNullOrEmpty(obstacle.SpritePath))
+            {
+                var tex = GD.Load<Texture2D>(obstacle.SpritePath);
+                if (tex != null)
+                {
+                    var sprite = new Sprite2D();
+                    sprite.Texture = tex;
+                    sprite.Scale = new Vector2(w / tex.GetWidth(), h / tex.GetHeight());
+                    wrapper.AddChild(sprite);
+                    return wrapper;
+                }
+            }
+            // Fallback: brown ColorRect
+            var rect = new ColorRect();
+            rect.Color = new Color(0.3f, 0.25f, 0.2f, 0.8f);
             rect.Size = new Vector2(w, h);
             rect.Position = new Vector2(-collider.HalfWidth, -collider.HalfHeight);
             wrapper.AddChild(rect);
