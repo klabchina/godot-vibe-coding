@@ -38,6 +38,10 @@ public class MovementSystem : GameSystem
                     GMath.Clamp(transform.Position.X, PlayerRadius, ArenaData.Size.X - PlayerRadius),
                     GMath.Clamp(transform.Position.Y, PlayerRadius, ArenaData.Size.Y - PlayerRadius)
                 );
+
+                var playerCollider = entity.Get<ColliderComponent>();
+                if (playerCollider != null)
+                    PushOutOfObstacles(transform, playerCollider.HalfWidth, playerCollider.HalfHeight);
             }
             else if (entity.Has<ArrowComponent>())
             {
@@ -80,7 +84,17 @@ public class MovementSystem : GameSystem
                 if (IsOutsideArena(transform.Position))
                     World.DestroyEntity(entity.Id);
             }
-            // Monsters: no clamping — they spawn outside and move in.
+            else if (entity.Has<MonsterComponent>())
+            {
+                var monsterCollider = entity.Get<ColliderComponent>();
+                if (monsterCollider != null)
+                {
+                    float hw = monsterCollider.Shape == ColliderShape.Circle ? monsterCollider.Radius : monsterCollider.HalfWidth;
+                    float hh = monsterCollider.Shape == ColliderShape.Circle ? monsterCollider.Radius : monsterCollider.HalfHeight;
+                    PushOutOfObstacles(transform, hw, hh);
+                }
+            }
+            // Obstacles: static, no movement processing needed.
         }
     }
 
@@ -110,4 +124,32 @@ public class MovementSystem : GameSystem
     private bool IsOutsideArena(Vec2 pos) =>
         pos.X < -ArrowMargin || pos.X > ArenaData.Size.X + ArrowMargin ||
         pos.Y < -ArrowMargin || pos.Y > ArenaData.Size.Y + ArrowMargin;
+
+    private void PushOutOfObstacles(TransformComponent transform, float entityHW, float entityHH)
+    {
+        var obstacles = World.GetEntitiesWith<ObstacleComponent, TransformComponent, ColliderComponent>();
+        foreach (var obs in obstacles)
+        {
+            var obsTransform = obs.Get<TransformComponent>();
+            var obsCollider = obs.Get<ColliderComponent>();
+
+            float dx = transform.Position.X - obsTransform.Position.X;
+            float dy = transform.Position.Y - obsTransform.Position.Y;
+            float overlapX = entityHW + obsCollider.HalfWidth - GMath.Abs(dx);
+            float overlapY = entityHH + obsCollider.HalfHeight - GMath.Abs(dy);
+
+            if (overlapX <= 0 || overlapY <= 0) continue;
+
+            if (overlapX < overlapY)
+            {
+                float sign = dx >= 0 ? 1f : -1f;
+                transform.Position = new Vec2(transform.Position.X + overlapX * sign, transform.Position.Y);
+            }
+            else
+            {
+                float sign = dy >= 0 ? 1f : -1f;
+                transform.Position = new Vec2(transform.Position.X, transform.Position.Y + overlapY * sign);
+            }
+        }
+    }
 }
