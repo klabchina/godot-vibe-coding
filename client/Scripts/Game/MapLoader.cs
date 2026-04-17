@@ -35,8 +35,7 @@ public static class MapLoader
     {
         if (_maps.Count == 0)
             throw new InvalidOperationException("No maps loaded. Call LoadAll() first.");
-        // return _maps[_rng.Next(_maps.Count)];
-        return _maps[2];
+        return _maps[_rng.Next(_maps.Count)];
     }
 
     public static void ApplyBackground(MapConfig map, Node2D sceneRoot)
