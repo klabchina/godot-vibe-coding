@@ -5,6 +5,7 @@ using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Ecs.ClientSystems;
 using Game.Data;
+using Game;
 
 namespace Game.UI;
 
@@ -22,6 +23,7 @@ public partial class BattleScene : Node2D
 	private UpgradePanel _upgradePanel;
 	private CanvasLayer _canvasLayer;
 	private bool _gameOver;
+	private MapConfig _currentMap;
 
 	// Pending level-ups queue (supports consecutive level-ups)
 	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
@@ -35,6 +37,10 @@ public partial class BattleScene : Node2D
 		_upgradePanel = ResourceLoader.Load<PackedScene>("res://Scenes/UpgradePanel.tscn").Instantiate() as UpgradePanel
 			?? throw new System.InvalidOperationException("Failed to load UpgradePanel scene");
 		_canvasLayer.AddChild(_upgradePanel);
+
+		MapLoader.LoadAll();
+		_currentMap = MapLoader.PickRandom();
+		MapLoader.ApplyBackground(_currentMap, this);
 
 		InitializeWorld();
 	}
