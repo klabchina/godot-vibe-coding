@@ -19,6 +19,7 @@ public class CollisionSystem : GameSystem
         CheckArrowVsMonster();
         CheckMonsterVsPlayer();
         CheckMonsterProjectileVsPlayer();
+        CheckProjectileVsObstacle();
     }
 
     // ── Unified overlap test (Circle / OBB) ──────────────────────────
@@ -232,6 +233,48 @@ public class CollisionSystem : GameSystem
                 Hits.Add(new HitEvent(projEntity.Id, playerEntity.Id, projComp.Damage, false));
                 World.DestroyEntity(projEntity.Id);
                 break;
+            }
+        }
+    }
+
+    private void CheckProjectileVsObstacle()
+    {
+        var obstacles = World.GetEntitiesWith<ObstacleComponent, TransformComponent, ColliderComponent>();
+        if (obstacles.Count == 0) return;
+
+        var arrows = World.GetEntitiesWith<ArrowComponent, TransformComponent, ColliderComponent>();
+        foreach (var arrow in arrows)
+        {
+            if (!arrow.IsAlive) continue;
+            var at = arrow.Get<TransformComponent>();
+            var ac = arrow.Get<ColliderComponent>();
+            foreach (var obs in obstacles)
+            {
+                var ot = obs.Get<TransformComponent>();
+                var oc = obs.Get<ColliderComponent>();
+                if (Overlaps(ac, at, oc, ot))
+                {
+                    World.DestroyEntity(arrow.Id);
+                    break;
+                }
+            }
+        }
+
+        var projectiles = World.GetEntitiesWith<MonsterProjectileComponent, TransformComponent, ColliderComponent>();
+        foreach (var proj in projectiles)
+        {
+            if (!proj.IsAlive) continue;
+            var pt = proj.Get<TransformComponent>();
+            var pc = proj.Get<ColliderComponent>();
+            foreach (var obs in obstacles)
+            {
+                var ot = obs.Get<TransformComponent>();
+                var oc = obs.Get<ColliderComponent>();
+                if (Overlaps(pc, pt, oc, ot))
+                {
+                    World.DestroyEntity(proj.Id);
+                    break;
+                }
             }
         }
     }
