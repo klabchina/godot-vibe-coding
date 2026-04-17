@@ -1,0 +1,11 @@
+{
+  "id": "grassland",
+  "background": "res://Assets/Sprites/Scenes/battle_bg_grassland.png",
+  "obstacles": [
+    { "x": 600, "y": 300, "w": 100, "h": 80, "sprite": "" },
+    { "x": 1100, "y": 500, "w": 120, "h": 90, "sprite": "" },
+    { "x": 400, "y": 800, "w": 80, "h": 120, "sprite": "" },
+    { "x": 1500, "y": 400, "w": 110, "h": 70, "sprite": "" },
+    { "x": 950, "y": 950, "w": 90, "h": 90, "sprite": "" }
+  ]
+}

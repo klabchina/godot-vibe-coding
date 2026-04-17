@@ -25,4 +25,5 @@ public static class CollisionLayers
     public const int Arrow        = 4;
     public const int Pickup       = 8;
     public const int MonsterArrow = 16; // Monster projectiles; collide with Player only
+    public const int Obstacle    = 32;
 }

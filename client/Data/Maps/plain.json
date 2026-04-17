@@ -1,0 +1,9 @@
+{
+  "id": "plain",
+  "background": "res://Assets/Sprites/Scenes/battle_bg_plain.png",
+  "obstacles": [
+    { "x": 500, "y": 400, "w": 120, "h": 80, "sprite": "" },
+    { "x": 1300, "y": 350, "w": 100, "h": 100, "sprite": "" },
+    { "x": 900, "y": 800, "w": 150, "h": 60, "sprite": "" }
+  ]
+}
