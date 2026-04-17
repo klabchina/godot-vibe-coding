@@ -65,27 +65,27 @@ public partial class BattleHud : Control
         int level = LevelData.GetLevel(totalXp);
 
         // 展示等级最低为 1（升级前也显示 Lv.1）
-        int displayLevel = System.Math.Max(1, level);
+        int displayLevel = level + 1;
 
         // 本级起始累积 XP（Lv.1 之前起始为 0）
-        int prevCumXp = displayLevel <= 1 ? 0 : LevelData.GetCumulativeXp(displayLevel - 1);
+        int prevCumXp = LevelData.GetCumulativeXp(level);
         // 本级目标累积 XP
-        int nextCumXp = displayLevel >= LevelData.MaxLevel
+        int nextCumXp = level + 1 >= LevelData.MaxLevel
             ? LevelData.GetCumulativeXp(LevelData.MaxLevel)
-            : LevelData.GetCumulativeXp(displayLevel);
+            : LevelData.GetCumulativeXp(level + 1);
 
-        int levelXp   = nextCumXp - prevCumXp;          // 本级需要的 XP 段长
+        int levelXp = nextCumXp - prevCumXp;          // 本级需要的 XP 段长
         int currentXp = totalXp - prevCumXp;            // 本级已积累的 XP
 
         if (_xpBar != null)
         {
             _xpBar.MaxValue = levelXp > 0 ? levelXp : 1;
-            _xpBar.Value    = displayLevel >= LevelData.MaxLevel ? levelXp : currentXp;
+            _xpBar.Value = level >= LevelData.MaxLevel ? levelXp : currentXp;
         }
 
         if (_xpBarLabel != null)
         {
-            if (displayLevel >= LevelData.MaxLevel)
+            if (level >= LevelData.MaxLevel)
                 _xpBarLabel.Text = $"Lv.{displayLevel}  MAX";
             else
                 _xpBarLabel.Text = $"Lv.{displayLevel}  XP {currentXp}/{levelXp}";

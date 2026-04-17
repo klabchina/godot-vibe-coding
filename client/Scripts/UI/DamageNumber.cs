@@ -16,8 +16,13 @@ public partial class DamageNumber : Label
     {
         Text = damage.ToString();
         Position = screenPos;
-        AddThemeFontSizeOverride("font_size", isCrit ? 24 : 18);
+        var font = new FontVariation();
+        font.VariationEmbolden = 1.0f;
+        AddThemeFontOverride("font", font);
+        AddThemeFontSizeOverride("font_size", isCrit ? 36 : 24);
         AddThemeColorOverride("font_color", isCrit ? Colors.Red : Colors.White);
+        AddThemeConstantOverride("outline_size", 12);
+        AddThemeColorOverride("font_outline_color", Colors.Black);
         _elapsed = 0;
         Visible = true;
     }

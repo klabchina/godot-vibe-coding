@@ -13,14 +13,22 @@ public static class LevelData
     /// <summary>Get XP needed for a specific level (1-based).</summary>
     public static int GetXpForLevel(int level)
     {
-        if (level < 1 || level > MaxLevel) return int.MaxValue;
+        if (level < 1)
+        {
+            return 0;
+        }
+
         return XpThresholds[level - 1];
     }
 
     /// <summary>Get cumulative XP needed to reach a specific level (1-based).</summary>
     public static int GetCumulativeXp(int level)
     {
-        if (level < 1 || level > MaxLevel) return int.MaxValue;
+        if (level < 1)
+        {
+            return 0;
+        }
+
         return CumulativeXp[level - 1];
     }
 
