@@ -823,3 +823,14 @@ var level = LevelData.GetLevel(player.TotalXp);
 10. 切换到 Result 场景 → 显示 S/A/B/C 评分、击杀数、伤害
 11. 点击返回 → 回到 MainMenu
 ```
+
+---
+
+## 相关设计文档
+
+| 主题 | 路径 |
+|------|------|
+| 战斗玩法设计 | `docs/superpowers/specs/2026-04-07-battle-gameplay-design.md` |
+| 远程敌人行为 | `docs/superpowers/plans/2026-04-10-ranged-enemy-behavior.md` |
+| 怪物死亡动画延迟销毁 | `docs/superpowers/specs/2026-04-14-monster-death-animation-design.md` |
+| OBB 矩形碰撞支持 | `docs/superpowers/specs/2026-04-17-obb-collision-design.md` |

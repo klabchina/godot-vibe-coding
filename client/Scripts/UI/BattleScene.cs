@@ -60,7 +60,10 @@ public partial class BattleScene : Node2D
 		player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
 		player.Add(new ColliderComponent
 		{
+			Shape = ColliderShape.Box,
 			Radius = PlayerData.PlayerRadius,
+			HalfWidth = PlayerData.HalfWidth,
+			HalfHeight = PlayerData.HalfHeight,
 			Layer = CollisionLayers.Player,
 			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
 		});

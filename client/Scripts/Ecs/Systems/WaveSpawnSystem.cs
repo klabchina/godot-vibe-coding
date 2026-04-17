@@ -114,7 +114,10 @@ public class WaveSpawnSystem : GameSystem
 
         entity.Add(new ColliderComponent
         {
+            Shape = MonsterData.GetShape(type),
             Radius = radius,
+            HalfWidth = MonsterData.GetHalfWidth(type),
+            HalfHeight = MonsterData.GetHalfHeight(type),
             Layer = CollisionLayers.Monster,
             Mask = CollisionLayers.Arrow | CollisionLayers.Player,
         });

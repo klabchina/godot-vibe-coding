@@ -12,4 +12,7 @@ public static class PlayerData
     public const float BasePickupRadius = 50f;
     public const int BaseOrbitCount = 0;
     public const int PlayerRadius = 16;
+
+    public const float HalfWidth = 16;
+    public const float HalfHeight = 32;
 }

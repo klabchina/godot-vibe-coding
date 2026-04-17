@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Ecs.Core;
 using Game.Data;
@@ -19,6 +20,112 @@ public class CollisionSystem : GameSystem
         CheckMonsterVsPlayer();
         CheckMonsterProjectileVsPlayer();
     }
+
+    // ── Unified overlap test (Circle / OBB) ──────────────────────────
+
+    /// <summary>
+    /// Returns true if the two colliders overlap. Supports all combinations of
+    /// Circle and Box (OBB) shapes.
+    /// </summary>
+    public static bool Overlaps(
+        ColliderComponent a, TransformComponent ta,
+        ColliderComponent b, TransformComponent tb)
+    {
+        if (a.Shape == ColliderShape.Circle && b.Shape == ColliderShape.Circle)
+            return CircleVsCircle(ta.Position, a.Radius, tb.Position, b.Radius);
+
+        if (a.Shape == ColliderShape.Circle && b.Shape == ColliderShape.Box)
+            return CircleVsOBB(ta.Position, a.Radius, tb.Position, tb.Rotation, b.HalfWidth, b.HalfHeight);
+
+        if (a.Shape == ColliderShape.Box && b.Shape == ColliderShape.Circle)
+            return CircleVsOBB(tb.Position, b.Radius, ta.Position, ta.Rotation, a.HalfWidth, a.HalfHeight);
+
+        // Box vs Box → SAT with 4 axes (2 per OBB)
+        return OBBvsOBB(
+            ta.Position, ta.Rotation, a.HalfWidth, a.HalfHeight,
+            tb.Position, tb.Rotation, b.HalfWidth, b.HalfHeight);
+    }
+
+    private static bool CircleVsCircle(Vec2 posA, float rA, Vec2 posB, float rB)
+    {
+        float dx = posA.X - posB.X;
+        float dy = posA.Y - posB.Y;
+        float sumR = rA + rB;
+        return dx * dx + dy * dy <= sumR * sumR;
+    }
+
+    private static bool CircleVsOBB(
+        Vec2 circlePos, float radius,
+        Vec2 boxPos, float boxRot, float hw, float hh)
+    {
+        // Transform circle center into box-local space
+        float cos = MathF.Cos(-boxRot);
+        float sin = MathF.Sin(-boxRot);
+        float dx = circlePos.X - boxPos.X;
+        float dy = circlePos.Y - boxPos.Y;
+        float localX = dx * cos - dy * sin;
+        float localY = dx * sin + dy * cos;
+
+        // Clamp to box extents to find closest point
+        float closestX = GMath.Clamp(localX, -hw, hw);
+        float closestY = GMath.Clamp(localY, -hh, hh);
+
+        float ex = localX - closestX;
+        float ey = localY - closestY;
+        return ex * ex + ey * ey <= radius * radius;
+    }
+
+    private static bool OBBvsOBB(
+        Vec2 posA, float rotA, float hwA, float hhA,
+        Vec2 posB, float rotB, float hwB, float hhB)
+    {
+        // 4 axes: 2 from each OBB's local X and Y
+        float cosA = MathF.Cos(rotA), sinA = MathF.Sin(rotA);
+        float cosB = MathF.Cos(rotB), sinB = MathF.Sin(rotB);
+
+        // Local axes
+        float ax0X = cosA, ax0Y = sinA;   // A local X
+        float ax1X = -sinA, ax1Y = cosA;  // A local Y
+        float bx0X = cosB, bx0Y = sinB;   // B local X
+        float bx1X = -sinB, bx1Y = cosB;  // B local Y
+
+        float tx = posB.X - posA.X;
+        float ty = posB.Y - posA.Y;
+
+        // Test each of the 4 separating axes
+        // Axis = A local X
+        if (SATSeparated(ax0X, ax0Y, tx, ty, hwA, hhA, hwB, hhB,
+            ax0X, ax0Y, ax1X, ax1Y, bx0X, bx0Y, bx1X, bx1Y)) return false;
+        // Axis = A local Y
+        if (SATSeparated(ax1X, ax1Y, tx, ty, hwA, hhA, hwB, hhB,
+            ax0X, ax0Y, ax1X, ax1Y, bx0X, bx0Y, bx1X, bx1Y)) return false;
+        // Axis = B local X
+        if (SATSeparated(bx0X, bx0Y, tx, ty, hwA, hhA, hwB, hhB,
+            ax0X, ax0Y, ax1X, ax1Y, bx0X, bx0Y, bx1X, bx1Y)) return false;
+        // Axis = B local Y
+        if (SATSeparated(bx1X, bx1Y, tx, ty, hwA, hhA, hwB, hhB,
+            ax0X, ax0Y, ax1X, ax1Y, bx0X, bx0Y, bx1X, bx1Y)) return false;
+
+        return true; // No separating axis found → overlapping
+    }
+
+    /// <summary>Returns true if the given axis separates the two OBBs.</summary>
+    private static bool SATSeparated(
+        float axisX, float axisY,
+        float tx, float ty,
+        float hwA, float hhA, float hwB, float hhB,
+        float ax0X, float ax0Y, float ax1X, float ax1Y,
+        float bx0X, float bx0Y, float bx1X, float bx1Y)
+    {
+        float projT = MathF.Abs(tx * axisX + ty * axisY);
+        float projA = hwA * MathF.Abs(ax0X * axisX + ax0Y * axisY)
+                    + hhA * MathF.Abs(ax1X * axisX + ax1Y * axisY);
+        float projB = hwB * MathF.Abs(bx0X * axisX + bx0Y * axisY)
+                    + hhB * MathF.Abs(bx1X * axisX + bx1Y * axisY);
+        return projT > projA + projB;
+    }
+
+    // ── Collision checks ─────────────────────────────────────────────
 
     private void CheckArrowVsMonster()
     {
@@ -44,8 +151,7 @@ public class CollisionSystem : GameSystem
                 var monsterTransform = monsterEntity.Get<TransformComponent>();
                 var monsterCollider = monsterEntity.Get<ColliderComponent>();
 
-                float dist = arrowTransform.Position.DistanceTo(monsterTransform.Position);
-                if (dist > arrowCollider.Radius + monsterCollider.Radius) continue;
+                if (!Overlaps(arrowCollider, arrowTransform, monsterCollider, monsterTransform)) continue;
 
                 alreadyHit.Add(monsterEntity.Id);
                 Hits.Add(new HitEvent(arrowEntity.Id, monsterEntity.Id, arrowComp.Damage, true));
@@ -93,8 +199,7 @@ public class CollisionSystem : GameSystem
                 var playerTransform = playerEntity.Get<TransformComponent>();
                 var playerCollider = playerEntity.Get<ColliderComponent>();
 
-                float dist = monsterTransform.Position.DistanceTo(playerTransform.Position);
-                if (dist > monsterCollider.Radius + playerCollider.Radius) continue;
+                if (!Overlaps(monsterCollider, monsterTransform, playerCollider, playerTransform)) continue;
 
                 int damage = (int)MonsterData.GetDamage(monsterComp.Type, waveNum);
                 Hits.Add(new HitEvent(monsterEntity.Id, playerEntity.Id, damage, false));
@@ -122,13 +227,11 @@ public class CollisionSystem : GameSystem
                 var playerTransform = playerEntity.Get<TransformComponent>();
                 var playerCollider  = playerEntity.Get<ColliderComponent>();
 
-                float dist = projTransform.Position.DistanceTo(playerTransform.Position);
-                if (dist > projCollider.Radius + playerCollider.Radius) continue;
+                if (!Overlaps(projCollider, projTransform, playerCollider, playerTransform)) continue;
 
-                // Register hit with IsArrow=false so DamageSystem applies shield/invincible checks
                 Hits.Add(new HitEvent(projEntity.Id, playerEntity.Id, projComp.Damage, false));
-                World.DestroyEntity(projEntity.Id); // consumed on first hit
-                break; // projectile is gone; skip remaining players
+                World.DestroyEntity(projEntity.Id);
+                break;
             }
         }
     }

@@ -18,9 +18,9 @@ public class ServerGameManager
     public bool IsRunning { get; private set; }
 
     // 战局统计
-    public int KillCount       { get; private set; }
-    public int TotalDamage     { get; private set; }
-    public int WavesCompleted  { get; private set; }
+    public int KillCount { get; private set; }
+    public int TotalDamage { get; private set; }
+    public int WavesCompleted { get; private set; }
 
     private ServerGameManager() { }
 
@@ -53,23 +53,26 @@ public class ServerGameManager
     {
         var player = World.CreateEntity();
         player.Add(new TransformComponent { Position = new(x, y) });
-        player.Add(new VelocityComponent  { Speed = PlayerData.BaseMoveSpeed });
-        player.Add(new HealthComponent    { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
-        player.Add(new PlayerComponent    { PlayerIndex = playerIndex, IsLocal = false });
+        player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
+        player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
+        player.Add(new PlayerComponent { PlayerIndex = playerIndex, IsLocal = false });
         player.Add(new BowComponent
         {
-            Damage      = PlayerData.BaseArrowDamage,
-            Cooldown    = PlayerData.BaseCooldown,
-            ArrowCount  = PlayerData.BaseArrowCount,
+            Damage = PlayerData.BaseArrowDamage,
+            Cooldown = PlayerData.BaseCooldown,
+            ArrowCount = PlayerData.BaseArrowCount,
         });
         player.Add(new BuffComponent());
         player.Add(new UpgradeComponent());
         player.Add(new AutoAimComponent());
         player.Add(new ColliderComponent
         {
+            Shape = ColliderShape.Box,
             Radius = PlayerData.PlayerRadius,
-            Layer  = CollisionLayers.Player,
-            Mask   = CollisionLayers.Monster | CollisionLayers.MonsterArrow,
+            Layer = CollisionLayers.Player,
+            Mask = CollisionLayers.Monster | CollisionLayers.MonsterArrow,
+            HalfWidth = PlayerData.HalfWidth,
+            HalfHeight = PlayerData.HalfHeight,
         });
 
         Console.WriteLine($"[ServerGameManager] Player {playerIndex} spawned at ({x}, {y}).");
@@ -96,9 +99,9 @@ public class ServerGameManager
     /// <summary>重置战局数据并清空 World。</summary>
     public void Reset()
     {
-        IsRunning     = false;
-        KillCount     = 0;
-        TotalDamage   = 0;
+        IsRunning = false;
+        KillCount = 0;
+        TotalDamage = 0;
         WavesCompleted = 0;
         World?.Clear();
     }
@@ -129,43 +132,43 @@ public class ServerGameManager
         switch (chosen)
         {
             case UpgradeId.MaxHpUp:
-            {
-                var health = playerEntity.Get<HealthComponent>();
-                if (health != null)
                 {
-                    health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
-                    health.Hp = GMath.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                    var health = playerEntity.Get<HealthComponent>();
+                    if (health != null)
+                    {
+                        health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
+                        health.Hp = GMath.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.MoveSpeedUp:
-            {
-                var vel = playerEntity.Get<VelocityComponent>();
-                if (vel != null)
                 {
-                    vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                    var vel = playerEntity.Get<VelocityComponent>();
+                    if (vel != null)
+                    {
+                        vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.Shield:
-            {
-                var buff = playerEntity.Get<BuffComponent>();
-                if (buff != null)
                 {
-                    buff.ShieldActive = true;
-                    buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                    var buff = playerEntity.Get<BuffComponent>();
+                    if (buff != null)
+                    {
+                        buff.ShieldActive = true;
+                        buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.OrbitGuard:
-            {
-                var orbit = playerEntity.Get<OrbitComponent>();
-                if (orbit != null)
                 {
-                    orbit.Count = upgrade.OrbitCount;
+                    var orbit = playerEntity.Get<OrbitComponent>();
+                    if (orbit != null)
+                    {
+                        orbit.Count = upgrade.OrbitCount;
+                    }
+                    break;
                 }
-                break;
-            }
         }
 
         var def = UpgradeData.Definitions[chosen];

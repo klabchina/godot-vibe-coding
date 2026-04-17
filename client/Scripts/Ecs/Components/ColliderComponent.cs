@@ -1,11 +1,18 @@
 namespace Game.Ecs.Components;
 
+/// <summary>Collider shape type.</summary>
+public enum ColliderShape { Circle, Box }
+
 /// <summary>
-/// Simplified circle collider for all entities.
+/// Collider for all entities. Supports circle and OBB (oriented bounding box).
+/// For Circle: uses Radius. For Box: uses HalfWidth/HalfHeight + TransformComponent.Rotation.
 /// </summary>
 public class ColliderComponent
 {
+    public ColliderShape Shape = ColliderShape.Circle;
     public float Radius;
+    public float HalfWidth;   // Box half-extent along local X
+    public float HalfHeight;  // Box half-extent along local Y
     public int Layer;  // What layer this entity is on
     public int Mask;   // What layers this entity collides with
 }
