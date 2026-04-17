@@ -844,3 +844,5 @@ var level = LevelData.GetLevel(player.TotalXp);
 | 远程敌人行为 | `docs/superpowers/plans/2026-04-10-ranged-enemy-behavior.md` |
 | 怪物死亡动画延迟销毁 | `docs/superpowers/specs/2026-04-14-monster-death-animation-design.md` |
 | OBB 矩形碰撞支持 | `docs/superpowers/specs/2026-04-17-obb-collision-design.md` |
+| 地图加载与障碍物 | `docs/superpowers/specs/2026-04-17-map-loading-design.md` |
+| 怪物绕行记忆 | `docs/superpowers/specs/2026-04-17-monster-detour-memory-design.md` |
