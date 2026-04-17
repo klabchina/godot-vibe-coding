@@ -222,6 +222,18 @@ public class RenderSystem : GameSystem
             wrapper.AddChild(rect);
             return wrapper;
         }
+        else if (entity.Has<ObstacleComponent>())
+        {
+            var collider = entity.Get<ColliderComponent>();
+            var rect = new ColorRect();
+            rect.Color = new Color(0.3f, 0.25f, 0.2f, 0.8f);
+            float w = collider.HalfWidth * 2;
+            float h = collider.HalfHeight * 2;
+            rect.Size = new Vector2(w, h);
+            rect.Position = new Vector2(-collider.HalfWidth, -collider.HalfHeight);
+            wrapper.AddChild(rect);
+            return wrapper;
+        }
 
         return null;
     }
