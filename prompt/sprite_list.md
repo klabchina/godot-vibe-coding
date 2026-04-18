@@ -185,7 +185,7 @@ dreamina image2image \
 > 输出目录 client/Assets/Sprites/Roles/
 
 ```bash
-python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <action_name>
+python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <character> <action> [output_dir] [rule_path]
 ```
 
 裁切逻辑：

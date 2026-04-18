@@ -455,7 +455,7 @@ dreamina image2image \
 > 输出目录 client/Assets/Sprites/Enemies/<monster_name>
 
 ```bash
-python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <monster_name>_<action>
+python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <monster_name> <action> [output_dir] [rule_path]
 ```
 
 裁切逻辑（与弓箭手相同）：

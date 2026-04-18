@@ -214,12 +214,20 @@ public class RenderSystem : GameSystem
         else if (entity.Has<PickupComponent>())
         {
             var pickup = entity.Get<PickupComponent>();
-            var rect = new ColorRect();
-            rect.Color = GetPickupColor(pickup.Type);
+            var baseColor = GetPickupColor(pickup.Type);
             float size = pickup.Type == PickupType.ExpOrb ? 10 : 14;
-            rect.Size = new Vector2(size, size);
-            rect.Position = new Vector2(-size / 2, -size / 2);
-            wrapper.AddChild(rect);
+            // 深色底层（2x暗）
+            var backRect = new ColorRect();
+            backRect.Color = new Color(baseColor.R * 0.5f, baseColor.G * 0.5f, baseColor.B * 0.5f);
+            backRect.Size = new Vector2(size + 4, size + 4);
+            backRect.Position = new Vector2(-(size + 4) / 2, -(size + 4) / 2);
+            wrapper.AddChild(backRect);
+            // 顶层原色
+            var frontRect = new ColorRect();
+            frontRect.Color = baseColor;
+            frontRect.Size = new Vector2(size, size);
+            frontRect.Position = new Vector2(-size / 2, -size / 2);
+            wrapper.AddChild(frontRect);
             return wrapper;
         }
         else if (entity.Has<ObstacleComponent>())

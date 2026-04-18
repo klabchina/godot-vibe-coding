@@ -5,11 +5,12 @@ split_sprite_sheet.py
 等比缩放到 80×130，去除白色/浅灰色背景，保存为透明 PNG。
 
 用法:
-    python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <character> <action> [output_dir]
+    python3 scripts/split_sprite_sheet.py <sprite_sheet.png> <character> <action> [output_dir] [rule_path]
 
 示例:
     python3 scripts/split_sprite_sheet.py ./seedance-output/455ad0105f056f95_image_1.png slime attack
     python3 scripts/split_sprite_sheet.py ./seedance-output/cceedecf65e9ce8b_image_1.png slime death
+    python3 scripts/split_sprite_sheet.py <sprite_sheet.png> archer attack "client/Assets/Sprites/Roles" "seedance-input/rule_10.png"
 """
 
 import sys
@@ -33,8 +34,9 @@ BLACK_THRESH   = 30     # 黑色阈值 (<30 视为黑色)
 
 def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
     """
-    从 rule.png 中检测黑色矩形区域，返回 [(left, top, right, bottom), ...] 列表，
-    按 left 从左到右排序。
+    从 rule.png 中检测黑色矩形区域，返回 [(left, top, right, bottom), ...] 列表。
+    ★ 顺序规则：先按行段从上到下（上行1-5，再下行6-10），
+    行段内按 x 从左到右（1→2→3→4→5）。
     适用于两行布局（rule_10.png）的模板。
     """
     img = Image.open(rule_path).convert("RGB")
@@ -66,9 +68,10 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
         print(f"    段{i+1}: y={t}-{b}")
 
     # 对每个行段，检测该段内的 x 方向矩形
-    all_rects = []
+    # ★ 顺序：先按行段从上到下（上行1-5，再下行6-10），行段内从左到右
+    ordered_rects = []
     for (y_top, y_bottom) in black_row_segments:
-        # 在该段的中间行检测 x 范围
+        row_rects = []
         mid_y = (y_top + y_bottom) // 2
         row_data = is_black[mid_y]
 
@@ -79,15 +82,15 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
                 x_start = x
                 in_black = True
             elif not row_data[x] and in_black:
-                all_rects.append((x_start, y_top, x, y_bottom))
+                row_rects.append((x_start, y_top, x, y_bottom))
                 in_black = False
         if in_black:
-            all_rects.append((x_start, y_top, len(row_data), y_bottom))
+            row_rects.append((x_start, y_top, len(row_data), y_bottom))
 
-    # 按 left 从左到右排序
-    all_rects.sort(key=lambda r: r[0])
+        # 行段内已按 x 从左到右排列，直接 extend
+        ordered_rects.extend(row_rects)
 
-    return all_rects
+    return ordered_rects
 
 
 def remove_background(img: Image.Image) -> Image.Image:
