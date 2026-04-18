@@ -48,9 +48,9 @@ public static class MonsterData
     public const int BossPhaseChangeXp = 30;
 
     // Orc dash parameters
-    public const float OrcDashSpeed = 250f;      // 5x walk speed (walk = 50)
-    public const float OrcDashDurationMin = 0.5f;  // dash duration random min
-    public const float OrcDashDurationMax = 1.4f;  // dash duration random max
+    public const float OrcDashSpeed = 300f;      // 5x walk speed (walk = 50)
+    public const float OrcDashDurationMin = 0.8f;  // dash duration random min
+    public const float OrcDashDurationMax = 2.0f;  // dash duration random max
     public const float OrcDashIntervalMin = 2.0f; // min interval between dashes
     public const float OrcDashIntervalMax = 7.0f; // max interval between dashes
 
