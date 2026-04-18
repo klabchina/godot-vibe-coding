@@ -35,6 +35,7 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
     """
     从 rule.png 中检测黑色矩形区域，返回 [(left, top, right, bottom), ...] 列表，
     按 left 从左到右排序。
+    适用于两行布局（rule_10.png）的模板。
     """
     img = Image.open(rule_path).convert("RGB")
     arr = np.array(img)
@@ -42,32 +43,51 @@ def detect_black_rects(rule_path: str) -> list[tuple[int, int, int, int]]:
     # 黑色像素掩码
     is_black = (arr[:, :, 0] < BLACK_THRESH) & (arr[:, :, 1] < BLACK_THRESH) & (arr[:, :, 2] < BLACK_THRESH)
 
-    # 找黑色行范围
+    # 找所有黑色行段（可能有多个连续区域）
     row_has_black = is_black.any(axis=1)
-    black_rows = np.where(row_has_black)[0]
-    if len(black_rows) == 0:
-        raise ValueError(f"rule.png 中未检测到黑色区域: {rule_path}")
-    y_top = int(black_rows[0])
-    y_bottom = int(black_rows[-1])
-
-    # 在中间行扫描，找每个连续黑色段的 x 范围
-    mid_row = (y_top + y_bottom) // 2
-    row_data = is_black[mid_row]
-
-    rects = []
+    black_row_segments = []
     in_black = False
-    x_start = 0
-    for x in range(len(row_data)):
-        if row_data[x] and not in_black:
-            x_start = x
+    seg_start = 0
+    for y in range(arr.shape[0]):
+        if row_has_black[y] and not in_black:
+            seg_start = y
             in_black = True
-        elif not row_data[x] and in_black:
-            rects.append((x_start, y_top, x, y_bottom + 1))
+        elif not row_has_black[y] and in_black:
+            black_row_segments.append((seg_start, y))
             in_black = False
     if in_black:
-        rects.append((x_start, y_top, len(row_data), y_bottom + 1))
+        black_row_segments.append((seg_start, arr.shape[0]))
 
-    return rects
+    if not black_row_segments:
+        raise ValueError(f"rule.png 中未检测到黑色区域: {rule_path}")
+
+    print(f"  检测到 {len(black_row_segments)} 个黑色行段:")
+    for i, (t, b) in enumerate(black_row_segments):
+        print(f"    段{i+1}: y={t}-{b}")
+
+    # 对每个行段，检测该段内的 x 方向矩形
+    all_rects = []
+    for (y_top, y_bottom) in black_row_segments:
+        # 在该段的中间行检测 x 范围
+        mid_y = (y_top + y_bottom) // 2
+        row_data = is_black[mid_y]
+
+        in_black = False
+        x_start = 0
+        for x in range(len(row_data)):
+            if row_data[x] and not in_black:
+                x_start = x
+                in_black = True
+            elif not row_data[x] and in_black:
+                all_rects.append((x_start, y_top, x, y_bottom))
+                in_black = False
+        if in_black:
+            all_rects.append((x_start, y_top, len(row_data), y_bottom))
+
+    # 按 left 从左到右排序
+    all_rects.sort(key=lambda r: r[0])
+
+    return all_rects
 
 
 def remove_background(img: Image.Image) -> Image.Image:

@@ -10,7 +10,7 @@ public static class SpriteFramesConstant
     public const string ArcherWalkPrefix = "res://Assets/Sprites/Roles/archer_walk_";
     public const string ArcherAttackPrefix = "res://Assets/Sprites/Roles/archer_attack_";
     public const string ArcherExt = ".png";
-    public const int ArcherFrameCount = 5;
+    public const int ArcherFrameCount = 10;
 
     // ========== 怪物 (Enemies) ==========
     /// <summary>怪物 sprite 基础路径，例如 GetMonsterPath(MonsterType.Slime, "walk", 1)</summary>
@@ -18,6 +18,7 @@ public static class SpriteFramesConstant
         => $"res://Assets/Sprites/Enemies/{type.ToString().ToLower()}_{anim}_{frame}.png";
 
     public static string[] MonsterAnims => new[] { "walk", "attack", "death" };
+    public const int MonsterFrameCount = 5;
 
     // ========== 怪物动画配置 ==========
     /// <summary>各怪物的默认播放动画（无特殊状态时）</summary>

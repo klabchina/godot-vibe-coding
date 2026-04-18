@@ -288,7 +288,7 @@ public class RenderSystem : GameSystem
         foreach (var anim in SpriteFramesConstant.MonsterAnims)
         {
             frames.AddAnimation(anim);
-            for (int i = 1; i <= SpriteFramesConstant.ArcherFrameCount; i++)
+            for (int i = 1; i <= SpriteFramesConstant.MonsterFrameCount; i++)
             {
                 var path = SpriteFramesConstant.GetMonsterPath(type, anim, i);
                 var tex = GD.Load<Texture2D>(path);

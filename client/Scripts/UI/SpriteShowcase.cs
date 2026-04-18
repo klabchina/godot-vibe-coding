@@ -13,23 +13,24 @@ public partial class SpriteShowcase : Node2D
     private const float OriginX = 100f;
     private const float OriginY = 80f;
     private const float FrameInterval = 0.15f; // seconds per frame
-    private const int FrameCount = 5;
+    private const int ArcherFrameCount = 10;
+    private const int MonsterFrameCount = 5;
     private const float SpriteScale = 2f;
     private const int MaxRows = 5;
     private const float GroupGap = 60f; // horizontal gap between column groups
 
-    // Row definitions: name, sprite path pattern, actions
+    // Row definitions: name, sprite path pattern, actions, frame count
     private static readonly RowDef[] Rows =
     {
-        new("Archer",   "res://Assets/Sprites/Roles/archer_{0}_{1}.png",   new[] { "idle", "walk", "attack" }),
-        new("Slime",    "res://Assets/Sprites/Enemies/slime_{0}_{1}.png",  new[] { "walk", "attack", "death" }),
-        new("Skeleton", "res://Assets/Sprites/Enemies/skeleton_{0}_{1}.png", new[] { "walk", "attack", "death" }),
-        new("Orc",      "res://Assets/Sprites/Enemies/orc_{0}_{1}.png",    new[] { "walk", "attack", "death" }),
-        new("Elite",    "res://Assets/Sprites/Enemies/elite_{0}_{1}.png",  new[] { "walk", "attack", "death" }),
-        new("Boss",     "res://Assets/Sprites/Enemies/boss_{0}_{1}.png",   new[] { "walk", "attack", "death" }),
+        new("Archer",   "res://Assets/Sprites/Roles/archer_{0}_{1}.png",   new[] { "idle", "walk", "attack" }, ArcherFrameCount),
+        new("Slime",    "res://Assets/Sprites/Enemies/slime_{0}_{1}.png",  new[] { "walk", "attack", "death" }, MonsterFrameCount),
+        new("Skeleton", "res://Assets/Sprites/Enemies/skeleton_{0}_{1}.png", new[] { "walk", "attack", "death" }, MonsterFrameCount),
+        new("Orc",      "res://Assets/Sprites/Enemies/orc_{0}_{1}.png",    new[] { "walk", "attack", "death" }, MonsterFrameCount),
+        new("Elite",    "res://Assets/Sprites/Enemies/elite_{0}_{1}.png",  new[] { "walk", "attack", "death" }, MonsterFrameCount),
+        new("Boss",     "res://Assets/Sprites/Enemies/boss_{0}_{1}.png",   new[] { "walk", "attack", "death" }, MonsterFrameCount),
     };
 
-    private record RowDef(string Name, string PathPattern, string[] Actions);
+    private record RowDef(string Name, string PathPattern, string[] Actions, int FrameCount);
 
     private record AnimCell(Sprite2D Sprite, Texture2D[] Frames, int CurrentFrame);
 
@@ -90,9 +91,9 @@ public partial class SpriteShowcase : Node2D
                 }
 
                 // Load frames
-                var frames = new Texture2D[FrameCount];
+                var frames = new Texture2D[def.FrameCount];
                 bool allLoaded = true;
-                for (int f = 0; f < FrameCount; f++)
+                for (int f = 0; f < def.FrameCount; f++)
                 {
                     string path = string.Format(def.PathPattern, action, f + 1);
                     var tex = GD.Load<Texture2D>(path);
