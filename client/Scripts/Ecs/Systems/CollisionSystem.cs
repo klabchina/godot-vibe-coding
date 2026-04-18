@@ -189,12 +189,18 @@ public class CollisionSystem : GameSystem
             if (!monsterEntity.IsAlive) continue;
             if (monsterEntity.Has<DeathPendingComponent>()) continue;
 
-            // Skip monsters with MeleeAttackComponent — damage is handled by MeleeAttackSystem
-            if (monsterEntity.Has<MeleeAttackComponent>()) continue;
-
             var monsterTransform = monsterEntity.Get<TransformComponent>();
             var monsterCollider = monsterEntity.Get<ColliderComponent>();
             var monsterComp = monsterEntity.Get<MonsterComponent>();
+
+            // MeleeAttackComponent monsters: skip if in windup (no damage during animation)
+            // Allow collision damage during cooldown — handled by MeleeAttackSystem timing
+            if (monsterEntity.Has<MeleeAttackComponent>())
+            {
+                var melee = monsterEntity.Get<MeleeAttackComponent>();
+                if (melee.AttackWindupTimer > 0f) continue; // In windup, no damage
+                // In cooldown: allow collision damage below
+            }
 
             foreach (var playerEntity in players)
             {

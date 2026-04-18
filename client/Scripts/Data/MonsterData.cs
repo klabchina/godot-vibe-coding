@@ -56,22 +56,22 @@ public static class MonsterData
 
     // Melee attack parameters (shared)
     public const float MeleeAttackRange = 100f;       // px, attack triggers within this distance
-    public const float MeleeWindupDuration = 0.2f;  // seconds before damage frames
+    public const float MeleeWindupDuration = 0.1f;  // seconds before damage frames
 
     // Slime attack parameters
     public const float SlimeAttackDamage = 8f;
-    public const float SlimeAttackCooldownMin = 1.2f;
-    public const float SlimeAttackCooldownMax = 2.5f;
+    public const float SlimeAttackCooldownMin = 0.2f;
+    public const float SlimeAttackCooldownMax = 2.0f;
 
     // Orc attack parameters
     public const float OrcAttackDamage = 20f;
-    public const float OrcAttackCooldownMin = 1.5f;
-    public const float OrcAttackCooldownMax = 3.0f;
+    public const float OrcAttackCooldownMin = 0.5f;
+    public const float OrcAttackCooldownMax = 1.0f;
 
     // Boss attack parameters
     public const float BossAttackDamage = 30f;
-    public const float BossAttackCooldownMin = 2.0f;
-    public const float BossAttackCooldownMax = 4.0f;
+    public const float BossAttackCooldownMin = 0.25f;
+    public const float BossAttackCooldownMax = 0.5f;
 
     // Skeleton ranged parameters
     public const float SkeletonWanderDuration = 2.0f;  // seconds in wander phase

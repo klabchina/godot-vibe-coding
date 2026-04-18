@@ -5,16 +5,17 @@ using Game.Data;
 namespace Game.Ecs.Systems;
 
 /// <summary>
-/// Handles melee attack logic for monsters equipped with MeleeAttackComponent.
-///
+/// Handles melee attack timing (windup + cooldown) for monsters equipped with MeleeAttackComponent.
+/// Damage is handled by CollisionSystem — this system only controls attack frequency.
+/// 
 /// Attack flow:
-/// 1. When player is within MeleeAttackRange && CanAttack && CooldownTimer <= 0:
+/// 1. When player overlaps && CanAttack && CooldownTimer <= 0:
 ///    - Set AttackWindupTimer = MeleeWindupDuration
 ///    - Set CanAttack = false
-///    - Velocity is zeroed by MonsterAISystem
-/// 2. While AttackWindupTimer > 0: decrement timer
-/// 3. When timer <= 0: trigger damage and set cooldown
-/// 4. While CooldownTimer > 0: decrement timer
+///    - Velocity is zeroed by MonsterAISystem (windup animation plays)
+/// 2. While AttackWindupTimer > 0: countdown, NO damage
+/// 3. When timer <= 0: start cooldown, CollisionSystem now deals contact damage
+/// 4. While CooldownTimer > 0: CollisionSystem deals damage on collision
 /// 5. When cooldown <= 0: set CanAttack = true
 /// </summary>
 public class MeleeAttackSystem : GameSystem
@@ -23,7 +24,7 @@ public class MeleeAttackSystem : GameSystem
     {
         var attackers = World.GetEntitiesWith<MeleeAttackComponent, MonsterComponent,
             TransformComponent>();
-        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, ColliderComponent>();
 
         if (players.Count == 0) return;
 
@@ -37,21 +38,22 @@ public class MeleeAttackSystem : GameSystem
             var attackerTransform = attacker.Get<TransformComponent>();
             var attackerCollider = attacker.Get<ColliderComponent>();
 
-            // ── Phase 1: Attack windup ──────────────────────────────────────
+            // ── Phase 1: Attack windup countdown ────────────────────────────────
             if (melee.AttackWindupTimer > 0f)
             {
                 melee.AttackWindupTimer -= delta;
 
                 if (melee.AttackWindupTimer <= 0f)
                 {
-                    // Windup complete — deal damage once
-                    float attackRange = MonsterData.MeleeAttackRange + attackerCollider.Radius;
-                    DealMeleeDamage(attacker, monsterComp, attackerTransform, attackerCollider, attackRange);
+                    // Windup complete — start cooldown, CollisionSystem will now deal contact damage
+                    melee.AttackWindupTimer = 0f;
+                    melee.CooldownTimer = GetAttackCooldown(monsterComp.Type);
+                    melee.CanAttack = false;
                 }
                 continue;
             }
 
-            // ── Phase 2: Cooldown countdown ───────────────────────────────
+            // ── Phase 2: Cooldown countdown ─────────────────────────────────────
             if (melee.CooldownTimer > 0f)
             {
                 melee.CooldownTimer -= delta;
@@ -63,13 +65,10 @@ public class MeleeAttackSystem : GameSystem
                 continue;
             }
 
-            // ── Phase 3: Check if can start new attack ────────────────────
+            // ── Phase 3: Check if player is overlapping → start windup ──────────
             if (!melee.CanAttack) continue;
 
-            // Find nearest alive player within attack range
             float attackRangeCheck = MonsterData.MeleeAttackRange + attackerCollider.Radius;
-            int nearestPlayerId = -1;
-            float nearestDist = float.MaxValue;
 
             foreach (var player in players)
             {
@@ -77,65 +76,18 @@ public class MeleeAttackSystem : GameSystem
 
                 var playerTransform = player.Get<TransformComponent>();
                 float dist = attackerTransform.Position.DistanceTo(playerTransform.Position);
-                if (dist < nearestDist)
-                {
-                    nearestDist = dist;
-                    nearestPlayerId = player.Id;
-                }
-            }
+                if (dist > attackRangeCheck) continue;
 
-            if (nearestDist <= attackRangeCheck && nearestPlayerId >= 0)
-            {
                 // Start windup — monster will stop moving (MonsterAISystem checks AttackWindupTimer)
                 melee.AttackWindupTimer = MonsterData.MeleeWindupDuration;
                 melee.CanAttack = false;
-                melee.CooldownTimer = GetAttackCooldown(monsterComp.Type);
 
                 // Signal RenderSystem to play attack animation
                 attacker.Add(new AttackAnimationComponent());
+                break; // One windup per frame max
             }
         }
     }
-
-    /// <summary>
-    /// Deals melee damage to the nearest player and triggers any attack effects.
-    /// Called once when windup completes.
-    /// </summary>
-    private void DealMeleeDamage(Entity attacker, MonsterComponent monsterComp,
-        TransformComponent attackerTransform, ColliderComponent attackerCollider,
-        float attackRange)
-    {
-        float damage = GetMeleeDamage(monsterComp.Type);
-
-        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, ColliderComponent>();
-        foreach (var player in players)
-        {
-            if (!player.IsAlive) continue;
-
-            var playerTransform = player.Get<TransformComponent>();
-            float dist = attackerTransform.Position.DistanceTo(playerTransform.Position);
-
-            if (dist <= attackRange)
-            {
-                // Add hit to CollisionSystem via Hits list
-                var collisionSystem = World.GetSystem<CollisionSystem>();
-                collisionSystem?.Hits.Add(new CollisionSystem.HitEvent(
-                    attacker.Id, player.Id, (int)damage, false));
-                break; // Only damage one player per attack
-            }
-        }
-    }
-
-    /// <summary>
-    /// Returns the melee damage value for a given monster type.
-    /// </summary>
-    private float GetMeleeDamage(MonsterType type) => type switch
-    {
-        MonsterType.Slime => MonsterData.SlimeAttackDamage,
-        MonsterType.Orc => MonsterData.OrcAttackDamage,
-        MonsterType.Boss => MonsterData.BossAttackDamage,
-        _ => 0f
-    };
 
     /// <summary>
     /// Returns a random cooldown duration for a given monster type.
