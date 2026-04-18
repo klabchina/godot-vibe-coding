@@ -47,10 +47,12 @@ public static class MonsterData
     public const float BossSummonDuration = 10.0f;
     public const int BossPhaseChangeXp = 30;
 
-    // Orc charge parameters
-    public const float OrcChargeRange = 150f;
-    public const float OrcChargeSpeed = 150f;
-    public const float OrcStunDuration = 1.0f;
+    // Orc dash parameters
+    public const float OrcDashSpeed = 250f;      // 5x walk speed (walk = 50)
+    public const float OrcDashDurationMin = 0.5f;  // dash duration random min
+    public const float OrcDashDurationMax = 1.4f;  // dash duration random max
+    public const float OrcDashIntervalMin = 2.0f; // min interval between dashes
+    public const float OrcDashIntervalMax = 7.0f; // max interval between dashes
 
     // Skeleton ranged parameters
     public const float SkeletonWanderDuration = 2.0f;  // seconds in wander phase

@@ -40,6 +40,13 @@ public class DamageSystem : GameSystem
             health.Hp -= hit.Damage;
             if (health.Hp < 0) health.Hp = 0;
 
+            // 玩家受击：触发红色闪烁
+            if (defender.Has<PlayerComponent>() && hit.Damage > 0)
+            {
+                if (!defender.Has<DamageFlashComponent>())
+                    defender.Add(new DamageFlashComponent { Timer = 0.2f });
+            }
+
             // Track arrow damage to player stats
             if (hit.IsArrow)
             {

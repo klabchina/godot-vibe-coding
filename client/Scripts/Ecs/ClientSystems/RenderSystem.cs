@@ -20,6 +20,7 @@ public class RenderSystem : GameSystem
     // 玩家动画状态跟踪
     private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
     private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
+    private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
 
     private const float AttackAnimDuration = 0.5f; // 5帧 × 10fps = 0.5秒
     private const float AnimFps = 10f;
@@ -317,6 +318,24 @@ public class RenderSystem : GameSystem
             return;
 
         int id = entity.Id;
+
+        // 处理受伤红色闪烁
+        if (entity.Has<DamageFlashComponent>())
+        {
+            var flash = entity.Get<DamageFlashComponent>();
+            flash.Timer -= delta;
+            if (flash.Timer <= 0)
+            {
+                entity.Remove<DamageFlashComponent>();
+                animSprite.SelfModulate = Colors.White;
+            }
+            else
+            {
+                // 闪烁：从亮红渐变到白色 SelfModulate 直接覆盖颜色不过曝
+                float t = flash.Timer / 0.2f;
+                animSprite.SelfModulate = new Color(1f, 0.3f + 0.7f * t, 0.3f + 0.7f * t);
+            }
+        }
 
         // 检测攻击触发：BowComponent 的 CooldownTimer 重置（从小值跳大）时说明刚发射
         var bow = entity.Get<BowComponent>();

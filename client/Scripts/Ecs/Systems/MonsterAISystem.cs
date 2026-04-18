@@ -262,47 +262,58 @@ public class MonsterAISystem : GameSystem
         }
     }
 
-    // ─── Orc — unchanged ──────────────────────────────────────────────────────
+    // ─── Orc — accelerating dash toward player ─────────────────────────────────
 
     private void UpdateOrc(Entity monster, VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, Vec2 nearestPos, float distToPlayer, float baseSpeed, float speedMul, float delta)
     {
         if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
 
-        if (ai.IsStunned)
+        // If currently dashing, accelerate from 0 to peak speed
+        if (ai.IsDashing)
         {
-            velocity.Velocity = Vec2.Zero;
-            ai.StunTimer -= delta;
-            if (ai.StunTimer <= 0)
+            ai.DashTimer += delta;
+            if (ai.DashTimer >= ai.DashInterval)
             {
-                ai.IsStunned = false;
-                ai.IsCharging = false;
+                // End dash, set new random interval
+                ai.IsDashing = false;
+                ai.DashTimer = 0f;
+                ai.DashInterval = MonsterData.OrcDashIntervalMin
+                    + GameRandom.Randf() * (MonsterData.OrcDashIntervalMax - MonsterData.OrcDashIntervalMin);
             }
-            return;
+            else
+            {
+                // Accelerating dash: speed ramps from 0 → peakSpeed over DashDuration
+                float progress = ai.DashTimer / ai.DashInterval;
+                float currentSpeed = MonsterData.OrcDashSpeed * progress * speedMul;
+                float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
+                Vec2 dashDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer,
+                    currentSpeed, delta, orcRadius);
+                velocity.Velocity = dashDir * currentSpeed;
+            }
         }
-
-        if (ai.IsCharging)
+        else
         {
-            float orcChargeRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
-            Vec2 chargeDetour = ApplyDetourMemory(ai, monster.Get<TransformComponent>().Position, nearestPos, toPlayer, orcChargeRadius, delta);
-            Vec2 chargeDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, chargeDetour, MonsterData.OrcChargeSpeed * speedMul, delta, orcChargeRadius);
-            velocity.Velocity = chargeDir * MonsterData.OrcChargeSpeed * speedMul;
-            if (distToPlayer < 30f)
+            // Countdown to next dash
+            ai.DashInterval -= delta;
+            if (ai.DashInterval <= 0f)
             {
-                ai.IsCharging = false;
-                ai.IsStunned = true;
-                ai.StunTimer = MonsterData.OrcStunDuration;
-                velocity.Velocity = Vec2.Zero;
+                // Start dash with random duration; store it in DashInterval (reused for duration countdown)
+                ai.IsDashing = true;
+                ai.DashTimer = 0f;
+                ai.DashInterval = MonsterData.OrcDashDurationMin
+                    + GameRandom.Randf() * (MonsterData.OrcDashDurationMax - MonsterData.OrcDashDurationMin);
+                // Note: above DashInterval value is now dash duration; after dash ends it will be reset to interval 2-7s
             }
-            return;
+            else
+            {
+                // Normal chase at base speed
+                float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
+                Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer,
+                    baseSpeed * speedMul, delta, orcRadius);
+                velocity.Velocity = orcDir * baseSpeed * speedMul;
+            }
         }
-
-        float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
-        Vec2 orcDetour = ApplyDetourMemory(ai, monster.Get<TransformComponent>().Position, nearestPos, toPlayer, orcRadius, delta);
-        Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, orcDetour, baseSpeed * speedMul, delta, orcRadius);
-        velocity.Velocity = orcDir * baseSpeed * speedMul;
-        if (distToPlayer <= MonsterData.OrcChargeRange)
-            ai.IsCharging = true;
     }
 
     // ─── Boundary-aware wander direction ────────────────────────────────────

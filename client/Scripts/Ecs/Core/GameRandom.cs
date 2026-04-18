@@ -12,6 +12,12 @@ public static class GameRandom
 
     private static Random Rng => _rng ??= new Random();
 
+    /// <summary>
+    /// Sets the random seed for deterministic simulation.
+    /// Must be called on both server and client with the same seed before game starts.
+    /// </summary>
+    public static void SetSeed(int seed) => _rng = new Random(seed);
+
     /// <summary>Returns a random float in [0, 1).</summary>
     public static float Randf() => (float)Rng.NextDouble();
 

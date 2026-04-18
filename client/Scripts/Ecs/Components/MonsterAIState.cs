@@ -10,17 +10,17 @@ public enum RangedPhase { Wander, Attack }
 /// <summary>
 /// Per-monster AI state for advanced behaviors.
 /// - Skeleton/Elite: ranged wander-attack cycle
-/// - Orc: charge + stun
+/// - Orc: timed dash toward player
 /// </summary>
 public class MonsterAIState
 {
     // 当前锁定的目标玩家 ID（-1 = 无目标），用于 RenderSystem 翻转判定
     public int TargetId = -1;
 
-    // Orc charge
-    public bool  IsCharging;
-    public bool  IsStunned;
-    public float StunTimer;
+    // Orc dash (accelerating charge toward player)
+    public bool  IsDashing;
+    public float DashTimer;       // elapsed dash time (counts up 0 → DashDuration)
+    public float DashInterval;    // time between dashes (2-7s random)
 
     // Ranged (Skeleton & Elite)
     public RangedPhase RangedPhase = RangedPhase.Wander;
