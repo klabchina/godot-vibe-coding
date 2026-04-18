@@ -51,7 +51,7 @@ public class MeleeAttackSystem : GameSystem
                     melee.CooldownTimer = GetAttackCooldown(monsterComp.Type);
                     melee.CanAttack = false;
 
-                    CreateAttackHitbox(attacker, monsterComp.Type, attackerTransform);
+                    CreateAttackHitbox(attacker, monsterComp.Type, attackerTransform, melee.TargetId);
                 }
                 continue;
             }
@@ -84,6 +84,7 @@ public class MeleeAttackSystem : GameSystem
                 // Start windup — monster will stop moving (MonsterAISystem checks AttackWindupTimer)
                 melee.AttackWindupTimer = MonsterData.MeleeWindupDuration;
                 melee.CanAttack = false;
+                melee.TargetId = player.Id; // Record target for hitbox placement
 
                 // Signal RenderSystem to play attack animation
                 attacker.Add(new AttackAnimationComponent());
@@ -107,18 +108,35 @@ public class MeleeAttackSystem : GameSystem
     };
 
     /// <summary>
-    /// Creates a transient hitbox entity at the attacker's position. The hitbox checks
-    /// for a Player overlap once, deals damage, then is destroyed by CollisionSystem —
-    /// even if no player was hit.
+    /// Creates a transient hitbox in front of the attacker, aimed at the target player.
+    /// The hitbox checks for a Player overlap once, deals damage, then is destroyed by
+    /// CollisionSystem — even if no player was hit.
     /// </summary>
-    private void CreateAttackHitbox(Entity attacker, MonsterType type, TransformComponent attackerTransform)
+    private void CreateAttackHitbox(Entity attacker, MonsterType type,
+        TransformComponent attackerTransform, int targetId)
     {
         if (!MonsterData.Hitbox.TryGetValue(type, out var hitboxData)) return;
+
+        // Look up the target player to compute direction
+        var targetEntity = World.GetEntity(targetId);
+        if (!targetEntity.IsAlive || !targetEntity.Has<TransformComponent>())
+        {
+            // Target gone — skip hitbox creation
+            return;
+        }
+
+        var targetTransform = targetEntity.Get<TransformComponent>();
+        var dir = targetTransform.Position - attackerTransform.Position;
+        float dist = dir.Length();
+        if (dist < 0.001f) return; // Degenerate case
+
+        // Normalize and scale to place hitbox in front of monster
+        Vec2 hitboxPos = attackerTransform.Position + (dir / dist) * MonsterData.MeleeAttackRange;
 
         var hitbox = World.CreateEntity();
         hitbox.Add(new TransformComponent
         {
-            Position = attackerTransform.Position,
+            Position = hitboxPos,
             Rotation = attackerTransform.Rotation
         });
         hitbox.Add(new ColliderComponent

@@ -2,7 +2,7 @@ namespace Game.Ecs.Components;
 
 /// <summary>
 /// Marks a monster as capable of melee attacks.
-/// Tracks cooldown and windup state.
+/// Tracks cooldown, windup state, and the current attack target.
 /// </summary>
 public class MeleeAttackComponent
 {
@@ -22,4 +22,10 @@ public class MeleeAttackComponent
     /// False while in cooldown.
     /// </summary>
     public bool CanAttack = true;
+
+    /// <summary>
+    /// Entity ID of the player targeted for the current attack.
+    /// Set when windup starts; used to place the hitbox in front of the monster.
+    /// </summary>
+    public int TargetId;
 }
