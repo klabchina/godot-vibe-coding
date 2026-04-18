@@ -122,6 +122,12 @@ public class WaveSpawnSystem : GameSystem
             Mask = CollisionLayers.Arrow | CollisionLayers.Player,
         });
 
+        // Melee monsters get the melee attack component
+        if (type == MonsterType.Slime || type == MonsterType.Orc || type == MonsterType.Boss)
+        {
+            entity.Add(new MeleeAttackComponent());
+        }
+
         // Boss gets phase AI component
         if (type == MonsterType.Boss)
         {

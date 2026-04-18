@@ -94,6 +94,7 @@ public partial class BattleScene : Node2D
 		_world.AddSystem(bossAISystem);
 
 		_world.AddSystem(new MonsterAISystem());
+		_world.AddSystem(new MeleeAttackSystem());
 		_world.AddSystem(new AutoAimSystem());
 		_world.AddSystem(new MovementSystem());
 		_world.AddSystem(new OrbitSystem());

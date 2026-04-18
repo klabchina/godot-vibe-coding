@@ -189,6 +189,9 @@ public class CollisionSystem : GameSystem
             if (!monsterEntity.IsAlive) continue;
             if (monsterEntity.Has<DeathPendingComponent>()) continue;
 
+            // Skip monsters with MeleeAttackComponent — damage is handled by MeleeAttackSystem
+            if (monsterEntity.Has<MeleeAttackComponent>()) continue;
+
             var monsterTransform = monsterEntity.Get<TransformComponent>();
             var monsterCollider = monsterEntity.Get<ColliderComponent>();
             var monsterComp = monsterEntity.Get<MonsterComponent>();

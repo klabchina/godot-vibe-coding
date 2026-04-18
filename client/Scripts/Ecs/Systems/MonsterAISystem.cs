@@ -77,6 +77,10 @@ public class MonsterAISystem : GameSystem
             if (effect != null && effect.IsFrozen)
                 speedMultiplier = 1f - effect.FreezeSlowPercent;
 
+            // Check if monster is in attack windup — stop moving while windup plays
+            var melee = monster.Get<MeleeAttackComponent>();
+            bool inWindup = melee != null && melee.AttackWindupTimer > 0f;
+
             switch (monsterComp.Type)
             {
                 case MonsterType.Skeleton:
@@ -86,21 +90,35 @@ public class MonsterAISystem : GameSystem
                     UpdateEliteRanged(monster, velocity, ai, toPlayer, baseSpeed, speedMultiplier, delta);
                     break;
                 case MonsterType.Orc:
-                    UpdateOrc(monster, velocity, ai, toPlayer, nearestPos, nearestDist, baseSpeed, speedMultiplier, delta);
+                    UpdateOrc(monster, velocity, ai, toPlayer, nearestPos, nearestDist, baseSpeed, speedMultiplier, delta, inWindup);
                     break;
                 case MonsterType.Boss:
                     // Speed is overridden by BossAISystem; just set direction
-                    float bossRadius = monster.Get<ColliderComponent>()?.Radius ?? 40f;
-                    Vec2 bossDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, bossRadius, delta);
-                    Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, bossDetour, velocity.Speed * speedMultiplier, delta, bossRadius);
-                    velocity.Velocity = bossDir * velocity.Speed * speedMultiplier;
+                    if (inWindup)
+                    {
+                        velocity.Velocity = Vec2.Zero;
+                    }
+                    else
+                    {
+                        float bossRadius = monster.Get<ColliderComponent>()?.Radius ?? 40f;
+                        Vec2 bossDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, bossRadius, delta);
+                        Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, bossDetour, velocity.Speed * speedMultiplier, delta, bossRadius);
+                        velocity.Velocity = bossDir * velocity.Speed * speedMultiplier;
+                    }
                     break;
                 default:
                     // Slime: straight chase
-                    float slimeRadius = monster.Get<ColliderComponent>()?.Radius ?? 15f;
-                    Vec2 slimeDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, slimeRadius, delta);
-                    Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, slimeDetour, baseSpeed * speedMultiplier, delta, slimeRadius);
-                    velocity.Velocity = slimeDir * baseSpeed * speedMultiplier;
+                    if (inWindup)
+                    {
+                        velocity.Velocity = Vec2.Zero;
+                    }
+                    else
+                    {
+                        float slimeRadius = monster.Get<ColliderComponent>()?.Radius ?? 15f;
+                        Vec2 slimeDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, slimeRadius, delta);
+                        Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, slimeDetour, baseSpeed * speedMultiplier, delta, slimeRadius);
+                        velocity.Velocity = slimeDir * baseSpeed * speedMultiplier;
+                    }
                     break;
             }
         }
@@ -265,9 +283,17 @@ public class MonsterAISystem : GameSystem
     // ─── Orc — accelerating dash toward player ─────────────────────────────────
 
     private void UpdateOrc(Entity monster, VelocityComponent velocity, MonsterAIState ai,
-        Vec2 toPlayer, Vec2 nearestPos, float distToPlayer, float baseSpeed, float speedMul, float delta)
+        Vec2 toPlayer, Vec2 nearestPos, float distToPlayer, float baseSpeed, float speedMul, float delta,
+        bool inWindup)
     {
         if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
+
+        // If in windup, stop all movement
+        if (inWindup)
+        {
+            velocity.Velocity = Vec2.Zero;
+            return;
+        }
 
         // If currently dashing, accelerate from 0 to peak speed
         if (ai.IsDashing)

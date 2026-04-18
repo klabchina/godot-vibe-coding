@@ -426,6 +426,15 @@ public class RenderSystem : GameSystem
                 _monsterAnims[id] = targetAnim;
                 animSprite.Play(targetAnim);
             }
+
+            // 攻击动画播放完成后移除标记（用于近战攻击）
+            if (targetAnim == AnimNames.Attack && entity.Has<AttackAnimationComponent>())
+            {
+                if (!animSprite.IsPlaying() || animSprite.Frame >= animSprite.SpriteFrames.GetFrameCount(AnimNames.Attack) - 1)
+                {
+                    entity.Remove<AttackAnimationComponent>();
+                }
+            }
         }
     }
 
@@ -436,7 +445,11 @@ public class RenderSystem : GameSystem
         if (health != null && health.Hp <= 0)
             return AnimNames.Death;
 
-        // 有攻击意图时播放攻击动画（由 AI System 标记）
+        // 近战攻击动画（由 MeleeAttackSystem 标记）
+        if (entity.Has<AttackAnimationComponent>())
+            return AnimNames.Attack;
+
+        // 远程攻击动画（由 AI 状态机标记）
         var aiState = entity.Get<MonsterAIState>();
         if (aiState != null && aiState.FiredThisCycle)
             return AnimNames.Attack;

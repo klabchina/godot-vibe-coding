@@ -54,6 +54,25 @@ public static class MonsterData
     public const float OrcDashIntervalMin = 2.0f; // min interval between dashes
     public const float OrcDashIntervalMax = 7.0f; // max interval between dashes
 
+    // Melee attack parameters (shared)
+    public const float MeleeAttackRange = 100f;       // px, attack triggers within this distance
+    public const float MeleeWindupDuration = 0.2f;  // seconds before damage frames
+
+    // Slime attack parameters
+    public const float SlimeAttackDamage = 8f;
+    public const float SlimeAttackCooldownMin = 1.2f;
+    public const float SlimeAttackCooldownMax = 2.5f;
+
+    // Orc attack parameters
+    public const float OrcAttackDamage = 20f;
+    public const float OrcAttackCooldownMin = 1.5f;
+    public const float OrcAttackCooldownMax = 3.0f;
+
+    // Boss attack parameters
+    public const float BossAttackDamage = 30f;
+    public const float BossAttackCooldownMin = 2.0f;
+    public const float BossAttackCooldownMax = 4.0f;
+
     // Skeleton ranged parameters
     public const float SkeletonWanderDuration = 2.0f;  // seconds in wander phase
     public const float SkeletonAttackDuration = 0.4f;  // pause before firing
