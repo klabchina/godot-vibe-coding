@@ -45,10 +45,13 @@ public class MeleeAttackSystem : GameSystem
 
                 if (melee.AttackWindupTimer <= 0f)
                 {
-                    // Windup complete — start cooldown, CollisionSystem will now deal contact damage
+                    // Windup complete — create a transient hitbox that deals damage once
+                    // then auto-destroys itself in the same tick
                     melee.AttackWindupTimer = 0f;
                     melee.CooldownTimer = GetAttackCooldown(monsterComp.Type);
                     melee.CanAttack = false;
+
+                    CreateAttackHitbox(attacker, monsterComp.Type, attackerTransform);
                 }
                 continue;
             }
@@ -102,4 +105,31 @@ public class MeleeAttackSystem : GameSystem
             + GameRandom.Randf() * (MonsterData.BossAttackCooldownMax - MonsterData.BossAttackCooldownMin),
         _ => 2.0f
     };
+
+    /// <summary>
+    /// Creates a transient hitbox entity at the attacker's position. The hitbox checks
+    /// for a Player overlap once, deals damage, then is destroyed by CollisionSystem —
+    /// even if no player was hit.
+    /// </summary>
+    private void CreateAttackHitbox(Entity attacker, MonsterType type, TransformComponent attackerTransform)
+    {
+        if (!MonsterData.Hitbox.TryGetValue(type, out var hitboxData)) return;
+
+        var hitbox = World.CreateEntity();
+        hitbox.Add(new TransformComponent
+        {
+            Position = attackerTransform.Position,
+            Rotation = attackerTransform.Rotation
+        });
+        hitbox.Add(new ColliderComponent
+        {
+            Shape = hitboxData.Shape,
+            Radius = hitboxData.Radius
+        });
+        hitbox.Add(new AttackHitboxComponent
+        {
+            AttackerId = attacker.Id,
+            Damage = (int)MonsterData.GetDamage(type, 1)
+        });
+    }
 }

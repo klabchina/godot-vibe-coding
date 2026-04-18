@@ -58,6 +58,15 @@ public static class MonsterData
     public const float MeleeAttackRange = 100f;       // px, attack triggers within this distance
     public const float MeleeWindupDuration = 0.1f;  // seconds before damage frames
 
+    // Hitbox config per monster type (used during damage frame)
+    public record HitboxData(float Radius, ColliderShape Shape);
+    public static readonly Dictionary<MonsterType, HitboxData> Hitbox = new()
+    {
+        [MonsterType.Slime]  = new(Radius: 25f, Shape: ColliderShape.Circle),
+        [MonsterType.Orc]    = new(Radius: 35f, Shape: ColliderShape.Circle),
+        [MonsterType.Boss]   = new(Radius: 55f, Shape: ColliderShape.Circle),
+    };
+
     // Slime attack parameters
     public const float SlimeAttackDamage = 8f;
     public const float SlimeAttackCooldownMin = 0.2f;

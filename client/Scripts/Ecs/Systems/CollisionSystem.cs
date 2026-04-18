@@ -20,6 +20,7 @@ public class CollisionSystem : GameSystem
         CheckMonsterVsPlayer();
         CheckMonsterProjectileVsPlayer();
         CheckProjectileVsObstacle();
+        CheckAttackHitbox();
     }
 
     // ── Unified overlap test (Circle / OBB) ──────────────────────────
@@ -285,6 +286,44 @@ public class CollisionSystem : GameSystem
                     break;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Checks transient attack hitboxes against players. Each hitbox deals damage once
+    /// then destroys itself — even if no player was hit (single-frame existence).
+    /// </summary>
+    private void CheckAttackHitbox()
+    {
+        var hitboxes = World.GetEntitiesWith<AttackHitboxComponent, TransformComponent, ColliderComponent>();
+        if (hitboxes.Count == 0) return;
+
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, ColliderComponent>();
+        if (players.Count == 0) return;
+
+        foreach (var hitboxEntity in hitboxes)
+        {
+            if (!hitboxEntity.IsAlive) continue;
+
+            var hitboxTransform = hitboxEntity.Get<TransformComponent>();
+            var hitboxCollider  = hitboxEntity.Get<ColliderComponent>();
+            var hitboxComp     = hitboxEntity.Get<AttackHitboxComponent>();
+
+            foreach (var playerEntity in players)
+            {
+                if (!playerEntity.IsAlive) continue;
+
+                var playerTransform = playerEntity.Get<TransformComponent>();
+                var playerCollider  = playerEntity.Get<ColliderComponent>();
+
+                if (!Overlaps(hitboxCollider, hitboxTransform, playerCollider, playerTransform)) continue;
+
+                Hits.Add(new HitEvent(hitboxComp.AttackerId, playerEntity.Id, hitboxComp.Damage, false));
+                break; // One hit per hitbox
+            }
+
+            // Destroy the hitbox whether or not a player was hit
+            World.DestroyEntity(hitboxEntity.Id);
         }
     }
 }
