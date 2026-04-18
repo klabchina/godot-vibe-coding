@@ -20,7 +20,7 @@ from PIL import Image
 
 
 # ── 常量 ──────────────────────────────────────────────────────────────────────
-RULE_PNG_PATH  = "seedance-input/rule.png"
+RULE_PNG_PATH  = "seedance-input/rule_10.png"
 TARGET_W       = 80     # 最终帧宽度
 TARGET_H       = 130    # 最终帧高度
 BG_THRESH      = 230    # 背景阈值 (R,G,B 均 > 此值视为背景白色)
