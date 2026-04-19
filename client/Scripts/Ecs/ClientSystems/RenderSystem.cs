@@ -22,7 +22,7 @@ public class RenderSystem : GameSystem
     private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
     private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
 
-    private const float AttackAnimDuration = 0.5f; // 5帧 × 10fps = 0.5秒
+    private const float AttackAnimDuration = 0.33f;
     private const float AnimFps = 10f;
 
     // 怪物动画状态跟踪
@@ -273,8 +273,8 @@ public class RenderSystem : GameSystem
             {
                 var path = anim switch
                 {
-                    AnimNames.Idle   => $"{SpriteFramesConstant.ArcherIdlePrefix}{i}{SpriteFramesConstant.ArcherExt}",
-                    AnimNames.Walk   => $"{SpriteFramesConstant.ArcherWalkPrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    AnimNames.Idle => $"{SpriteFramesConstant.ArcherIdlePrefix}{i}{SpriteFramesConstant.ArcherExt}",
+                    AnimNames.Walk => $"{SpriteFramesConstant.ArcherWalkPrefix}{i}{SpriteFramesConstant.ArcherExt}",
                     AnimNames.Attack => $"{SpriteFramesConstant.ArcherAttackPrefix}{i}{SpriteFramesConstant.ArcherExt}",
                     _ => $"res://Assets/Sprites/Roles/archer_{anim}_{i}.png"
                 };
