@@ -86,6 +86,9 @@ public class MovementSystem : GameSystem
             }
             else if (entity.Has<MonsterComponent>())
             {
+                if (entity.Has<DeathPendingComponent>())
+                    continue;
+
                 var monsterCollider = entity.Get<ColliderComponent>();
                 if (monsterCollider != null)
                 {

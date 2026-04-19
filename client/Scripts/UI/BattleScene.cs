@@ -39,7 +39,7 @@ public partial class BattleScene : Node2D
 		_canvasLayer.AddChild(_upgradePanel);
 
 		MapLoader.LoadAll();
-		StageLoader.Load("stage_1");
+		StageLoader.Load("stage_2");
 		_currentMap = MapLoader.PickRandom();
 		MapLoader.ApplyBackground(_currentMap, this);
 
@@ -269,7 +269,7 @@ public partial class BattleScene : Node2D
 		if (waveEntities.Count > 0)
 		{
 			var wave = waveEntities[0].Get<WaveComponent>();
-			_hud?.UpdateWave(wave.CurrentWave, WaveData.TotalWaves);
+			_hud?.UpdateWave(wave.CurrentWave, StageLoader.GetTotalWaves());
 		}
 
 		var playerEntities = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();

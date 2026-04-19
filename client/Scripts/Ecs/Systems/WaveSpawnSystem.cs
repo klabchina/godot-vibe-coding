@@ -48,7 +48,7 @@ public class WaveSpawnSystem : GameSystem
             // Auto-collect all remaining XP orbs on wave clear
             CollectAllExpOrbs();
 
-            if (wave.CurrentWave >= WaveData.TotalWaves)
+            if (wave.CurrentWave >= StageLoader.GetTotalWaves())
             {
                 wave.AllWavesComplete = true;
             }

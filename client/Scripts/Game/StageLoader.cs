@@ -25,6 +25,8 @@ public static class StageLoader
 
     public static StageConfig GetStage() => _stage;
 
+    public static int GetTotalWaves() => _stage?.Waves.Count ?? 0;
+
     public static WaveData.SpawnEntry[] GetWaveSpawnEntries(int waveIndex)
     {
         if (_stage == null || waveIndex < 0 || waveIndex >= _stage.Waves.Count)

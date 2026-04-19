@@ -9,7 +9,7 @@ public static class PlayerData
     public const int BaseArrowDamage = 20;
     public const float ArrowSpeed = 800f;
     public const int BasePierce = 0;
-    public const float BasePickupRadius = 50f;
+    public const float BasePickupRadius = 500f;
     public const int BaseOrbitCount = 0;
     public const int PlayerRadius = 16;
 
