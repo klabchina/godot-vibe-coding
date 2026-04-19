@@ -126,11 +126,10 @@ public class RenderSystem : GameSystem
             while (nodes.Count < orbit.Count)
             {
                 var orbitVisual = new Node2D();
-                var rect = new ColorRect();
-                rect.Color = Colors.Cyan;
-                rect.Size = new Vector2(12, 6);
-                rect.Position = new Vector2(-6, -3);
-                orbitVisual.AddChild(rect);
+                var sprite = new Sprite2D();
+                sprite.Texture = GD.Load<Texture2D>("res://Assets/Sprites/Props/orbit_orb.png");
+                sprite.Offset = new Vector2(-16, -16); // Center 32x32 sprite
+                orbitVisual.AddChild(sprite);
                 RenderRoot.AddChild(orbitVisual);
                 nodes.Add(orbitVisual);
             }
