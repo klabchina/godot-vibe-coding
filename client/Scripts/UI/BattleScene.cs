@@ -39,6 +39,7 @@ public partial class BattleScene : Node2D
 		_canvasLayer.AddChild(_upgradePanel);
 
 		MapLoader.LoadAll();
+		StageLoader.Load("stage_1");
 		_currentMap = MapLoader.PickRandom();
 		MapLoader.ApplyBackground(_currentMap, this);
 

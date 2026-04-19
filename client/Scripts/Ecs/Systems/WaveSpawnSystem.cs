@@ -63,7 +63,7 @@ public class WaveSpawnSystem : GameSystem
     public void StartNextWave(WaveComponent wave)
     {
         wave.CurrentWave++;
-        wave.SpawnList = WaveData.Waves[wave.CurrentWave - 1];
+        wave.SpawnList = StageLoader.GetWaveSpawnEntries(wave.CurrentWave - 1);
         wave.SpawnIndex = 0;
         wave.SpawnCountInEntry = 0;
         wave.TotalSpawned = 0;

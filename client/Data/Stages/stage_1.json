@@ -1,0 +1,59 @@
+{
+  "id": 1,
+  "waves": [
+    {
+      "monsters": [
+        { "type": "Slime", "count": 10 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Slime", "count": 8 },
+        { "type": "Skeleton", "count": 4 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Slime", "count": 5 },
+        { "type": "Skeleton", "count": 8 },
+        { "type": "Orc", "count": 2 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Skeleton", "count": 8 },
+        { "type": "Orc", "count": 4 },
+        { "type": "Elite", "count": 1 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Skeleton", "count": 6 },
+        { "type": "Orc", "count": 6 },
+        { "type": "Elite", "count": 3 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Orc", "count": 8 },
+        { "type": "Elite", "count": 5 },
+        { "type": "Skeleton", "count": 5 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Orc", "count": 10 },
+        { "type": "Elite", "count": 8 },
+        { "type": "Skeleton", "count": 8 }
+      ]
+    },
+    {
+      "monsters": [
+        { "type": "Boss", "count": 1 },
+        { "type": "Orc", "count": 5 },
+        { "type": "Elite", "count": 3 },
+        { "type": "Slime", "count": 10 }
+      ]
+    }
+  ]
+}
