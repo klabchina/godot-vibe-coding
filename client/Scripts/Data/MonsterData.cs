@@ -16,7 +16,7 @@ public static class MonsterData
         [MonsterType.Skeleton] = new(Hp: 40, Speed: 90, Damage: 8, Radius: 20, BaseXp: 8, FirstWave: 2, Shape: ColliderShape.Box, HalfWidth: 20, HalfHeight: 40),
         [MonsterType.Orc] = new(Hp: 80, Speed: 50, Damage: 15, Radius: 25, BaseXp: 15, FirstWave: 3),
         [MonsterType.Elite] = new(Hp: 150, Speed: 70, Damage: 12, Radius: 25, BaseXp: 30, FirstWave: 4, Shape: ColliderShape.Box, HalfWidth: 25, HalfHeight: 40),
-        [MonsterType.Boss] = new(Hp: 1000, Speed: 40, Damage: 25, Radius: 40, BaseXp: 100, FirstWave: 8),
+        [MonsterType.Boss] = new(Hp: 1000, Speed: 100, Damage: 25, Radius: 40, BaseXp: 100, FirstWave: 8),
     };
 
     private const float HpGrowthRate = 0.10f;
@@ -69,9 +69,9 @@ public static class MonsterData
     public record HitboxData(float Radius, ColliderShape Shape);
     public static readonly Dictionary<MonsterType, HitboxData> Hitbox = new()
     {
-        [MonsterType.Slime]  = new(Radius: 25f, Shape: ColliderShape.Circle),
-        [MonsterType.Orc]    = new(Radius: 35f, Shape: ColliderShape.Circle),
-        [MonsterType.Boss]   = new(Radius: 55f, Shape: ColliderShape.Circle),
+        [MonsterType.Slime] = new(Radius: 25f, Shape: ColliderShape.Circle),
+        [MonsterType.Orc] = new(Radius: 35f, Shape: ColliderShape.Circle),
+        [MonsterType.Boss] = new(Radius: 55f, Shape: ColliderShape.Circle),
     };
 
     // Slime attack parameters
