@@ -55,7 +55,7 @@ public static class MonsterData
     public const float OrcDashIntervalMax = 7.0f; // max interval between dashes
 
     // Boss dash parameters
-    public const float BossDashSpeed = 500f;      // faster than Orc
+    public const float BossDashSpeed = 400f;      // faster than Orc
     public const float BossDashDurationMin = 1.0f;
     public const float BossDashDurationMax = 2.5f;
     public const float BossDashIntervalMin = 1.5f;

@@ -93,18 +93,7 @@ public class MonsterAISystem : GameSystem
                     UpdateOrc(monster, velocity, ai, toPlayer, nearestPos, nearestDist, baseSpeed, speedMultiplier, delta, inWindup);
                     break;
                 case MonsterType.Boss:
-                    // Speed is overridden by BossAISystem; just set direction
-                    if (inWindup)
-                    {
-                        velocity.Velocity = Vec2.Zero;
-                    }
-                    else
-                    {
-                        float bossRadius = monster.Get<ColliderComponent>()?.Radius ?? 40f;
-                        Vec2 bossDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, bossRadius, delta);
-                        Vec2 bossDir = AdjustForObstacles(monsterTransform.Position, bossDetour, velocity.Speed * speedMultiplier, delta, bossRadius);
-                        velocity.Velocity = bossDir * velocity.Speed * speedMultiplier;
-                    }
+                    // Boss movement is fully handled by BossAISystem; skip here
                     break;
                 default:
                     // Slime: straight chase

@@ -130,7 +130,7 @@ public class BossAISystem : GameSystem
             {
                 // Accelerating dash: baseSpeed + BossDashSpeed * progress over DashDuration
                 float progress = phase.DashTimer / phase.DashInterval;
-                float currentSpeed = baseSpeed + MonsterData.BossDashSpeed * (1.0f - progress);
+                float currentSpeed = baseSpeed + MonsterData.BossDashSpeed * progress;
                 float bossRadius = boss.Get<ColliderComponent>()?.Radius ?? 40f;
                 Vec2 dashDir = AdjustForObstacles(transform.Position, toPlayer, currentSpeed, delta, bossRadius);
                 velocity.Velocity = dashDir * currentSpeed;
