@@ -96,7 +96,7 @@ public static class UpgradeData
 
     // Orbit Guard: 180 deg/s, 80px radius, 8 damage, 0.5s hit interval
     public const float OrbitRotationSpeed = 180f; // degrees per second
-    public const float OrbitRadius = 120f;
+    public const float OrbitRadius = 150;
     public const int OrbitDamage = 10;
     public const float OrbitHitInterval = 0.25f;
 }

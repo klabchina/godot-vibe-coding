@@ -12,7 +12,7 @@ public partial class ResultUI : Control
         GetNode<Label>("ContentBox/GradeLabel").Text = grade;
         GetNode<Label>("ContentBox/GradeLabel").AddThemeColorOverride("font_color", GetGradeColor(grade));
 
-        GetNode<Label>("ContentBox/WavesRow/WavesValue").Text = $"{gm.WavesCompleted} / 8";
+        GetNode<Label>("ContentBox/WavesRow/WavesValue").Text = $"{gm.WavesCompleted} / {StageLoader.GetTotalWaves()}";
         GetNode<Label>("ContentBox/KillsRow/KillsValue").Text  = $"{gm.KillCount}";
         GetNode<Label>("ContentBox/DamageRow/DamageValue").Text = $"{gm.TotalDamage}";
         GetNode<Label>("ContentBox/XpRow/XpValue").Text        = $"{gm.TotalXpCollected}";
