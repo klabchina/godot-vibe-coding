@@ -37,9 +37,9 @@ public static class MonsterData
 
     public static readonly Dictionary<BossPhase, BossPhaseData> BossPhases = new()
     {
-        [BossPhase.Chase] = new(HpThresholdPercent: 1.0f, Speed: 40, Damage: 25, Radius: 40),
-        [BossPhase.Summon] = new(HpThresholdPercent: 2f / 3f, Speed: 0, Damage: 0, Radius: 40),
-        [BossPhase.Frenzy] = new(HpThresholdPercent: 1f / 3f, Speed: 100, Damage: 40, Radius: 30),
+        [BossPhase.Chase] = new(HpThresholdPercent: 1.0f, Speed: 100, Damage: 25, Radius: 40),
+        [BossPhase.Summon] = new(HpThresholdPercent: 2f / 3f, Speed: 20, Damage: 0, Radius: 40),
+        [BossPhase.Frenzy] = new(HpThresholdPercent: 1f / 3f, Speed: 150, Damage: 40, Radius: 30),
     };
 
     public const int BossSummonCount = 3;
