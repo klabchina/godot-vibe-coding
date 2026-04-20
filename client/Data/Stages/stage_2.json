@@ -3,6 +3,10 @@
   "waves": [
     {
       "monsters": [
+        { "type": "Slime", "count": 15 },
+        { "type": "Skeleton", "count": 12 },
+        { "type": "Orc", "count": 8 },
+        { "type": "Elite", "count": 5 },
         { "type": "Boss", "count": 1 }
       ]
     }
