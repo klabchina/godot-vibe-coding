@@ -17,6 +17,15 @@ public class OrbitSystem : GameSystem
         var players = World.GetEntitiesWith<PlayerComponent, TransformComponent, OrbitComponent>();
         var monsters = World.GetEntitiesWith<MonsterComponent, TransformComponent, ColliderComponent>();
 
+        // Cache monster data to avoid repeated GetComponent calls in inner loops
+        var monsterData = new List<(Vec2 pos, float radius, int id)>(monsters.Count);
+        foreach (var m in monsters)
+        {
+            if (!m.IsAlive) continue;
+            var col = m.Get<ColliderComponent>();
+            monsterData.Add((m.Get<TransformComponent>().Position, col.Radius, m.Id));
+        }
+
         foreach (var player in players)
         {
             if (!player.IsAlive) continue;
@@ -31,7 +40,6 @@ public class OrbitSystem : GameSystem
             if (orbit.CurrentAngle >= 360f)
                 orbit.CurrentAngle -= 360f;
 
-            // Check each orbit arrow against monsters
             float angleStep = 360f / orbit.Count;
 
             for (int i = 0; i < orbit.Count; i++)
@@ -42,7 +50,6 @@ public class OrbitSystem : GameSystem
                     GMath.Sin(angle) * UpgradeData.OrbitRadius
                 );
 
-                // Ensure cooldown dict exists for this orbit index
                 if (!orbit.HitCooldowns.ContainsKey(i))
                     orbit.HitCooldowns[i] = new Dictionary<int, float>();
 
@@ -59,33 +66,42 @@ public class OrbitSystem : GameSystem
                 foreach (var id in expired)
                     cooldowns.Remove(id);
 
-                // Check collision with monsters
-                foreach (var monster in monsters)
+                // Check collision with monsters — use squared distance to avoid sqrt
+                float orbitRadius = 10f;
+                foreach (var (monsterPos, monsterRadius, monsterId) in monsterData)
                 {
-                    if (!monster.IsAlive) continue;
-                    if (cooldowns.ContainsKey(monster.Id)) continue;
+                    if (cooldowns.ContainsKey(monsterId)) continue;
 
-                    var monsterTransform = monster.Get<TransformComponent>();
-                    var monsterCollider = monster.Get<ColliderComponent>();
+                    float dx = orbitPos.X - monsterPos.X;
+                    float dy = orbitPos.Y - monsterPos.Y;
+                    float distSq = dx * dx + dy * dy;
+                    float maxDist = orbitRadius + monsterRadius;
+                    if (distSq > maxDist * maxDist) continue;
 
-                    float dist = orbitPos.DistanceTo(monsterTransform.Position);
-                    if (dist <= 10f + monsterCollider.Radius) // orbit arrow radius ~10px
+                    // Hit — deal damage and record for damage number display
+                    var monster = World.GetEntity(monsterId);
+                    if (monster != null && monster.IsAlive)
                     {
-                        // Deal damage directly
                         var health = monster.Get<HealthComponent>();
                         if (health != null)
                         {
                             health.Hp -= UpgradeData.OrbitDamage;
                             if (health.Hp < 0) health.Hp = 0;
 
-                            // Track damage for player stats
                             var playerComp = player.Get<PlayerComponent>();
                             if (playerComp != null)
                                 playerComp.TotalDamageDealt += UpgradeData.OrbitDamage;
-                        }
 
-                        cooldowns[monster.Id] = UpgradeData.OrbitHitInterval;
+                            // Mark monster as just hit by orbit (for damage number display)
+                            monster.Add(new OrbitHitComponent
+                            {
+                                Damage = UpgradeData.OrbitDamage,
+                                IsOrbit = true
+                            });
+                        }
                     }
+
+                    cooldowns[monsterId] = UpgradeData.OrbitHitInterval;
                 }
             }
         }

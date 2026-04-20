@@ -76,9 +76,11 @@ public partial class BattleScene : Node2D
 			Layer = CollisionLayers.Player,
 			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
 		});
-		player.Add(new UpgradeComponent());
+
+		// [DEBUG] Set OrbitCount to 6
+		player.Add(new UpgradeComponent { OrbitCount = 6 });
 		player.Add(new BuffComponent());
-		player.Add(new OrbitComponent());
+		player.Add(new OrbitComponent { Count = 6 });
 
 		// Create wave spawner entity
 		var spawner = _world.CreateEntity();
@@ -100,8 +102,8 @@ public partial class BattleScene : Node2D
 		_world.AddSystem(new MeleeAttackSystem());
 		_world.AddSystem(new AutoAimSystem());
 		_world.AddSystem(new MovementSystem());
-		_world.AddSystem(new OrbitSystem());
 		_world.AddSystem(new CollisionSystem());
+		_world.AddSystem(new OrbitSystem());
 		var pickupSystem = new PickupSystem();
 		pickupSystem.OnLevelUp = OnPlayerLevelUp;
 		_world.AddSystem(pickupSystem);
@@ -239,6 +241,21 @@ public partial class BattleScene : Node2D
 
 	private void SpawnDamageNumbers()
 	{
+		// Handle orbit hits via OrbitHitComponent (pure ECS approach)
+		var orbitHitEntities = _world.GetEntitiesWith<OrbitHitComponent, TransformComponent>();
+		foreach (var entity in orbitHitEntities)
+		{
+			var hit = entity.Get<OrbitHitComponent>();
+			var transform = entity.Get<TransformComponent>();
+
+			var dmgNum = new DamageNumber();
+			_canvasLayer.AddChild(dmgNum);
+			dmgNum.Show(new Vector2(transform.Position.X - 10, transform.Position.Y - 30), hit.Damage);
+
+			entity.Remove<OrbitHitComponent>();
+		}
+
+		// Handle collision system hits (arrows, monster projectiles)
 		var collisionSystem = _world.GetSystem<CollisionSystem>();
 		if (collisionSystem == null) return;
 

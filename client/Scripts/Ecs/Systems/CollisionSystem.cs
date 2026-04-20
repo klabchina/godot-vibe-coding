@@ -12,6 +12,12 @@ public class CollisionSystem : GameSystem
 
     public List<HitEvent> Hits = new();
 
+    /// <summary>OrbitSystem and other non-collision sources add hits here so damage numbers can display.</summary>
+    public void AddOrbitHit(int defenderId, int damage)
+    {
+        Hits.Add(new HitEvent(-1, defenderId, damage, true)); // attackerId=-1 signals orbit
+    }
+
     public override void Update(float delta)
     {
         Hits.Clear();
