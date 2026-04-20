@@ -16,7 +16,7 @@ public static class MonsterData
         [MonsterType.Skeleton] = new(Hp: 40, Speed: 90, Damage: 8, Radius: 20, BaseXp: 8, FirstWave: 2, Shape: ColliderShape.Box, HalfWidth: 20, HalfHeight: 40),
         [MonsterType.Orc] = new(Hp: 80, Speed: 50, Damage: 15, Radius: 25, BaseXp: 15, FirstWave: 3),
         [MonsterType.Elite] = new(Hp: 150, Speed: 70, Damage: 12, Radius: 25, BaseXp: 30, FirstWave: 4, Shape: ColliderShape.Box, HalfWidth: 25, HalfHeight: 40),
-        [MonsterType.Boss] = new(Hp: 500, Speed: 40, Damage: 25, Radius: 40, BaseXp: 100, FirstWave: 8),
+        [MonsterType.Boss] = new(Hp: 1000, Speed: 40, Damage: 25, Radius: 40, BaseXp: 100, FirstWave: 8),
     };
 
     private const float HpGrowthRate = 0.10f;
@@ -39,12 +39,12 @@ public static class MonsterData
     {
         [BossPhase.Chase] = new(HpThresholdPercent: 1.0f, Speed: 40, Damage: 25, Radius: 40),
         [BossPhase.Summon] = new(HpThresholdPercent: 2f / 3f, Speed: 0, Damage: 0, Radius: 40),
-        [BossPhase.Frenzy] = new(HpThresholdPercent: 1f / 3f, Speed: 80, Damage: 30, Radius: 30),
+        [BossPhase.Frenzy] = new(HpThresholdPercent: 1f / 3f, Speed: 100, Damage: 40, Radius: 30),
     };
 
     public const int BossSummonCount = 3;
-    public const float BossSummonCooldown = 3.0f;
-    public const float BossSummonDuration = 10.0f;
+    public const float BossSummonCooldown = 2.0f;
+    public const float BossSummonDuration = 8.0f;
     public const int BossPhaseChangeXp = 30;
 
     // Orc dash parameters
@@ -53,6 +53,13 @@ public static class MonsterData
     public const float OrcDashDurationMax = 2.0f;  // dash duration random max
     public const float OrcDashIntervalMin = 2.0f; // min interval between dashes
     public const float OrcDashIntervalMax = 7.0f; // max interval between dashes
+
+    // Boss dash parameters
+    public const float BossDashSpeed = 500f;      // faster than Orc
+    public const float BossDashDurationMin = 1.0f;
+    public const float BossDashDurationMax = 2.5f;
+    public const float BossDashIntervalMin = 1.5f;
+    public const float BossDashIntervalMax = 4.0f;
 
     // Melee attack parameters (shared)
     public const float MeleeAttackRange = 100f;       // px, attack triggers within this distance

@@ -8,6 +8,7 @@ namespace Game.Ecs.Systems;
 /// Boss three-phase AI: Chase → Summon → Frenzy.
 /// Phase transitions at 2/3 and 1/3 HP thresholds.
 /// Each transition awards 30 XP to all players.
+/// Boss also has a dash attack (Dash → cooldown) active in all non-summon phases.
 /// </summary>
 public class BossAISystem : GameSystem
 {
@@ -37,6 +38,7 @@ public class BossAISystem : GameSystem
                 phase.Phase = BossPhase.Summon;
                 phase.SummonDuration = MonsterData.BossSummonDuration;
                 phase.SummonTimer = 0f; // summon immediately
+                phase.IsDashing = false;
                 OnBossPhaseChange?.Invoke(MonsterData.BossPhaseChangeXp);
             }
             else if (!phase.Phase3Triggered && hpPercent <= 1f / 3f)
@@ -50,23 +52,23 @@ public class BossAISystem : GameSystem
             switch (phase.Phase)
             {
                 case BossPhase.Chase:
-                    ApplyChase(boss, velocity);
+                    ApplyChase(boss, velocity, phase, delta);
                     break;
                 case BossPhase.Summon:
                     ApplySummon(boss, velocity, phase, delta);
                     break;
                 case BossPhase.Frenzy:
-                    ApplyFrenzy(boss, velocity);
+                    ApplyFrenzy(boss, velocity, phase, delta);
                     break;
             }
         }
     }
 
-    private void ApplyChase(Entity boss, VelocityComponent velocity)
+    private void ApplyChase(Entity boss, VelocityComponent velocity, BossPhaseComponent phase, float delta)
     {
         var phaseData = MonsterData.BossPhases[BossPhase.Chase];
         velocity.Speed = phaseData.Speed;
-        // Direction is handled by MonsterAISystem (chase nearest player)
+        ApplyDash(boss, velocity, phase, delta, phaseData.Speed);
     }
 
     private void ApplySummon(Entity boss, VelocityComponent velocity, BossPhaseComponent phase, float delta)
@@ -74,6 +76,7 @@ public class BossAISystem : GameSystem
         // Stop moving during summon phase
         velocity.Speed = 0;
         velocity.Velocity = Vec2.Zero;
+        phase.IsDashing = false;
 
         phase.SummonDuration -= delta;
         phase.SummonTimer -= delta;
@@ -91,7 +94,7 @@ public class BossAISystem : GameSystem
         }
     }
 
-    private void ApplyFrenzy(Entity boss, VelocityComponent velocity)
+    private void ApplyFrenzy(Entity boss, VelocityComponent velocity, BossPhaseComponent phase, float delta)
     {
         var phaseData = MonsterData.BossPhases[BossPhase.Frenzy];
         velocity.Speed = phaseData.Speed;
@@ -100,6 +103,83 @@ public class BossAISystem : GameSystem
         var collider = boss.Get<ColliderComponent>();
         if (collider != null)
             collider.Radius = phaseData.Radius;
+
+        ApplyDash(boss, velocity, phase, delta, phaseData.Speed);
+    }
+
+    private void ApplyDash(Entity boss, VelocityComponent velocity, BossPhaseComponent phase, float delta, float baseSpeed)
+    {
+        var transform = boss.Get<TransformComponent>();
+        Vec2? nearestPos = FindNearestPlayer(transform.Position);
+        if (nearestPos == null) return;
+
+        Vec2 toPlayer = ((Vec2)nearestPos - transform.Position).Normalized();
+
+        if (phase.IsDashing)
+        {
+            phase.DashTimer += delta;
+            if (phase.DashTimer >= phase.DashInterval)
+            {
+                // End dash
+                phase.IsDashing = false;
+                phase.DashTimer = 0f;
+                phase.DashInterval = MonsterData.BossDashIntervalMin
+                    + GameRandom.Randf() * (MonsterData.BossDashIntervalMax - MonsterData.BossDashIntervalMin);
+            }
+            else
+            {
+                // Accelerating dash: speed ramps from 0 → peakSpeed over DashDuration
+                float progress = phase.DashTimer / phase.DashInterval;
+                float currentSpeed = MonsterData.BossDashSpeed * progress;
+                float bossRadius = boss.Get<ColliderComponent>()?.Radius ?? 40f;
+                Vec2 dashDir = AdjustForObstacles(transform.Position, toPlayer, currentSpeed, delta, bossRadius);
+                velocity.Velocity = dashDir * currentSpeed;
+            }
+        }
+        else
+        {
+            // Countdown to next dash
+            phase.DashInterval -= delta;
+            if (phase.DashInterval <= 0f)
+            {
+                // Start dash with random duration
+                phase.IsDashing = true;
+                phase.DashTimer = 0f;
+                phase.DashInterval = MonsterData.BossDashDurationMin
+                    + GameRandom.Randf() * (MonsterData.BossDashDurationMax - MonsterData.BossDashDurationMin);
+            }
+            else
+            {
+                // Normal chase at base speed
+                float bossRadius = boss.Get<ColliderComponent>()?.Radius ?? 40f;
+                Vec2 dir = AdjustForObstacles(transform.Position, toPlayer, baseSpeed, delta, bossRadius);
+                velocity.Velocity = dir * baseSpeed;
+            }
+        }
+    }
+
+    private Vec2 AdjustForObstacles(Vec2 from, Vec2 desiredDir, float speed, float delta, float radius)
+    {
+        return desiredDir; // TODO: obstacle avoidance if needed
+    }
+
+    private Vec2? FindNearestPlayer(Vec2 bossPos)
+    {
+        var players = World.GetEntitiesWith<PlayerComponent, TransformComponent>();
+        Vec2? nearest = null;
+        float minDistSq = float.MaxValue;
+        foreach (var p in players)
+        {
+            if (!p.IsAlive) continue;
+            var t = p.Get<TransformComponent>();
+            float d = (t.Position - bossPos).LengthSquared();
+            if (d < minDistSq)
+            {
+                minDistSq = d;
+                nearest = t.Position;
+            }
+        }
+        return nearest;
     }
 
     private void SpawnSlimes(Entity boss)

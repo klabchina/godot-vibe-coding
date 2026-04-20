@@ -25,7 +25,7 @@ public partial class UpgradePanel : Control
     private bool _isActive;
 
     /// <summary>Fires when player selects an upgrade (or timer expires). Entity may be null if dismissed.</summary>
-    public event System.Action<Entity, UpgradeId>? OnUpgradeSelected;
+    public event System.Action<Entity, UpgradeId> OnUpgradeSelected;
 
     public override void _Ready()
     {
@@ -110,45 +110,45 @@ public partial class UpgradePanel : Control
         switch (chosen)
         {
             case UpgradeId.MaxHpUp:
-            {
-                var health = _playerEntity.Get<HealthComponent>();
-                var upgrade = _playerEntity.Get<UpgradeComponent>();
-                if (health != null && upgrade != null)
                 {
-                    health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
-                    health.Hp = Mathf.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                    var health = _playerEntity.Get<HealthComponent>();
+                    var upgrade = _playerEntity.Get<UpgradeComponent>();
+                    if (health != null && upgrade != null)
+                    {
+                        health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
+                        health.Hp = Mathf.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.MoveSpeedUp:
-            {
-                var vel = _playerEntity.Get<VelocityComponent>();
-                var upgrade = _playerEntity.Get<UpgradeComponent>();
-                if (vel != null && upgrade != null)
                 {
-                    vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                    var vel = _playerEntity.Get<VelocityComponent>();
+                    var upgrade = _playerEntity.Get<UpgradeComponent>();
+                    if (vel != null && upgrade != null)
+                    {
+                        vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.Shield:
-            {
-                var buff = _playerEntity.Get<BuffComponent>();
-                if (buff != null)
                 {
-                    buff.ShieldActive = true;
-                    buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                    var buff = _playerEntity.Get<BuffComponent>();
+                    if (buff != null)
+                    {
+                        buff.ShieldActive = true;
+                        buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                    }
+                    break;
                 }
-                break;
-            }
             case UpgradeId.OrbitGuard:
-            {
-                var orbit = _playerEntity.Get<OrbitComponent>();
-                if (orbit != null)
                 {
-                    orbit.Count = _playerEntity.Get<UpgradeComponent>()?.OrbitCount ?? 1;
+                    var orbit = _playerEntity.Get<OrbitComponent>();
+                    if (orbit != null)
+                    {
+                        orbit.Count = _playerEntity.Get<UpgradeComponent>()?.OrbitCount ?? 1;
+                    }
+                    break;
                 }
-                break;
-            }
         }
     }
 
