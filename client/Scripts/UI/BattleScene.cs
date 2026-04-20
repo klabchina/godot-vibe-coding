@@ -23,6 +23,7 @@ public partial class BattleScene : Node2D
 	private UpgradePanel _upgradePanel;
 	private CanvasLayer _canvasLayer;
 	private bool _gameOver;
+	private bool _isPaused;
 	private MapConfig _currentMap;
 
 	// Pending level-ups queue (supports consecutive level-ups)
@@ -37,6 +38,7 @@ public partial class BattleScene : Node2D
 		_upgradePanel = ResourceLoader.Load<PackedScene>("res://Scenes/UpgradePanel.tscn").Instantiate() as UpgradePanel
 			?? throw new System.InvalidOperationException("Failed to load UpgradePanel scene");
 		_canvasLayer.AddChild(_upgradePanel);
+		_upgradePanel.OnUpgradeSelected += (entity, id) => _isPaused = false;
 
 		MapLoader.LoadAll();
 		StageLoader.Load("stage_2");
@@ -121,7 +123,7 @@ public partial class BattleScene : Node2D
 		if (_gameOver) return;
 
 		float dt = (float)delta;
-		_world.Update(dt);
+		if (!_isPaused) _world.Update(dt);
 		UpdateHud();
 		ProcessPendingLevelUps();
 		CheckGameOver();
@@ -166,6 +168,7 @@ public partial class BattleScene : Node2D
 		var options = UpgradeRoller.Roll(upgrade, level);
 		if (options.Count > 0)
 		{
+			_isPaused = true;
 			_upgradePanel.Show(player, options);
 		}
 	}

@@ -8,7 +8,6 @@ namespace Game.UI;
 
 /// <summary>
 /// 3-choice upgrade panel with 5-second countdown.
-/// Game does NOT pause while panel is open.
 /// Scene: res://Scenes/UpgradePanel.tscn
 /// </summary>
 public partial class UpgradePanel : Control
@@ -24,6 +23,9 @@ public partial class UpgradePanel : Control
     private Entity _playerEntity;
     private float _countdown;
     private bool _isActive;
+
+    /// <summary>Fires when player selects an upgrade (or timer expires). Entity may be null if dismissed.</summary>
+    public event System.Action<Entity, UpgradeId>? OnUpgradeSelected;
 
     public override void _Ready()
     {
@@ -97,6 +99,8 @@ public partial class UpgradePanel : Control
         var chosen = _options[index];
         upgrade.Apply(chosen);
         ApplyImmediateEffects(chosen);
+
+        OnUpgradeSelected?.Invoke(_playerEntity, chosen);
     }
 
     private void ApplyImmediateEffects(UpgradeId chosen)
