@@ -29,20 +29,28 @@ public class ServerGameManager
     {
         World = new World();
 
-        // 顺序决定每帧执行次序
+        // 顺序与 BattleScene.InitializeWorld 保持一致（去掉客户端专用的 InputSystem / RenderSystem）
+        var waveSpawnSystem = new WaveSpawnSystem();
+        World.AddSystem(waveSpawnSystem);
+
+        var bossAISystem = new BossAISystem();
+        bossAISystem.OnBossPhaseChange = OnBossPhaseChange;
+        World.AddSystem(bossAISystem);
+
         World.AddSystem(new MonsterAISystem());
-        World.AddSystem(new BossAISystem());
+        World.AddSystem(new MeleeAttackSystem());
         World.AddSystem(new AutoAimSystem());
-        World.AddSystem(new BuffSystem());
         World.AddSystem(new MovementSystem());
         World.AddSystem(new CollisionSystem());
-        World.AddSystem(new DamageSystem());
-        World.AddSystem(new EffectSystem());
         World.AddSystem(new OrbitSystem());
+
         var pickupSystem = new PickupSystem();
         pickupSystem.OnLevelUp = OnPlayerLevelUp;
         World.AddSystem(pickupSystem);
-        World.AddSystem(new WaveSpawnSystem());
+
+        World.AddSystem(new DamageSystem());
+        World.AddSystem(new EffectSystem());
+        World.AddSystem(new BuffSystem());
         World.AddSystem(new DeathSystem());
 
         Console.WriteLine("[ServerGameManager] World initialized with all server systems.");
@@ -60,17 +68,20 @@ public class ServerGameManager
         {
             Damage = PlayerData.BaseArrowDamage,
             Cooldown = PlayerData.BaseCooldown,
+            CooldownTimer = 0,
             ArrowCount = PlayerData.BaseArrowCount,
+            SpreadAngle = 0,
         });
+        player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
         player.Add(new BuffComponent());
         player.Add(new UpgradeComponent());
-        player.Add(new AutoAimComponent());
+        player.Add(new OrbitComponent());
         player.Add(new ColliderComponent
         {
             Shape = ColliderShape.Box,
             Radius = PlayerData.PlayerRadius,
             Layer = CollisionLayers.Player,
-            Mask = CollisionLayers.Monster | CollisionLayers.MonsterArrow,
+            Mask = CollisionLayers.Monster | CollisionLayers.Pickup,
             HalfWidth = PlayerData.HalfWidth,
             HalfHeight = PlayerData.HalfHeight,
         });
@@ -104,6 +115,31 @@ public class ServerGameManager
         TotalDamage = 0;
         WavesCompleted = 0;
         World?.Clear();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Boss 阶段切换回调
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Boss 阶段切换时给所有玩家发放 XP 并触发升级检测。
+    /// 与 BattleScene.OnBossPhaseChange 保持一致。
+    /// </summary>
+    private void OnBossPhaseChange(int xpReward)
+    {
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        foreach (var player in players)
+        {
+            var playerComp = player.Get<PlayerComponent>();
+            playerComp.TotalXp += xpReward;
+
+            int newLevel = LevelData.GetLevel(playerComp.TotalXp);
+            if (newLevel > playerComp.CurrentLevel)
+            {
+                playerComp.CurrentLevel = newLevel;
+                OnPlayerLevelUp(player, newLevel);
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -22,18 +22,24 @@
 
     <!-- Components -->
     <Compile Include="../client/Scripts/Ecs/Components/ArrowComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/AttackAnimationComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/AttackHitboxComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/AutoAimComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/BossPhaseComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/BowComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/BuffComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/ColliderComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/DamageFlashComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/DeathPendingComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/EffectComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/HealthComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/MeleeAttackComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MonsterAIState.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MonsterComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MonsterProjectileComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/ObstacleComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/OrbitComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/OrbitHitComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/PickupComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/PlayerComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/ReviveComponent.cs" />
@@ -50,6 +56,7 @@
     <Compile Include="../client/Scripts/Ecs/Systems/DamageSystem.cs" />
     <Compile Include="../client/Scripts/Ecs/Systems/DeathSystem.cs" />
     <Compile Include="../client/Scripts/Ecs/Systems/EffectSystem.cs" />
+    <Compile Include="../client/Scripts/Ecs/Systems/MeleeAttackSystem.cs" />
     <Compile Include="../client/Scripts/Ecs/Systems/MonsterAISystem.cs" />
     <Compile Include="../client/Scripts/Ecs/Systems/MovementSystem.cs" />
     <Compile Include="../client/Scripts/Ecs/Systems/OrbitSystem.cs" />
@@ -63,6 +70,7 @@
     <Compile Include="../client/Scripts/Data/MonsterData.cs" />
     <Compile Include="../client/Scripts/Data/PickupData.cs" />
     <Compile Include="../client/Scripts/Data/PlayerData.cs" />
+    <Compile Include="../client/Scripts/Data/StageConfig.cs" />
     <Compile Include="../client/Scripts/Data/UpgradeData.cs" />
     <Compile Include="../client/Scripts/Data/UpgradeRoller.cs" />
     <Compile Include="../client/Scripts/Data/WaveData.cs" />
