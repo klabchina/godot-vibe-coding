@@ -1,9 +1,14 @@
 using Game.Ecs;
 using Game.Ecs.Components;
+using Game.Ecs.Core;
 using Game.Server;
 
 // 加载关卡配置（对应 BattleScene._Ready 里的 StageLoader.Load）
 Game.StageLoader.Load("stage_2");
+
+// 设置固定随机种子，确保客户端和服务端行为一致
+GameRandom.SetSeed(42);
+Console.WriteLine("[ECS] Random seed set to 42 for deterministic simulation.");
 
 var gm = ServerGameManager.Instance;
 gm.Initialize();
@@ -115,39 +120,36 @@ static class GameOverHelper
 
     public static void PrintGameOverStats(ServerGameManager gm, GameOverType result, int tickCount, double totalSeconds)
     {
-        var divider = new string('=', 50);
+        var waveEntities = gm.World.GetEntitiesWith<WaveComponent>();
+        int wavesCompleted = 0;
+        foreach (var w in waveEntities)
+        {
+            wavesCompleted = w.Get<WaveComponent>().CurrentWave;
+            break;
+        }
 
-        Console.WriteLine();
-        Console.WriteLine(divider);
-        Console.WriteLine($"  GAME OVER — {(result == GameOverType.Victory ? "VICTORY" : "DEFEAT")}");
-        Console.WriteLine(divider);
-
-        // 玩家统计
         var players = gm.World.GetEntitiesWith<PlayerComponent>();
+        var up = players.Count > 0 ? players[0].Get<UpgradeComponent>() : null;
+
+        // [ECS一致性日志] 输出战斗结算数据，用于对比客户端/服务端运行结果
+        Console.WriteLine("========== ECS 战斗结算 ==========");
+        Console.WriteLine($"结果: {(result == GameOverType.Victory ? "胜利" : "失败")}");
+        Console.WriteLine($"完成波数: {wavesCompleted}");
+        Console.WriteLine($"存活玩家数: {players.Count}");
         foreach (var player in players)
         {
             var pc = player.Get<PlayerComponent>();
             var hp = player.Get<HealthComponent>();
-
-            Console.WriteLine($"  Player {pc.PlayerIndex}");
-            Console.WriteLine($"    Kill Count  : {pc.KillCount}");
-            Console.WriteLine($"    HP          : {hp.Hp} / {hp.MaxHp}");
+            Console.WriteLine($"  玩家: KillCount={pc.KillCount}, TotalDamage={pc.TotalDamageDealt}, " +
+                $"Level={pc.CurrentLevel}, Xp={pc.TotalXp}, Hp={hp.Hp}/{hp.MaxHp}");
+            if (up != null)
+            {
+                Console.WriteLine($"  升级: OrbitCount={up.OrbitCount}");
+            }
         }
-
-        // 波次信息
-        var waveEntities = gm.World.GetEntitiesWith<WaveComponent>();
-        foreach (var waveEntity in waveEntities)
-        {
-            var wave = waveEntity.Get<WaveComponent>();
-            Console.WriteLine($"  Waves Cleared: {wave.CurrentWave}");
-        }
-
-        // 存活实体
-        var aliveCount = gm.World.Entities.Count;
-        Console.WriteLine($"  Entities Left: {aliveCount}");
-        Console.WriteLine($"  Total Ticks   : {tickCount}");
-        Console.WriteLine($"  Total Time    : {totalSeconds:F1}s");
-
-        Console.WriteLine(divider);
+        Console.WriteLine($"存活怪物数: {gm.World.GetEntitiesWith<MonsterComponent>().Count}");
+        Console.WriteLine($"Tick数: {tickCount}");
+        Console.WriteLine($"总耗时: {totalSeconds:F1}s");
+        Console.WriteLine("=================================");
     }
 }

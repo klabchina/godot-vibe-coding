@@ -50,6 +50,10 @@ public partial class BattleScene : Node2D
 
 	private void InitializeWorld()
 	{
+		// 设置固定随机种子，确保与服务器行为一致
+		GameRandom.SetSeed(42);
+		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
+
 		_world = new World();
 
 		// Create player entity
@@ -231,6 +235,26 @@ public partial class BattleScene : Node2D
 			gm.TotalXpCollected = player.TotalXp;
 			gm.RemainingHpPercent = health.MaxHp > 0 ? (float)health.Hp / health.MaxHp : 0;
 		}
+
+		// [ECS一致性日志] 输出战斗结算数据，用于对比客户端/服务端运行结果
+		GD.Print("========== ECS 战斗结算 ==========");
+		GD.Print($"结果: {(victory ? "胜利" : "失败")}");
+		GD.Print($"完成波数: {wavesCompleted}");
+		GD.Print($"存活玩家数: {players.Count}");
+		foreach (var p in players)
+		{
+			var pc = p.Get<PlayerComponent>();
+			var hc = p.Get<HealthComponent>();
+			var up = p.Get<UpgradeComponent>();
+			GD.Print($"  玩家: KillCount={pc.KillCount}, TotalDamage={pc.TotalDamageDealt}, " +
+				$"Level={pc.CurrentLevel}, Xp={pc.TotalXp}, Hp={hc.Hp}/{hc.MaxHp}");
+			if (up != null)
+			{
+				GD.Print($"  升级: OrbitCount={up.OrbitCount}");
+			}
+		}
+		GD.Print($"存活怪物数: {_world.GetEntitiesWith<MonsterComponent>().Count}");
+		GD.Print("=================================");
 
 		// Delay transition slightly so player sees the final state
 		GetTree().CreateTimer(2.0f).Timeout += () =>

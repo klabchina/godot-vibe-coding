@@ -10,6 +10,7 @@ namespace Game.Ecs;
 public abstract class GameSystem
 {
 	public World World { get; internal set; }
+	public virtual void Initialize() { }
 	public abstract void Update(float delta);
 }
 
@@ -89,6 +90,7 @@ public class World
 	public void AddSystem(GameSystem system)
 	{
 		system.World = this;
+		system.Initialize();
 		_systems.Add(system);
 	}
 
