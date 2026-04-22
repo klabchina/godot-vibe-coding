@@ -57,6 +57,8 @@ public class World
 			if (entity.IsAlive && entity.Has<T1>())
 				result.Add(entity);
 		}
+		// 排序以保证跨环境枚举顺序一致
+		result.Sort((a, b) => a.Id.CompareTo(b.Id));
 		return result;
 	}
 
@@ -68,6 +70,7 @@ public class World
 			if (entity.IsAlive && entity.Has<T1>() && entity.Has<T2>())
 				result.Add(entity);
 		}
+		result.Sort((a, b) => a.Id.CompareTo(b.Id));
 		return result;
 	}
 
@@ -79,6 +82,7 @@ public class World
 			if (entity.IsAlive && entity.Has<T1>() && entity.Has<T2>() && entity.Has<T3>())
 				result.Add(entity);
 		}
+		result.Sort((a, b) => a.Id.CompareTo(b.Id));
 		return result;
 	}
 

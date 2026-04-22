@@ -2,6 +2,9 @@ using Game.Ecs;
 using Game.Ecs.Components;
 using Game.Server;
 
+// 加载关卡配置（对应 BattleScene._Ready 里的 StageLoader.Load）
+Game.StageLoader.Load("stage_2");
+
 var gm = ServerGameManager.Instance;
 gm.Initialize();
 

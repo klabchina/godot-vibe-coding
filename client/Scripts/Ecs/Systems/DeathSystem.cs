@@ -7,8 +7,6 @@ namespace Game.Ecs.Systems;
 
 public class DeathSystem : GameSystem
 {
-    private static readonly System.Random _rng = new();
-
     public override void Update(float delta)
     {
         var entities = World.GetEntitiesWith<HealthComponent>();
@@ -49,7 +47,7 @@ public class DeathSystem : GameSystem
 
         // Item drop (5% chance, Boss guaranteed)
         bool isBoss = monster.Type == MonsterType.Boss;
-        if (isBoss || _rng.NextDouble() < PickupData.TotalDropChance)
+        if (isBoss || GameRandom.NextDouble() < PickupData.TotalDropChance)
         {
             SpawnItemDrop(transform.Position);
         }
@@ -94,7 +92,7 @@ public class DeathSystem : GameSystem
     private void SpawnItemDrop(Vec2 position)
     {
         // Roll which item drops
-        double roll = _rng.NextDouble() * PickupData.TotalDropChance;
+        double roll = GameRandom.NextDouble() * PickupData.TotalDropChance;
         PickupType itemType;
         int value = 0;
 
