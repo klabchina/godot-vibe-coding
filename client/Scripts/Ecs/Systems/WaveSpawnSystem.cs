@@ -152,7 +152,7 @@ public class WaveSpawnSystem : GameSystem
 
     private static Vec2 GetRandomEdgePosition()
     {
-        int edge = (int)(GameRandom.Randf() * 4f) % 4;
+        int edge = GameRandom.Next(4);  // 使用整数随机，避免浮点精度问题
 
         float x, y;
         switch (edge)

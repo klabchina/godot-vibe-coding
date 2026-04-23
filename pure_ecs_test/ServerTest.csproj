@@ -18,6 +18,7 @@
     <Compile Include="../client/Scripts/Ecs/World.cs" />
     <Compile Include="../client/Scripts/Ecs/Core/Vec2.cs" />
     <Compile Include="../client/Scripts/Ecs/Core/GMath.cs" />
+    <Compile Include="../client/Scripts/Ecs/Core/BlRNGUtil.cs" />
     <Compile Include="../client/Scripts/Ecs/Core/GameRandom.cs" />
 
     <!-- Components -->

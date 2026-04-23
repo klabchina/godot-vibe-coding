@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Ecs.Components;
+using Game.Ecs.Core;
 
 namespace Game.Data;
 
@@ -10,10 +11,9 @@ namespace Game.Data;
 /// </summary>
 public static class UpgradeRoller
 {
-    private static readonly Random _rng = new();
-
     /// <summary>
     /// Roll 3 unique upgrade options for the given player's current upgrade state.
+    /// 使用 GameRandom 以保持与 ECS 随机数序列的一致性。
     /// </summary>
     public static List<UpgradeId> Roll(UpgradeComponent upgrades, int playerLevel)
     {
@@ -36,7 +36,8 @@ public static class UpgradeRoller
 
                 if (attackOptions.Count > 0)
                 {
-                    pick = attackOptions[_rng.Next(attackOptions.Count)];
+                    int idx = GameRandom.Next(attackOptions.Count);
+                    pick = attackOptions[idx];
                 }
                 else
                 {
@@ -75,7 +76,7 @@ public static class UpgradeRoller
                 weighted.Add((id, UpgradeData.SpecialWeight / specialIds.Count));
 
         float totalWeight = weighted.Sum(w => w.weight);
-        float roll = (float)(_rng.NextDouble() * totalWeight);
+        float roll = GameRandom.Randf() * totalWeight;
         float cumulative = 0;
 
         foreach (var (id, weight) in weighted)

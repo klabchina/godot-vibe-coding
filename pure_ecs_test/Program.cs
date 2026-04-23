@@ -3,12 +3,20 @@ using Game.Ecs.Components;
 using Game.Ecs.Core;
 using Game.Server;
 
+Console.WriteLine($"[Debug] Pre-load GameRandom calls: {GameRandom.CallCount}");
+
 // 加载关卡配置（对应 BattleScene._Ready 里的 StageLoader.Load）
 Game.StageLoader.Load("stage_2");
+Console.WriteLine($"[Debug] After StageLoader.Load GameRandom calls: {GameRandom.CallCount}");
 
 // 设置固定随机种子，确保客户端和服务端行为一致
+GameRandom.ResetCallCount();
 GameRandom.SetSeed(42);
 Console.WriteLine("[ECS] Random seed set to 42 for deterministic simulation.");
+
+// 在关键 tick 输出详细状态用于调试
+const bool DebugTick = true;
+int lastKillCount = 0, lastTick = 0;
 
 var gm = ServerGameManager.Instance;
 gm.Initialize();
@@ -49,7 +57,8 @@ try
                 aliveMonsters = wave.AliveMonsters;
                 break;
             }
-            Console.WriteLine($"[Tick {tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters} | Entities: {gm.World.Entities.Count}");
+            // 注意：不要在这里调用 gm.World.Entities.Count 或 GetEntitiesWith，因为会消耗额外的随机数
+            Console.WriteLine($"[Tick {tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters}");
         }
 
         // 检测游戏结束
@@ -151,5 +160,6 @@ static class GameOverHelper
         Console.WriteLine($"Tick数: {tickCount}");
         Console.WriteLine($"总耗时: {totalSeconds:F1}s");
         Console.WriteLine("=================================");
+        Console.WriteLine($"[Debug] GameRandom calls: {GameRandom.CallCount}");
     }
 }
