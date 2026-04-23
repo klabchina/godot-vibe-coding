@@ -7,6 +7,24 @@ using Game.Data;
 namespace Game.Server;
 
 /// <summary>
+/// 玩家出生数据结构体，对应客户端 BattleScene 中创建玩家时的数据。
+/// </summary>
+public readonly struct PlayerSpawnData
+{
+    public readonly int PlayerIndex;
+    public readonly Vec2 Position;
+
+    public PlayerSpawnData(int playerIndex, Vec2 position)
+    {
+        PlayerIndex = playerIndex;
+        Position = position;
+    }
+
+    public static PlayerSpawnData Default(int playerIndex = 0) =>
+        new(playerIndex, ArenaData.Size / 2);
+}
+
+/// <summary>
 /// 服务端游戏实例管理器，对应客户端的 GameManager。
 /// 维护一个独立的 ECS World，包含全部服务端系统（不含 ClientSystems）。
 /// </summary>
@@ -24,12 +42,18 @@ public class ServerGameManager
 
     private ServerGameManager() { }
 
-    /// <summary>初始化 ECS World 并注册所有服务端系统。</summary>
-    public void Initialize(MapConfig map)
+    /// <summary>
+    /// 初始化 ECS World 并注册所有服务端系统。
+    /// 创建顺序与 BattleScene.InitializeWorld 保持一致：先玩家 → obstacles → 系统注册。
+    /// </summary>
+    public void Initialize(MapConfig map, PlayerSpawnData playerData)
     {
         World = new World();
 
-        // Spawn map obstacles (与客户端保持一致)
+        // 创建玩家实体（与 BattleScene.InitializeWorld 第 66-92 行保持一致）
+        SpawnPlayer(playerData.PlayerIndex, playerData.Position.X, playerData.Position.Y);
+
+        // Spawn map obstacles（对应 BattleScene 第 99 行）
         Game.MapLoader.SpawnObstacles(map, World);
 
         // 顺序与 BattleScene.InitializeWorld 保持一致（去掉客户端专用的 InputSystem / RenderSystem）
@@ -55,7 +79,6 @@ public class ServerGameManager
         World.AddSystem(new EffectSystem());
         World.AddSystem(new BuffSystem());
         World.AddSystem(new DeathSystem());
-
 
         Console.WriteLine("[ServerGameManager] World initialized with all server systems.");
     }

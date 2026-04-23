@@ -61,6 +61,8 @@ public static class MapLoader
                 Mask = 0
             });
             entity.Add(new ObstacleComponent { SpritePath = obs.Sprite });
+
+            Console.WriteLine($"[ECS] Spawned obstacle: {obs.Sprite} at {obs.X}, {obs.Y}, {obs.W}, {obs.H}");
         }
     }
 }

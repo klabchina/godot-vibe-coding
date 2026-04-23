@@ -51,6 +51,7 @@ public partial class BattleScene : Node2D
 		StageLoader.Load("stage_2");
 		_currentMap = MapLoader.PickRandom();
 		MapLoader.ApplyBackground(_currentMap, this);
+		GD.Print($"Map: {_currentMap.Id}");
 
 		InitializeWorld();
 	}
@@ -152,8 +153,8 @@ public partial class BattleScene : Node2D
 		CheckGameOver();
 		SpawnDamageNumbers();
 
-		// 每 200 tick 打印一次状态（约 10 秒，服务器逻辑步长 50ms）
-		if (_tickCount > 0 && _tickCount % 200 == 0)
+		// 每 10 tick 打印一次玩家 HP 状态
+		if (_tickCount > 0 && _tickCount % 10 == 0)
 		{
 			var waveEntities = _world.GetEntitiesWith<WaveComponent>();
 			int currentWave = 0, aliveMonsters = 0;
@@ -164,8 +165,16 @@ public partial class BattleScene : Node2D
 				aliveMonsters = wave.AliveMonsters;
 				break;
 			}
+			var players = _world.GetEntitiesWith<PlayerComponent>();
+			string playerHpInfo = "";
+			foreach (var p in players)
+			{
+				var pc = p.Get<PlayerComponent>();
+				var hc = p.Get<HealthComponent>();
+				playerHpInfo += $" P{pc.PlayerIndex}: HP={hc.Hp}/{hc.MaxHp}";
+			}
 			var elapsed = _tickCount * FixedDelta;
-			GD.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters}");
+			GD.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave}{playerHpInfo}");
 		}
 	}
 

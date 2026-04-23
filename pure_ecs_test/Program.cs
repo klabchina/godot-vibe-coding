@@ -23,20 +23,18 @@ Console.WriteLine($"[ECS] Map loaded: {map.Id}");
 
 
 // 在关键 tick 输出详细状态用于调试
-const bool DebugTick = true;
 int lastKillCount = 0, lastTick = 0;
 
 var gm = ServerGameManager.Instance;
-gm.Initialize(map);
 
-// 生成玩家
-gm.SpawnPlayer(playerIndex: 0, x: Game.Data.ArenaData.Size.X / 2, y: Game.Data.ArenaData.Size.Y / 2);
+// 生成玩家数据（与 BattleScene 第 67 行保持一致）
+var playerData = Game.Server.PlayerSpawnData.Default(playerIndex: 0);
+gm.Initialize(map, playerData);
 
 // 启动第一波怪物
 gm.StartWaves();
 
 const float DeltaTime = 0.05f;  // 50ms 每帧（服务器逻辑步长）
-const int PrintIntervalTicks = 200;  // 每 200 tick 打印一次状态（约 10 秒）
 int tickCount = 0;
 DateTime startTime = DateTime.Now;
 
@@ -52,8 +50,8 @@ try
         gm.Tick(DeltaTime);
         tickCount++;
 
-        // 每 PrintIntervalTicks tick 打印一次状态（含当前波次）
-        if (tickCount % PrintIntervalTicks == 0)
+        // 每 10 tick 打印一次玩家 HP 状态
+        if (tickCount % 10 == 0)
         {
             var elapsed = (DateTime.Now - startTime).TotalSeconds;
             var waveEntities = gm.World.GetEntitiesWith<WaveComponent>();
@@ -65,8 +63,15 @@ try
                 aliveMonsters = wave.AliveMonsters;
                 break;
             }
-            // 注意：不要在这里调用 gm.World.Entities.Count 或 GetEntitiesWith，因为会消耗额外的随机数
-            Console.WriteLine($"[Tick {tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters}");
+            var players = gm.World.GetEntitiesWith<PlayerComponent>();
+            string playerHpInfo = "";
+            foreach (var p in players)
+            {
+                var pc = p.Get<PlayerComponent>();
+                var hp = p.Get<HealthComponent>();
+                playerHpInfo += $" P{pc.PlayerIndex}: HP={hp.Hp}/{hp.MaxHp}";
+            }
+            Console.WriteLine($"[Tick {tickCount,6} | {elapsed,6:F1}s] Wave {currentWave}{playerHpInfo}");
         }
 
         // 检测游戏结束
@@ -109,27 +114,27 @@ static class GameOverHelper
             }
         }
 
-        // Defeat: 所有玩家血量 <= 0
-        var players = gm.World.GetEntitiesWith<PlayerComponent>();
-        if (players.Count > 0)
+        // Defeat: 所有玩家已死亡且没有复活次数
+        var players = gm.World.GetEntitiesWith<PlayerComponent, HealthComponent>();
+        bool allDead = true;
+        foreach (var player in players)
         {
-            bool allDead = true;
-            foreach (var player in players)
+            var hp = player.Get<HealthComponent>();
+            if (hp.Hp > 0)
             {
-                if (player.Has<HealthComponent>())
-                {
-                    var hp = player.Get<HealthComponent>();
-                    if (hp.Hp > 0)
-                    {
-                        allDead = false;
-                        break;
-                    }
-                }
+                allDead = false;
+                break;
             }
-            if (allDead)
+            var revive = player.Get<ReviveComponent>();
+            if (revive == null || !revive.HasRevived)
             {
-                return GameOverType.Defeat;
+                allDead = false; // 仍有复活待触发
+                break;
             }
+        }
+        if (allDead && players.Count > 0)
+        {
+            return GameOverType.Defeat;
         }
 
         return null;
