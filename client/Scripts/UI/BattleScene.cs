@@ -40,6 +40,10 @@ public partial class BattleScene : Node2D
 		_canvasLayer.AddChild(_upgradePanel);
 		_upgradePanel.OnUpgradeSelected += (entity, id) => _isPaused = false;
 
+		// 设置固定随机种子，必须在任何使用 GameRandom 的代码之前调用
+		GameRandom.SetSeed(42);
+		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
+
 		MapLoader.LoadAll();
 		StageLoader.Load("stage_2");
 		_currentMap = MapLoader.PickRandom();
@@ -50,9 +54,6 @@ public partial class BattleScene : Node2D
 
 	private void InitializeWorld()
 	{
-		// 设置固定随机种子，确保与服务器行为一致
-		GameRandom.SetSeed(42);
-		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
 
 		_world = new World();
 

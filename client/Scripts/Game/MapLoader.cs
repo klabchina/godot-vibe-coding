@@ -12,8 +12,6 @@ namespace Game;
 public static class MapLoader
 {
     private static readonly List<MapConfig> _maps = new();
-    private static readonly Random _rng = new();
-
     private static readonly string[] MapFiles = { "plain", "mountain", "grassland" };
 
     public static void LoadAll()
@@ -35,7 +33,7 @@ public static class MapLoader
     {
         if (_maps.Count == 0)
             throw new InvalidOperationException("No maps loaded. Call LoadAll() first.");
-        return _maps[_rng.Next(_maps.Count)];
+        return _maps[GameRandom.Next(_maps.Count)];
     }
 
     public static void ApplyBackground(MapConfig map, Node2D sceneRoot)
