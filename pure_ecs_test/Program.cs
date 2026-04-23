@@ -5,24 +5,32 @@ using Game.Server;
 
 Console.WriteLine($"[Debug] Pre-load GameRandom calls: {GameRandom.CallCount}");
 
-// 加载关卡配置（对应 BattleScene._Ready 里的 StageLoader.Load）
-Game.StageLoader.Load("stage_2");
-Console.WriteLine($"[Debug] After StageLoader.Load GameRandom calls: {GameRandom.CallCount}");
+
 
 // 设置固定随机种子，确保客户端和服务端行为一致
 GameRandom.ResetCallCount();
 GameRandom.SetSeed(42);
 Console.WriteLine("[ECS] Random seed set to 42 for deterministic simulation.");
 
+// 加载关卡配置（对应 BattleScene._Ready 里的 StageLoader.Load）
+Game.StageLoader.Load("stage_2");
+Console.WriteLine($"[Debug] After StageLoader.Load GameRandom calls: {GameRandom.CallCount}");
+
+// 加载地图配置
+Game.MapLoader.LoadAll();
+var map = Game.MapLoader.PickRandom();
+Console.WriteLine($"[ECS] Map loaded: {map.Id}");
+
+
 // 在关键 tick 输出详细状态用于调试
 const bool DebugTick = true;
 int lastKillCount = 0, lastTick = 0;
 
 var gm = ServerGameManager.Instance;
-gm.Initialize();
+gm.Initialize(map);
 
 // 生成玩家
-gm.SpawnPlayer(playerIndex: 0, x: 990f, y: 640f);
+gm.SpawnPlayer(playerIndex: 0, x: Game.Data.ArenaData.Size.X / 2, y: Game.Data.ArenaData.Size.Y / 2);
 
 // 启动第一波怪物
 gm.StartWaves();

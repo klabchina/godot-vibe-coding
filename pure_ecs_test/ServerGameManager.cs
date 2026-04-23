@@ -25,9 +25,12 @@ public class ServerGameManager
     private ServerGameManager() { }
 
     /// <summary>初始化 ECS World 并注册所有服务端系统。</summary>
-    public void Initialize()
+    public void Initialize(MapConfig map)
     {
         World = new World();
+
+        // Spawn map obstacles (与客户端保持一致)
+        Game.MapLoader.SpawnObstacles(map, World);
 
         // 顺序与 BattleScene.InitializeWorld 保持一致（去掉客户端专用的 InputSystem / RenderSystem）
         var waveSpawnSystem = new WaveSpawnSystem();
