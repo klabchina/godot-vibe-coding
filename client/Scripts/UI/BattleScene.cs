@@ -135,18 +135,23 @@ public partial class BattleScene : Node2D
 	{
 		if (_gameOver) return;
 
-		// 累积实际时间，但使用固定步长更新 ECS
-		_accumulator += (float)delta;
+		float deltaSec = (float)delta;
+
+		// 累积实际时间，使用固定步长更新逻辑系统（服务器帧率）
+		_accumulator += deltaSec;
 
 		while (_accumulator >= FixedDelta)
 		{
 			if (!_isPaused)
 			{
-				_world.Update(FixedDelta);
+				_world.UpdateLogic(FixedDelta);
 				_tickCount++;
 			}
 			_accumulator -= FixedDelta;
 		}
+
+		// 每帧更新渲染系统（客户端帧率）
+		_world.UpdateRender(deltaSec);
 
 		UpdateHud();
 		ProcessPendingLevelUps();

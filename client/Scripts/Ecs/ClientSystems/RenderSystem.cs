@@ -9,10 +9,13 @@ namespace Game.Ecs.ClientSystems;
 
 /// <summary>
 /// Client-only: syncs ECS state to Godot visual nodes.
+/// Runs at render frequency for smooth animation.
 /// </summary>
 public class RenderSystem : GameSystem
 {
-    public Node2D RenderRoot { get; set; }
+	public override bool IsRenderSystem => true;
+
+	public Node2D RenderRoot { get; set; }
 
     private readonly Dictionary<int, Node2D> _entityNodes = new();
     private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();

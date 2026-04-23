@@ -12,6 +12,12 @@ public abstract class GameSystem
 	public World World { get; internal set; }
 	public virtual void Initialize() { }
 	public abstract void Update(float delta);
+
+	/// <summary>
+	/// If true, this system runs at render frequency (every _Process frame).
+	/// If false, runs at logic frequency (fixed 20 tick/s).
+	/// </summary>
+	public virtual bool IsRenderSystem => false;
 }
 
 /// <summary>
@@ -22,7 +28,8 @@ public class World
 	private int _nextEntityId;
 	private readonly Dictionary<int, Entity> _entities = new();
 	private readonly List<Entity> _pendingDestroy = new();
-	private readonly List<GameSystem> _systems = new();
+	private readonly List<GameSystem> _logicSystems = new();
+	private readonly List<GameSystem> _renderSystems = new();
 
 	public IReadOnlyDictionary<int, Entity> Entities => _entities;
 
@@ -91,28 +98,48 @@ public class World
 	{
 		system.World = this;
 		system.Initialize();
-		_systems.Add(system);
+		if (system.IsRenderSystem)
+			_renderSystems.Add(system);
+		else
+			_logicSystems.Add(system);
 	}
 
 	public T GetSystem<T>() where T : GameSystem
 	{
-		return _systems.OfType<T>().FirstOrDefault();
+		foreach (var s in _logicSystems)
+			if (s is T t) return t;
+		foreach (var s in _renderSystems)
+			if (s is T t) return t;
+		return null;
 	}
 
-	public void Update(float delta)
+	public void UpdateLogic(float delta)
 	{
-		foreach (var system in _systems)
+		foreach (var system in _logicSystems)
 		{
 			system.Update(delta);
 		}
 
-		// Clean up destroyed entities after all systems run
+		// Clean up destroyed entities after logic systems run
 		foreach (var entity in _pendingDestroy)
 		{
 			_entities.Remove(entity.Id);
 		}
 		_pendingDestroy.Clear();
 	}
+
+	public void UpdateRender(float delta)
+	{
+		foreach (var system in _renderSystems)
+		{
+			system.Update(delta);
+		}
+	}
+
+	/// <summary>
+	/// Legacy: updates all systems (logic only, for backward compatibility).
+	/// </summary>
+	public void Update(float delta) => UpdateLogic(delta);
 
 	public void Clear()
 	{

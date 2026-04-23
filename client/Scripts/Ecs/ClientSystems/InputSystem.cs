@@ -4,13 +4,15 @@ using Game.Ecs.Core;
 using Game.Ecs.Components;
 
 namespace Game.Ecs.ClientSystems;
-
 /// <summary>
 /// Client-only: reads Godot input and writes to ECS VelocityComponent.
+/// Runs at render frequency (every frame) for responsive input.
 /// </summary>
 public class InputSystem : GameSystem
 {
-    public override void Update(float delta)
+	public override bool IsRenderSystem => true;
+
+	public override void Update(float delta)
     {
         var entities = World.GetEntitiesWith<PlayerComponent, VelocityComponent, TransformComponent>();
 
