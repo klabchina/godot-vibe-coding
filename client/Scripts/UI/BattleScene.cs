@@ -180,12 +180,8 @@ public partial class BattleScene : Node2D
 
 	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
 	{
-		// 禁用升级面板：客户端纯 ECS 模拟服务端行为，不暂停
-		// 如果需要启用升级面板，移除下面的 return
-		return;
-
 		// 以下代码保留以备将来启用升级面板
-		// _pendingLevelUps.Enqueue((playerEntity, newLevel));
+		_pendingLevelUps.Enqueue((playerEntity, newLevel));
 	}
 
 	private void OnBossPhaseChange(int xpReward)
