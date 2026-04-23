@@ -26,12 +26,18 @@ public partial class BattleScene : Node2D
 	private bool _isPaused;
 	private MapConfig _currentMap;
 	private int _tickCount;
+	private float _accumulator;
 
 	// Pending level-ups queue (supports consecutive level-ups)
 	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
 
 	public override void _Ready()
 	{
+		// 设置固定随机种子，必须在任何使用 GameRandom 的代码之前调用
+		// 必须放在最前面，因为 ResourceLoader.Load 可能触发其他代码
+		GameRandom.SetSeed(42);
+		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
+
 		_renderRoot = GetNode<Node2D>("RenderRoot");
 		_canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
 		_hud = GetNode<BattleHud>("CanvasLayer/BattleHud");
@@ -40,10 +46,6 @@ public partial class BattleScene : Node2D
 			?? throw new System.InvalidOperationException("Failed to load UpgradePanel scene");
 		_canvasLayer.AddChild(_upgradePanel);
 		_upgradePanel.OnUpgradeSelected += (entity, id) => _isPaused = false;
-
-		// 设置固定随机种子，必须在任何使用 GameRandom 的代码之前调用
-		GameRandom.SetSeed(42);
-		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
 
 		MapLoader.LoadAll();
 		StageLoader.Load("stage_2");
@@ -56,6 +58,7 @@ public partial class BattleScene : Node2D
 	private void InitializeWorld()
 	{
 		_tickCount = 0;
+		_accumulator = 0f;
 		_world = new World();
 
 		// Create player entity
@@ -125,16 +128,25 @@ public partial class BattleScene : Node2D
 		waveSpawnSystem.StartNextWave(wave);
 	}
 
+	private const float FixedDelta = 0.05f;  // 固定 50ms 步长，与服务器一致
+
 	public override void _Process(double delta)
 	{
 		if (_gameOver) return;
 
-		float dt = (float)delta;
-		if (!_isPaused)
+		// 累积实际时间，但使用固定步长更新 ECS
+		_accumulator += (float)delta;
+
+		while (_accumulator >= FixedDelta)
 		{
-			_world.Update(dt);
-			_tickCount++;
+			if (!_isPaused)
+			{
+				_world.Update(FixedDelta);
+				_tickCount++;
+			}
+			_accumulator -= FixedDelta;
 		}
+
 		UpdateHud();
 		ProcessPendingLevelUps();
 		CheckGameOver();
@@ -152,15 +164,19 @@ public partial class BattleScene : Node2D
 				aliveMonsters = wave.AliveMonsters;
 				break;
 			}
-			var elapsed = _tickCount * 0.05f;
+			var elapsed = _tickCount * FixedDelta;
 			GD.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters}");
 		}
 	}
 
 	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
 	{
+		// 禁用升级面板：客户端纯 ECS 模拟服务端行为，不暂停
+		// 如果需要启用升级面板，移除下面的 return
 		return;
-		_pendingLevelUps.Enqueue((playerEntity, newLevel));
+
+		// 以下代码保留以备将来启用升级面板
+		// _pendingLevelUps.Enqueue((playerEntity, newLevel));
 	}
 
 	private void OnBossPhaseChange(int xpReward)
