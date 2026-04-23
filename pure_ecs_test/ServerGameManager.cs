@@ -153,6 +153,7 @@ public class ServerGameManager
     /// </summary>
     private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
     {
+        return;
         var player = playerEntity.Get<PlayerComponent>();
         if (player == null) return;
 

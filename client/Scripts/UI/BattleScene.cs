@@ -25,6 +25,7 @@ public partial class BattleScene : Node2D
 	private bool _gameOver;
 	private bool _isPaused;
 	private MapConfig _currentMap;
+	private int _tickCount;
 
 	// Pending level-ups queue (supports consecutive level-ups)
 	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
@@ -54,7 +55,7 @@ public partial class BattleScene : Node2D
 
 	private void InitializeWorld()
 	{
-
+		_tickCount = 0;
 		_world = new World();
 
 		// Create player entity
@@ -82,10 +83,9 @@ public partial class BattleScene : Node2D
 			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
 		});
 
-		// [DEBUG] Set OrbitCount to 6
-		player.Add(new UpgradeComponent { OrbitCount = 6 });
+		player.Add(new UpgradeComponent());
 		player.Add(new BuffComponent());
-		player.Add(new OrbitComponent { Count = 6 });
+		player.Add(new OrbitComponent());
 
 		// Create wave spawner entity
 		var spawner = _world.CreateEntity();
@@ -130,15 +130,36 @@ public partial class BattleScene : Node2D
 		if (_gameOver) return;
 
 		float dt = (float)delta;
-		if (!_isPaused) _world.Update(dt);
+		if (!_isPaused)
+		{
+			_world.Update(dt);
+			_tickCount++;
+		}
 		UpdateHud();
 		ProcessPendingLevelUps();
 		CheckGameOver();
 		SpawnDamageNumbers();
+
+		// 每 200 tick 打印一次状态（约 10 秒，服务器逻辑步长 50ms）
+		if (_tickCount > 0 && _tickCount % 200 == 0)
+		{
+			var waveEntities = _world.GetEntitiesWith<WaveComponent>();
+			int currentWave = 0, aliveMonsters = 0;
+			foreach (var w in waveEntities)
+			{
+				var wave = w.Get<WaveComponent>();
+				currentWave = wave.CurrentWave;
+				aliveMonsters = wave.AliveMonsters;
+				break;
+			}
+			var elapsed = _tickCount * 0.05f;
+			GD.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave} | Alive monsters: {aliveMonsters}");
+		}
 	}
 
 	private void OnPlayerLevelUp(Entity playerEntity, int newLevel)
 	{
+		return;
 		_pendingLevelUps.Enqueue((playerEntity, newLevel));
 	}
 
@@ -255,6 +276,8 @@ public partial class BattleScene : Node2D
 			}
 		}
 		GD.Print($"存活怪物数: {_world.GetEntitiesWith<MonsterComponent>().Count}");
+		GD.Print($"Tick数: {_tickCount}");
+		GD.Print($"[Debug] GameRandom calls: {GameRandom.CallCount}");
 		GD.Print("=================================");
 
 		// Delay transition slightly so player sees the final state
