@@ -17,72 +17,131 @@ public class RenderSystem : GameSystem
 
 	public Node2D RenderRoot { get; set; }
 
-    private readonly Dictionary<int, Node2D> _entityNodes = new();
-    private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
+	// 插值平滑：存储每个实体的渲染当前位置（独立于逻辑位置）
+	private readonly Dictionary<int, Vector2> _renderPositions = new();
+	private readonly Dictionary<int, float> _renderRotations = new();
 
-    // 玩家动画状态跟踪
-    private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
-    private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
-    private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
+	// 上帧位置/旋转检测（用于检测逻辑帧更新）
+	private readonly Dictionary<int, Vector2> _prevLogicPositions = new();
+	private readonly Dictionary<int, float> _prevLogicRotations = new();
 
-    private const float AttackAnimDuration = 0.33f;
-    private const float AnimFps = 10f;
+	private readonly Dictionary<int, Node2D> _entityNodes = new();
+	private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
 
-    // 怪物动画状态跟踪
-    private readonly Dictionary<int, string> _monsterAnims = new(); // entityId -> current anim
+	// 玩家动画状态跟踪
+	private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
+	private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
+	private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
 
-    /// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
-    private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
+	private const float AttackAnimDuration = 0.33f;
+	private const float AnimFps = 10f;
 
-    public override void Update(float delta)
-    {
-        if (RenderRoot == null)
-            return;
+	// 插值平滑：帧率无关的指数平滑
+	// 值越大移动越快（收敛时间 ≈ SmoothTau 秒）
+	private const float SmoothTau = 0.05f; // 50ms 收敛到目标（与逻辑帧率一致）
 
-        foreach (var (id, entity) in World.Entities)
-        {
-            if (!entity.IsAlive)
-                continue;
+	// 怪物动画状态跟踪
+	private readonly Dictionary<int, string> _monsterAnims = new(); // entityId -> current anim
 
-            var transform = entity.Get<TransformComponent>();
-            if (transform == null)
-                continue;
+	/// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
+	private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
 
-            if (!_entityNodes.TryGetValue(id, out var node))
-            {
-                node = CreateVisualNode(entity);
-                if (node == null)
-                    continue;
+	/// <summary>Helper: float equality with epsilon</summary>
+	private static bool IsFloatEqual(float a, float b, float epsilon = 0.001f) => Mathf.Abs(a - b) < epsilon;
 
-                RenderRoot.AddChild(node);
-                _entityNodes[id] = node;
-            }
+	public override void Update(float delta)
+	{
+		if (RenderRoot == null)
+			return;
 
-            node.Position = ToGodot(transform.Position);
+		foreach (var (id, entity) in World.Entities)
+		{
+			if (!entity.IsAlive)
+				continue;
 
-            if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
-                node.Rotation = transform.Rotation;
+			var transform = entity.Get<TransformComponent>();
+			if (transform == null)
+				continue;
 
-            if (entity.Has<PlayerComponent>())
-                UpdatePlayerAnimation(entity, node, delta);
-            else if (entity.Has<MonsterComponent>())
-                UpdateMonsterAnimation(entity, node, delta);
+			if (!_entityNodes.TryGetValue(id, out var node))
+			{
+				node = CreateVisualNode(entity);
+				if (node == null)
+					continue;
 
-            UpdateEffectVisuals(entity, node);
-        }
+				RenderRoot.AddChild(node);
+				_entityNodes[id] = node;
 
-        var toRemove = new List<int>();
-        foreach (var (id, node) in _entityNodes)
-        {
-            var entity = World.GetEntity(id);
-            if (entity == null || !entity.IsAlive)
-            {
-                node.QueueFree();
-                toRemove.Add(id);
-            }
-        }
-        foreach (var id in toRemove)
-            _entityNodes.Remove(id);
+				// 新实体直接设置位置，不做插值
+				_renderPositions[id] = ToGodot(transform.Position);
+				_renderRotations[id] = transform.Rotation;
+				_prevLogicPositions[id] = _renderPositions[id];
+				_prevLogicRotations[id] = _renderRotations[id];
+			}
+
+			Vector2 targetPos = ToGodot(transform.Position);
+			float targetRot = transform.Rotation;
+
+			// 检测逻辑帧更新（位置/旋转发生变化）
+			Vector2 prevLogicPos = _prevLogicPositions.GetValueOrDefault(id, targetPos);
+			float prevLogicRot = _prevLogicRotations.GetValueOrDefault(id, targetRot);
+
+			if (!prevLogicPos.IsEqualApprox(targetPos) || !IsFloatEqual(prevLogicRot, targetRot))
+			{
+				// 逻辑帧更新：重置渲染位置为当前位置，避免插值跳跃
+				_renderPositions[id] = targetPos;
+				_renderRotations[id] = targetRot;
+				_prevLogicPositions[id] = targetPos;
+				_prevLogicRotations[id] = targetRot;
+			}
+			else
+			{
+				// 非逻辑帧：帧率无关的指数平滑插值
+				// render = target + (render - target) * exp(-delta / tau)
+				float decay = Mathf.Exp(-delta / SmoothTau);
+				_renderPositions[id] = targetPos * (1 - decay) + _renderPositions[id] * decay;
+
+				// 旋转插值（处理角度跨越 -π/π 的情况）
+				float currentRot = _renderRotations[id];
+				float diff = targetRot - currentRot;
+				// 归一化到 [-π, π]
+				while (diff > Mathf.Pi) diff -= Mathf.Tau;
+				while (diff < -Mathf.Pi) diff += Mathf.Tau;
+				_renderRotations[id] = currentRot + diff * (1 - decay);
+			}
+
+			// 应用渲染插值结果
+			node.Position = _renderPositions[id];
+
+			if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
+				node.Rotation = _renderRotations[id];
+
+			if (entity.Has<PlayerComponent>())
+				UpdatePlayerAnimation(entity, node, delta);
+			else if (entity.Has<MonsterComponent>())
+				UpdateMonsterAnimation(entity, node, delta);
+
+			UpdateEffectVisuals(entity, node);
+		}
+
+		var toRemove = new List<int>();
+		foreach (var (id, node) in _entityNodes)
+		{
+			var entity = World.GetEntity(id);
+			if (entity == null || !entity.IsAlive)
+			{
+				node.QueueFree();
+				toRemove.Add(id);
+			}
+		}
+		foreach (var id in toRemove)
+		{
+			_entityNodes.Remove(id);
+			_renderPositions.Remove(id);
+			_renderRotations.Remove(id);
+			_prevLogicPositions.Remove(id);
+			_prevLogicRotations.Remove(id);
+		}
 
         RenderOrbitArrows();
     }
