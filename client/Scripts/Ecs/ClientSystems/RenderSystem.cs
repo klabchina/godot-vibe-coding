@@ -89,9 +89,9 @@ public class RenderSystem : GameSystem
 
             if (frameCompleted)
             {
-                // 帧已完成移动：将当前渲染位置作为起点，目标位置作为终点
-                _prevLogicPositions[id] = _renderPositions[id];
-                _prevLogicRotations[id] = _renderRotations[id];
+                // 帧已完成移动：起点终点都设为目标位置（节点已在目标位置，无位移）
+                _prevLogicPositions[id] = targetPos;
+                _prevLogicRotations[id] = targetRot;
                 _renderPositions[id] = targetPos;
                 _renderRotations[id] = targetRot;
 
