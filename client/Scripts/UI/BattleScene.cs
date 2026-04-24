@@ -6,6 +6,7 @@ using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Ecs.ClientSystems;
 using Game;
+using Game.Utils;
 
 namespace Game.UI;
 
@@ -36,7 +37,8 @@ public partial class BattleScene : Node2D
 		// 设置固定随机种子，必须在任何使用 GameRandom 的代码之前调用
 		// 必须放在最前面，因为 ResourceLoader.Load 可能触发其他代码
 		GameRandom.SetSeed(42);
-		GD.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
+		GameLogger.Enabled = false; // 关闭日志打印
+		GameLogger.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
 
 		_renderRoot = GetNode<Node2D>("RenderRoot");
 		_canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
@@ -51,7 +53,7 @@ public partial class BattleScene : Node2D
 		StageLoader.Load("stage_2");
 		_currentMap = MapLoader.PickRandom();
 		MapLoader.ApplyBackground(_currentMap, this);
-		GD.Print($"Map: {_currentMap.Id}");
+		GameLogger.Print($"Map: {_currentMap.Id}");
 
 		InitializeWorld();
 	}
@@ -181,7 +183,7 @@ public partial class BattleScene : Node2D
 				playerHpInfo += $" P{pc.PlayerIndex}: HP={hc.Hp}/{hc.MaxHp}";
 			}
 			var elapsed = _tickCount * FixedDelta;
-			GD.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave}{playerHpInfo}");
+			GameLogger.Print($"[Tick {_tickCount,6} | {elapsed,6:F1}s] Wave {currentWave}{playerHpInfo}");
 		}
 	}
 
@@ -287,26 +289,26 @@ public partial class BattleScene : Node2D
 		}
 
 		// [ECS一致性日志] 输出战斗结算数据，用于对比客户端/服务端运行结果
-		GD.Print("========== ECS 战斗结算 ==========");
-		GD.Print($"结果: {(victory ? "胜利" : "失败")}");
-		GD.Print($"完成波数: {wavesCompleted}");
-		GD.Print($"存活玩家数: {players.Count}");
+		GameLogger.Print("========== ECS 战斗结算 ==========");
+		GameLogger.Print($"结果: {(victory ? "胜利" : "失败")}");
+		GameLogger.Print($"完成波数: {wavesCompleted}");
+		GameLogger.Print($"存活玩家数: {players.Count}");
 		foreach (var p in players)
 		{
 			var pc = p.Get<PlayerComponent>();
 			var hc = p.Get<HealthComponent>();
 			var up = p.Get<UpgradeComponent>();
-			GD.Print($"  玩家: KillCount={pc.KillCount}, TotalDamage={pc.TotalDamageDealt}, " +
+			GameLogger.Print($"  玩家: KillCount={pc.KillCount}, TotalDamage={pc.TotalDamageDealt}, " +
 				$"Level={pc.CurrentLevel}, Xp={pc.TotalXp}, Hp={hc.Hp}/{hc.MaxHp}");
 			if (up != null)
 			{
-				GD.Print($"  升级: OrbitCount={up.OrbitCount}");
+				GameLogger.Print($"  升级: OrbitCount={up.OrbitCount}");
 			}
 		}
-		GD.Print($"存活怪物数: {_world.GetEntitiesWith<MonsterComponent>().Count}");
-		GD.Print($"Tick数: {_tickCount}");
-		GD.Print($"[Debug] GameRandom calls: {GameRandom.CallCount}");
-		GD.Print("=================================");
+		GameLogger.Print($"存活怪物数: {_world.GetEntitiesWith<MonsterComponent>().Count}");
+		GameLogger.Print($"Tick数: {_tickCount}");
+		GameLogger.Print($"[Debug] GameRandom calls: {GameRandom.CallCount}");
+		GameLogger.Print("=================================");
 
 		// Delay transition slightly so player sees the final state
 		GetTree().CreateTimer(2.0f).Timeout += () =>
