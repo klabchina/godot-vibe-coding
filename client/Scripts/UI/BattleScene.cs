@@ -77,6 +77,7 @@ public partial class BattleScene : Node2D
 			SpreadAngle = 0
 		});
 		player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
+		player.Add(new ClientInputComponent());
 		player.Add(new ColliderComponent
 		{
 			Shape = ColliderShape.Box,
@@ -100,6 +101,7 @@ public partial class BattleScene : Node2D
 
 		// Register systems in execution order
 		_world.AddSystem(new InputSystem());
+		_world.AddSystem(new NetworkInputSystem());
 		var waveSpawnSystem = new WaveSpawnSystem();
 		_world.AddSystem(waveSpawnSystem);
 
