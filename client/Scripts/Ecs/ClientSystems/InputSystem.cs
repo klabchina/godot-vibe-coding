@@ -11,9 +11,9 @@ namespace Game.Ecs.ClientSystems;
 /// </summary>
 public class InputSystem : GameSystem
 {
-	public override bool IsRenderSystem => true;
+    public override bool IsRenderSystem => true;
 
-	public override void Update(float delta)
+    public override void Update(float delta)
     {
         var entities = World.GetEntitiesWith<PlayerComponent, ClientInputComponent>();
 

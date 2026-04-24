@@ -1,5 +1,5 @@
-using Game.Ecs;
 using Game.Ecs.Components;
+using Game.Ecs.Core;
 
 namespace Game.Ecs.ClientSystems;
 /// <summary>
@@ -20,11 +20,16 @@ public class NetworkInputSystem : GameSystem
                 continue;
 
             var input = entity.Get<ClientInputComponent>();
-            if (!input.HasInput)
-                continue;
-
             var velocity = entity.Get<VelocityComponent>();
-            velocity.Velocity = input.InputDir.Normalized() * velocity.Speed;
+            if (!input.HasInput)
+            {
+                velocity.Velocity = Vec2.Zero;
+            }
+            else
+            {
+                velocity.Velocity = input.InputDir.Normalized() * velocity.Speed;
+            }
+
         }
     }
 }
