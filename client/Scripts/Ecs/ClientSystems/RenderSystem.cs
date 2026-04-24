@@ -13,135 +13,144 @@ namespace Game.Ecs.ClientSystems;
 /// </summary>
 public class RenderSystem : GameSystem
 {
-	public override bool IsRenderSystem => true;
+    public override bool IsRenderSystem => true;
 
-	public Node2D RenderRoot { get; set; }
+    public Node2D RenderRoot { get; set; }
 
-	// 插值平滑：存储每个实体的渲染当前位置（独立于逻辑位置）
-	private readonly Dictionary<int, Vector2> _renderPositions = new();
-	private readonly Dictionary<int, float> _renderRotations = new();
+    // 插值平滑：存储每个实体的渲染当前位置（独立于逻辑位置）
+    private readonly Dictionary<int, Vector2> _renderPositions = new();
+    private readonly Dictionary<int, float> _renderRotations = new();
 
-	// 上帧位置/旋转检测（用于检测逻辑帧更新）
-	private readonly Dictionary<int, Vector2> _prevLogicPositions = new();
-	private readonly Dictionary<int, float> _prevLogicRotations = new();
+    // 上帧位置/旋转检测（用于检测逻辑帧更新）
+    private readonly Dictionary<int, Vector2> _prevLogicPositions = new();
+    private readonly Dictionary<int, float> _prevLogicRotations = new();
 
-	private readonly Dictionary<int, Node2D> _entityNodes = new();
-	private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
+    private readonly Dictionary<int, Node2D> _entityNodes = new();
+    private readonly Dictionary<int, List<Node2D>> _orbitNodes = new();
 
-	// 玩家动画状态跟踪
-	private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
-	private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
-	private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
+    // 玩家动画状态跟踪
+    private readonly Dictionary<int, float> _prevBowTimers = new();   // 上帧弓箭冷却计时器
+    private readonly Dictionary<int, float> _attackAnimTimers = new(); // 攻击动画剩余时间
+    private readonly Dictionary<int, float> _damageFlashTimers = new(); // 受伤红色闪烁计时器
 
-	private const float AttackAnimDuration = 0.33f;
-	private const float AnimFps = 10f;
+    private const float AttackAnimDuration = 0.33f;
+    private const float AnimFps = 10f;
 
-	// 插值平滑：帧率无关的指数平滑
-	// 值越大移动越快（收敛时间 ≈ SmoothTau 秒）
-	private const float SmoothTau = 0.05f; // 50ms 收敛到目标（与逻辑帧率一致）
+    // 当前帧累计时间进度（每帧 Update 开始后累加 delta）
+    private float _currentDelta = 0f;
 
-	// 怪物动画状态跟踪
-	private readonly Dictionary<int, string> _monsterAnims = new(); // entityId -> current anim
+    // 怪物动画状态跟踪
+    private readonly Dictionary<int, string> _monsterAnims = new(); // entityId -> current anim
 
-	/// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
-	private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
+    /// <summary>Helper: convert Vec2 → Godot.Vector2</summary>
+    private static Vector2 ToGodot(Vec2 v) => new(v.X, v.Y);
 
-	/// <summary>Helper: float equality with epsilon</summary>
-	private static bool IsFloatEqual(float a, float b, float epsilon = 0.001f) => Mathf.Abs(a - b) < epsilon;
+    /// <summary>Helper: float equality with epsilon</summary>
+    private static bool IsFloatEqual(float a, float b, float epsilon = 0.001f) => Mathf.Abs(a - b) < epsilon;
 
-	public override void Update(float delta)
-	{
-		if (RenderRoot == null)
-			return;
+    public override void Update(float delta)
+    {
+        if (RenderRoot == null)
+            return;
 
-		foreach (var (id, entity) in World.Entities)
-		{
-			if (!entity.IsAlive)
-				continue;
+        // 每帧累计时间进度
+        _currentDelta += delta;
 
-			var transform = entity.Get<TransformComponent>();
-			if (transform == null)
-				continue;
+        // 判断当前帧是否已完成移动（时间进度超过服务器帧率）
+        bool frameCompleted = _currentDelta > ServerConfig.ServerFrameTime;
 
-			if (!_entityNodes.TryGetValue(id, out var node))
-			{
-				node = CreateVisualNode(entity);
-				if (node == null)
-					continue;
+        foreach (var (id, entity) in World.Entities)
+        {
+            if (!entity.IsAlive)
+                continue;
 
-				RenderRoot.AddChild(node);
-				_entityNodes[id] = node;
+            var transform = entity.Get<TransformComponent>();
+            if (transform == null)
+                continue;
 
-				// 新实体直接设置位置，不做插值
-				_renderPositions[id] = ToGodot(transform.Position);
-				_renderRotations[id] = transform.Rotation;
-				_prevLogicPositions[id] = _renderPositions[id];
-				_prevLogicRotations[id] = _renderRotations[id];
-			}
+            if (!_entityNodes.TryGetValue(id, out var node))
+            {
+                node = CreateVisualNode(entity);
+                if (node == null)
+                    continue;
 
-			Vector2 targetPos = ToGodot(transform.Position);
-			float targetRot = transform.Rotation;
+                RenderRoot.AddChild(node);
+                _entityNodes[id] = node;
 
-			// 检测逻辑帧更新（位置/旋转发生变化）
-			Vector2 prevLogicPos = _prevLogicPositions.GetValueOrDefault(id, targetPos);
-			float prevLogicRot = _prevLogicRotations.GetValueOrDefault(id, targetRot);
+                // 新实体直接设置位置，不做插值
+                _renderPositions[id] = ToGodot(transform.Position);
+                _renderRotations[id] = transform.Rotation;
+                _prevLogicPositions[id] = _renderPositions[id];
+                _prevLogicRotations[id] = _renderRotations[id];
+            }
 
-			if (!prevLogicPos.IsEqualApprox(targetPos) || !IsFloatEqual(prevLogicRot, targetRot))
-			{
-				// 逻辑帧更新：重置渲染位置为当前位置，避免插值跳跃
-				_renderPositions[id] = targetPos;
-				_renderRotations[id] = targetRot;
-				_prevLogicPositions[id] = targetPos;
-				_prevLogicRotations[id] = targetRot;
-			}
-			else
-			{
-				// 非逻辑帧：帧率无关的指数平滑插值
-				// render = target + (render - target) * exp(-delta / tau)
-				float decay = Mathf.Exp(-delta / SmoothTau);
-				_renderPositions[id] = targetPos * (1 - decay) + _renderPositions[id] * decay;
+            Vector2 targetPos = ToGodot(transform.Position);
+            float targetRot = transform.Rotation;
 
-				// 旋转插值（处理角度跨越 -π/π 的情况）
-				float currentRot = _renderRotations[id];
-				float diff = targetRot - currentRot;
-				// 归一化到 [-π, π]
-				while (diff > Mathf.Pi) diff -= Mathf.Tau;
-				while (diff < -Mathf.Pi) diff += Mathf.Tau;
-				_renderRotations[id] = currentRot + diff * (1 - decay);
-			}
+            if (frameCompleted)
+            {
+                // 帧已完成移动：将当前渲染位置作为起点，目标位置作为终点
+                _prevLogicPositions[id] = _renderPositions[id];
+                _prevLogicRotations[id] = _renderRotations[id];
+                _renderPositions[id] = targetPos;
+                _renderRotations[id] = targetRot;
 
-			// 应用渲染插值结果
-			node.Position = _renderPositions[id];
+                // 应用渲染插值结果
+                node.Position = _renderPositions[id];
 
-			if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
-				node.Rotation = _renderRotations[id];
+                if (entity.Has<ArrowComponent>() || entity.Has<MonsterProjectileComponent>())
+                    node.Rotation = _renderRotations[id];
+            }
+            else
+            {
+                // 非逻辑帧：按时间进度比例插值
+                // 公式：lerp(_prevLogicPositions, _renderPositions, currentDelta / ServerFrameTime)
+                float t = Mathf.Clamp(_currentDelta / ServerConfig.ServerFrameTime, 0f, 1f);
+                node.Position = _prevLogicPositions[id].Lerp(_renderPositions[id], t);
 
-			if (entity.Has<PlayerComponent>())
-				UpdatePlayerAnimation(entity, node, delta);
-			else if (entity.Has<MonsterComponent>())
-				UpdateMonsterAnimation(entity, node, delta);
+                // 旋转插值（处理角度跨越 -π/π 的情况）
+                float startRot = _prevLogicRotations[id];
+                float endRot = _renderRotations[id];
+                float diff = endRot - startRot;
+                // 归一化到 [-π, π]
+                while (diff > Mathf.Pi) diff -= Mathf.Tau;
+                while (diff < -Mathf.Pi) diff += Mathf.Tau;
+                node.Rotation = startRot + diff * t;
+            }
 
-			UpdateEffectVisuals(entity, node);
-		}
+            if (entity.Has<PlayerComponent>())
+                UpdatePlayerAnimation(entity, node, delta);
+            else if (entity.Has<MonsterComponent>())
+                UpdateMonsterAnimation(entity, node, delta);
 
-		var toRemove = new List<int>();
-		foreach (var (id, node) in _entityNodes)
-		{
-			var entity = World.GetEntity(id);
-			if (entity == null || !entity.IsAlive)
-			{
-				node.QueueFree();
-				toRemove.Add(id);
-			}
-		}
-		foreach (var id in toRemove)
-		{
-			_entityNodes.Remove(id);
-			_renderPositions.Remove(id);
-			_renderRotations.Remove(id);
-			_prevLogicPositions.Remove(id);
-			_prevLogicRotations.Remove(id);
-		}
+            UpdateEffectVisuals(entity, node);
+        }
+
+        // 遍历完成后，如果帧已完成，重置时间进度
+        if (frameCompleted)
+        {
+            _currentDelta = 0f;
+        }
+
+        var toRemove = new List<int>();
+        foreach (var (id, node) in _entityNodes)
+        {
+            var entity = World.GetEntity(id);
+            if (entity == null || !entity.IsAlive)
+            {
+                node.QueueFree();
+                toRemove.Add(id);
+            }
+        }
+
+        foreach (var id in toRemove)
+        {
+            _entityNodes.Remove(id);
+            _renderPositions.Remove(id);
+            _renderRotations.Remove(id);
+            _prevLogicPositions.Remove(id);
+            _prevLogicRotations.Remove(id);
+        }
 
         RenderOrbitArrows();
     }

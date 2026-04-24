@@ -1,10 +1,10 @@
 using Godot;
 using Game.Ecs;
 using Game.Ecs.Core;
+using Game.Data;
 using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Ecs.ClientSystems;
-using Game.Data;
 using Game;
 
 namespace Game.UI;
@@ -129,7 +129,7 @@ public partial class BattleScene : Node2D
 		waveSpawnSystem.StartNextWave(wave);
 	}
 
-	private const float FixedDelta = 0.05f;  // 固定 50ms 步长，与服务器一致
+	private const float FixedDelta = ServerConfig.ServerFrameTime;  // 固定步长，与服务器一致
 
 	public override void _Process(double delta)
 	{
