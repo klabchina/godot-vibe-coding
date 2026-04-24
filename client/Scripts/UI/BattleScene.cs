@@ -37,7 +37,7 @@ public partial class BattleScene : Node2D
 		// 设置固定随机种子，必须在任何使用 GameRandom 的代码之前调用
 		// 必须放在最前面，因为 ResourceLoader.Load 可能触发其他代码
 		GameRandom.SetSeed(42);
-		GameLogger.Enabled = false; // 关闭日志打印
+		GameLogger.Enabled = true; // 关闭日志打印
 		GameLogger.Print("[BattleScene] Random seed set to 42 for deterministic simulation.");
 
 		_renderRoot = GetNode<Node2D>("RenderRoot");

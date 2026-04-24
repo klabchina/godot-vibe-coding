@@ -57,7 +57,7 @@ public class RenderSystem : GameSystem
         _currentDelta += delta;
 
         // 判断当前帧是否已完成移动（时间进度超过服务器帧率）
-        bool frameCompleted = _currentDelta > ServerConfig.ServerFrameTime;
+        bool frameCompleted = _currentDelta >= ServerConfig.ServerFrameTime;
 
         foreach (var (id, entity) in World.Entities)
         {
