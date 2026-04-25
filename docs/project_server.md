@@ -1,11 +1,16 @@
 # 对战服务器架构设计
 
+## 关联实现计划
+
+- `docs/superpowers/plans/2026-04-24-server-minimal-api-skeleton.md`（Server Minimal API + 原生 WS 骨架）
+
 ## 技术选型
 
 | 项目 | 选择 | 说明 |
 |------|------|------|
 | **语言** | C# (.NET 8+) | 与 Godot C# 客户端统一语言，可共享协议和数据结构 |
-| **网络** | 原生 WebSocket (System.Net.WebSockets) | 轻量自建，不依赖重型框架 |
+| **应用框架** | ASP.NET Core Minimal API | 轻量 Host，提供 DI / 配置 / 日志 / 生命周期管理 |
+| **网络** | 原生 WebSocket (System.Net.WebSockets) | 通过 `app.UseWebSockets()` + 自定义 Handler 处理连接与消息 |
 | **序列化** | Protobuf (Google.Protobuf) | 高效紧凑，客户端服务端共享 .proto 定义 |
 | **架构** | 单进程多房间 | 每个房间独立 Game Loop，适合 2 人小规模对战 |
 | **部署** | Docker / 单二进制 | `dotnet publish` 产出独立可执行文件 |
@@ -40,6 +45,59 @@
                     │           └───────┘   └───────┘  └───────┘│
                     └─────────────────────────────────────────────┘
 ```
+
+---
+
+## Program.cs 最小启动模板（Minimal API + 原生 WS）
+
+```csharp
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Server.Hosting;
+using Server.Match;
+using Server.Network;
+using Server.Room;
+using Server.Session;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// 核心服务注册
+builder.Services.AddSingleton<ConnectionManager>();
+builder.Services.AddSingleton<SessionManager>();
+builder.Services.AddSingleton<MatchService>();
+builder.Services.AddSingleton<RoomManager>();
+builder.Services.AddHostedService<GameLoopService>();
+
+var app = builder.Build();
+
+// 启用原生 WebSocket
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(10)
+});
+
+// 连接入口（示例）
+app.Map("/ws", async context =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = 400;
+        return;
+    }
+
+    var socket = await context.WebSockets.AcceptWebSocketAsync();
+    var connectionManager = context.RequestServices.GetRequiredService<ConnectionManager>();
+    var handler = context.RequestServices.GetRequiredService<WebSocketHandler>();
+
+    var connectionId = connectionManager.Add(socket);
+    await handler.RunAsync(connectionId, socket, context.RequestAborted);
+});
+
+app.Run();
+```
+
+> 说明：`Program.cs` 负责 Host 与中间件装配；匹配与房间逻辑由 `GameLoopService` 定时驱动。
 
 ---
 
@@ -196,7 +254,7 @@ public enum RoomState
 
 ## 游戏循环 (Game Loop)
 
-服务器以固定频率（20 tick/s，每 tick 50ms）驱动所有房间。
+主循环由 ASP.NET Core `BackgroundService` 驱动，以固定频率（20 tick/s，每 tick 50ms）更新匹配与房间。
 
 ```
 ┌───────────────────────────────────────────────────┐
@@ -221,13 +279,17 @@ public enum RoomState
 ```
 
 ```csharp
-// 主循环驱动（Program.cs）
-var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(50));
-while (await timer.WaitForNextTickAsync())
+// 主循环驱动（GameLoopService : BackgroundService）
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-    var dt = 0.05f; // 50ms
-    matchService.Tick();
-    roomManager.Tick(dt);
+    var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(50));
+    while (!stoppingToken.IsCancellationRequested &&
+           await timer.WaitForNextTickAsync(stoppingToken))
+    {
+        var dt = 0.05f; // 50ms
+        _matchService.Tick();
+        _roomManager.Tick(dt);
+    }
 }
 ```
 
@@ -633,7 +695,9 @@ public class Session
 server/
 ├── Server.sln
 ├── src/
-│   ├── Program.cs                    # 入口，启动 WebSocket 监听 & 主循环
+│   ├── Program.cs                    # 入口，启动 Minimal API Host / WS 中间件 / DI
+│   ├── Hosting/
+│   │   └── GameLoopService.cs        # BackgroundService 主循环（20 tick/s）
 │   │
 │   ├── Network/
 │   │   ├── ConnectionManager.cs      # WebSocket 连接管理
