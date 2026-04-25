@@ -1,0 +1,44 @@
+{
+  "monsters": {
+    "1": {
+      "name": "Slime",
+      "hp": 30,
+      "speed": 50,
+      "attack_damage": 5,
+      "attack_range": 30,
+      "collision_radius": 18
+    },
+    "2": {
+      "name": "Skeleton",
+      "hp": 60,
+      "speed": 80,
+      "attack_damage": 10,
+      "attack_range": 200,
+      "collision_radius": 20
+    },
+    "3": {
+      "name": "Orc",
+      "hp": 120,
+      "speed": 120,
+      "attack_damage": 20,
+      "attack_range": 35,
+      "collision_radius": 24
+    },
+    "4": {
+      "name": "Elite",
+      "hp": 150,
+      "speed": 100,
+      "attack_damage": 15,
+      "attack_range": 250,
+      "collision_radius": 26
+    },
+    "5": {
+      "name": "Boss",
+      "hp": 500,
+      "speed": 40,
+      "attack_damage": 35,
+      "attack_range": 50,
+      "collision_radius": 40
+    }
+  }
+}

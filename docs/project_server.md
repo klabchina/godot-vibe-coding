@@ -2,7 +2,8 @@
 
 ## 关联实现计划
 
-- `docs/superpowers/plans/2026-04-24-server-minimal-api-skeleton.md`（Server Minimal API + 原生 WS 骨架）
+- `docs/superpowers/server/2026-04-24-server-minimal-api-skeleton.md`（Server Minimal API + 原生 WS 骨架，已完成）
+- `docs/superpowers/server/2026-04-25-server-full-implementation.md`（Server 游戏功能实现，进行中）
 
 ## 技术选型
 

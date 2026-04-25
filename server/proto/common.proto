@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package summer;
+
+// 向量2
+message Vec2 {
+    float x = 1;
+    float y = 2;
+}
+
+// 消息信封 — 所有消息的外层包装
+message Envelope {
+    uint32 msg_id = 1;      // 消息类型 ID
+    bytes payload = 2;      // 具体消息的序列化字节
+    uint64 timestamp = 3;   // 服务器时间戳
+}

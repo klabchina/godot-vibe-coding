@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package summer;
+
+import "common.proto";
+
+// Client → Server — 玩家操作（高频，每帧）
+message PlayerInput {
+    int32 tick = 1;            // 客户端帧号
+    Vec2 move_dir = 2;         // 移动方向
+    float aim_angle = 3;       // 瞄准角度（弧度）
+    bool shoot = 4;            // 是否射击
+    float charge_power = 5;    // 蓄力值 (0~1)
+}
+
+// Server → Client — 游戏状态快照（每 tick 广播）
+message GameStateSnapshot {
+    int32 server_tick = 1;
+    repeated PlayerStateMsg players = 2;
+    repeated ArrowStateMsg arrows = 3;
+    repeated MonsterStateMsg monsters = 4;
+    WaveInfoMsg wave_info = 5;
+}
+
+message PlayerStateMsg {
+    string player_id = 1;
+    Vec2 position = 2;
+    float aim_angle = 3;
+    int32 hp = 4;
+    int32 max_hp = 5;
+    int32 action = 6;  // 0=Idle, 1=Moving, 2=Charging, 3=Shooting
+    int32 level = 7;
+    int32 xp = 8;
+}
+
+message ArrowStateMsg {
+    int32 arrow_id = 1;
+    string owner_id = 2;
+    Vec2 position = 3;
+    Vec2 velocity = 4;
+    float rotation = 5;
+    int32 damage = 6;
+    bool is_player_arrow = 7;  // true=玩家箭矢, false=怪物箭矢
+}
+
+message MonsterStateMsg {
+    int32 monster_id = 1;
+    int32 monster_type = 2;
+    Vec2 position = 3;
+    Vec2 velocity = 4;
+    float rotation = 5;
+    int32 hp = 6;
+    int32 max_hp = 7;
+    int32 state = 8;  // 0=Walk, 1=Attack, 2=Death
+}
+
+message WaveInfoMsg {
+    int32 current_wave = 1;
+    int32 total_waves = 2;
+    int32 monsters_remaining = 3;
+    float interval_countdown = 4;  // 波次间歇倒计时，<=0 表示战斗中
+}

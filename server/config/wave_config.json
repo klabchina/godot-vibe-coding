@@ -1,0 +1,76 @@
+[
+  {
+    "wave_number": 1,
+    "pre_wave_delay": 3.0,
+    "spawn_interval": 1.0,
+    "spawns": [
+      { "type": 1, "count": 5 }
+    ]
+  },
+  {
+    "wave_number": 2,
+    "pre_wave_delay": 5.0,
+    "spawn_interval": 0.8,
+    "spawns": [
+      { "type": 1, "count": 8 },
+      { "type": 2, "count": 2 }
+    ]
+  },
+  {
+    "wave_number": 3,
+    "pre_wave_delay": 5.0,
+    "spawn_interval": 0.6,
+    "spawns": [
+      { "type": 1, "count": 3 },
+      { "type": 2, "count": 5 },
+      { "type": 3, "count": 2 }
+    ]
+  },
+  {
+    "wave_number": 4,
+    "pre_wave_delay": 5.0,
+    "spawn_interval": 0.5,
+    "spawns": [
+      { "type": 2, "count": 6 },
+      { "type": 3, "count": 3 }
+    ]
+  },
+  {
+    "wave_number": 5,
+    "pre_wave_delay": 8.0,
+    "spawn_interval": 0.5,
+    "spawns": [
+      { "type": 4, "count": 2 },
+      { "type": 2, "count": 5 }
+    ]
+  },
+  {
+    "wave_number": 6,
+    "pre_wave_delay": 5.0,
+    "spawn_interval": 0.4,
+    "spawns": [
+      { "type": 2, "count": 5 },
+      { "type": 3, "count": 4 },
+      { "type": 4, "count": 1 }
+    ]
+  },
+  {
+    "wave_number": 7,
+    "pre_wave_delay": 5.0,
+    "spawn_interval": 0.3,
+    "spawns": [
+      { "type": 3, "count": 5 },
+      { "type": 4, "count": 3 }
+    ]
+  },
+  {
+    "wave_number": 8,
+    "pre_wave_delay": 10.0,
+    "spawn_interval": 0.5,
+    "spawns": [
+      { "type": 5, "count": 1 },
+      { "type": 2, "count": 8 },
+      { "type": 4, "count": 2 }
+    ]
+  }
+]

@@ -5,4 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Server</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.25.2" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package summer;
+
+import "common.proto";
+
+// Client → Server — 玩家准备
+message PlayerReady {
+    string room_id = 1;
+}
+
+// Server → Client — 战斗开始
+message BattleStart {
+    string room_id = 1;
+    int32 random_seed = 2;
+    repeated WaveConfigMsg waves = 3;
+}
+
+message WaveConfigMsg {
+    int32 wave_number = 1;
+    repeated SpawnEntryMsg spawns = 2;
+    float spawn_interval = 3;
+    float pre_wave_delay = 4;
+}
+
+message SpawnEntryMsg {
+    int32 monster_type = 1;
+    int32 count = 2;
+    Vec2 position = 3;
+}

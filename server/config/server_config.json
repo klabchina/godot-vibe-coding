@@ -1,0 +1,9 @@
+{
+  "port": 8081,
+  "tick_rate": 20,
+  "max_rooms": 100,
+  "match_timeout_sec": 60,
+  "reconnect_timeout_sec": 30,
+  "heartbeat_interval_sec": 10,
+  "heartbeat_timeout_sec": 30
+}
