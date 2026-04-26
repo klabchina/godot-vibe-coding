@@ -1,6 +1,15 @@
-using Server.Game;
+using Game.Ecs;
+using Game.Ecs.Components;
+using Game.Ecs.Core;
+using Game.Ecs.Systems;
+using Game.Data;
+using Game;
 using Server.Proto;
-using Server.Session;
+using Server.Game;
+
+// 类型别名，解决 Vec2 二义性
+using ProtoVec2 = Server.Proto.Vec2;
+using GameVec2 = Game.Ecs.Core.Vec2;
 
 namespace Server.Room;
 
@@ -25,7 +34,26 @@ public enum GameResult
 }
 
 /// <summary>
+/// 玩家出生数据结构体
+/// </summary>
+public readonly struct PlayerSpawnData
+{
+    public readonly int PlayerIndex;
+    public readonly GameVec2 Position;
+
+    public PlayerSpawnData(int playerIndex, GameVec2 position)
+    {
+        PlayerIndex = playerIndex;
+        Position = position;
+    }
+
+    public static PlayerSpawnData Default(int playerIndex = 0) =>
+        new(playerIndex, ArenaData.Size / 2);
+}
+
+/// <summary>
 /// 单局游戏房间（服务器权威）
+/// 使用 ECS 架构，与 ServerGameManager 保持一致
 /// </summary>
 public sealed class GameRoom
 {
@@ -35,54 +63,115 @@ public sealed class GameRoom
     public RoomState State { get; private set; } = RoomState.WaitingReady;
     public GameResult? Result { get; private set; }
     
-    // 玩家
-    private readonly Dictionary<string, PlayerState> _players = new();
-    private readonly HashSet<string> _readyPlayers = new();
+    // ECS World
+    public World World { get; private set; }
     
-    // 游戏实体
-    private readonly List<MonsterState> _monsters = new();
-    private readonly List<ArrowState> _arrows = new();
+    // 玩家映射：PlayerId -> EntityId
+    private readonly Dictionary<string, int> _playerEntityMap = new();
     
-    // 波次控制器
-    private readonly WaveController _waveController;
-    
-    // 战斗统计
-    public int TotalKills => _players.Values.Sum(p => p.KillCount);
+    // 战局统计
+    public int KillCount { get; private set; }
+    public int TotalDamage { get; private set; }
+    public int WavesCompleted { get; private set; }
     
     // 事件
     public event Action<GameStateSnapshot>? OnBroadcast;  // 广播状态给客户端
-    public event Action<EntityDeathMsg>? OnEntityDeath;     // 实体死亡
-    public event Action<WaveStartMsg>? OnWaveStart;        // 波次开始
-    public event Action<GameOverMsg>? OnGameOver;          // 游戏结束
-    public event Action<string, int>? OnPlayerLevelUp;     // 玩家升级 (playerId, newLevel)
+    public event Action<string, int>? OnPlayerLevelUp;   // 玩家升级 (playerId, newLevel)
     
     public GameRoom(string roomId, params string[] playerIds)
     {
         RoomId = roomId;
+        World = new World();
         
         // 初始化玩家
         for (int i = 0; i < playerIds.Length; i++)
         {
             var playerId = playerIds[i];
-            var player = new PlayerState
-            {
-                PlayerId = playerId,
-                PlayerName = $"Player{i + 1}",
-                Slot = i,
-                X = 400 + i * 400,  // 初始位置
-                Y = 450,
-                MaxHp = GameConfig.PlayerMaxHp,
-                Hp = GameConfig.PlayerMaxHp,
-                OwnerId = playerId
-            };
-            _players[playerId] = player;
+            SpawnPlayer(i, playerId, 400 + i * 400, 450);
         }
         
-        // 初始化波次控制器
-        _waveController = new WaveController();
-        _waveController.OnWaveStart += HandleWaveStart;
-        _waveController.OnSpawnMonster += HandleSpawnMonster;
-        _waveController.OnAllWavesCompleted += HandleAllWavesCompleted;
+        // 注册服务端系统
+        RegisterSystems();
+    }
+    
+    /// <summary>
+    /// 注册所有服务端 ECS 系统
+    /// </summary>
+    private void RegisterSystems()
+    {
+        var waveSpawnSystem = new WaveSpawnSystem();
+        World.AddSystem(waveSpawnSystem);
+
+        var bossAISystem = new BossAISystem();
+        World.AddSystem(bossAISystem);
+
+        World.AddSystem(new MonsterAISystem());
+        World.AddSystem(new MeleeAttackSystem());
+        World.AddSystem(new AutoAimSystem());
+        World.AddSystem(new MovementSystem());
+        World.AddSystem(new CollisionSystem());
+        World.AddSystem(new OrbitSystem());
+
+        var pickupSystem = new PickupSystem();
+        pickupSystem.OnLevelUp = OnPlayerLevelUpInternal;
+        World.AddSystem(pickupSystem);
+
+        World.AddSystem(new DamageSystem());
+        World.AddSystem(new EffectSystem());
+        World.AddSystem(new BuffSystem());
+        World.AddSystem(new DeathSystem());
+        
+        Console.WriteLine($"[GameRoom:{RoomId}] ECS systems registered.");
+    }
+    
+    /// <summary>
+    /// 创建玩家实体
+    /// </summary>
+    public Entity SpawnPlayer(int playerIndex, string playerId, float x, float y)
+    {
+        var player = World.CreateEntity();
+        _playerEntityMap[playerId] = player.Id;
+        
+        player.Add(new TransformComponent { Position = new GameVec2(x, y) });
+        player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
+        player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
+        player.Add(new PlayerComponent { PlayerIndex = playerIndex, IsLocal = false });
+        player.Add(new BowComponent
+        {
+            Damage = PlayerData.BaseArrowDamage,
+            Cooldown = PlayerData.BaseCooldown,
+            CooldownTimer = 0,
+            ArrowCount = PlayerData.BaseArrowCount,
+            SpreadAngle = 0,
+        });
+        player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
+        player.Add(new BuffComponent());
+        player.Add(new UpgradeComponent());
+        player.Add(new OrbitComponent());
+        player.Add(new ColliderComponent
+        {
+            Shape = ColliderShape.Box,
+            Radius = PlayerData.PlayerRadius,
+            Layer = CollisionLayers.Player,
+            Mask = CollisionLayers.Monster | CollisionLayers.Pickup,
+            HalfWidth = PlayerData.HalfWidth,
+            HalfHeight = PlayerData.HalfHeight,
+        });
+
+        Console.WriteLine($"[GameRoom:{RoomId}] Player {playerIndex} ({playerId}) spawned at ({x}, {y}), EntityId={player.Id}");
+        return player;
+    }
+    
+    /// <summary>
+    /// 创建 WaveComponent 实体并启动第一波
+    /// </summary>
+    public void StartWaves()
+    {
+        var waveEntity = World.CreateEntity();
+        waveEntity.Add(new WaveComponent());
+        World.GetSystem<WaveSpawnSystem>()!.StartNextWave(waveEntity.Get<WaveComponent>());
+        
+        Console.WriteLine($"[GameRoom:{RoomId}] Waves started.");
     }
     
     /// <summary>
@@ -90,20 +179,10 @@ public sealed class GameRoom
     /// </summary>
     public void AddPlayer(string playerId, string playerName)
     {
-        if (_players.ContainsKey(playerId)) return;
+        if (_playerEntityMap.ContainsKey(playerId)) return;
         
-        var player = new PlayerState
-        {
-            PlayerId = playerId,
-            PlayerName = playerName,
-            Slot = _players.Count,
-            X = 400 + _players.Count * 400,
-            Y = 450,
-            MaxHp = GameConfig.PlayerMaxHp,
-            Hp = GameConfig.PlayerMaxHp,
-            OwnerId = playerId
-        };
-        _players[playerId] = player;
+        int slot = _playerEntityMap.Count;
+        SpawnPlayer(slot, playerId, 400 + slot * 400, 450);
     }
     
     /// <summary>
@@ -113,11 +192,9 @@ public sealed class GameRoom
     {
         if (State != RoomState.WaitingReady) return;
         
-        _readyPlayers.Add(playerId);
-        Console.WriteLine($"Player {playerId} ready. {_readyPlayers.Count}/{_players.Count}");
+        Console.WriteLine($"Player {playerId} ready. {_playerEntityMap.Count} players");
         
-        // 双方都准备好后开始游戏
-        if (_readyPlayers.Count >= 2 || _players.Count == 1)
+        if (_playerEntityMap.Count >= 1)
         {
             StartGame();
         }
@@ -129,8 +206,8 @@ public sealed class GameRoom
     public void StartGame()
     {
         State = RoomState.Playing;
-        _waveController.Reset();
-        Console.WriteLine($"Room {RoomId} started!");
+        StartWaves();
+        Console.WriteLine($"[GameRoom:{RoomId}] Game started!");
     }
     
     /// <summary>
@@ -138,47 +215,23 @@ public sealed class GameRoom
     /// </summary>
     public void OnPlayerInput(string playerId, PlayerInputMsg input)
     {
-        if (!_players.TryGetValue(playerId, out var player)) return;
+        if (!_playerEntityMap.TryGetValue(playerId, out int entityId)) return;
         
-        player.LastInput = input;
-        player.MoveDirX = input.MoveDir.X;
-        player.MoveDirY = input.MoveDir.Y;
-        player.AimAngle = input.AimAngle;
-        player.ChargePower = input.ChargePower;
+        var player = World.GetEntity(entityId);
+        if (player == null) return;
         
-        // 处理射击
-        if (input.Shoot && !player.IsCharging)
-        {
-            ShootArrow(player);
-        }
+        var transform = player.Get<TransformComponent>();
+        var velocity = player.Get<VelocityComponent>();
+        var upgrade = player.Get<UpgradeComponent>();
         
-        player.IsCharging = input.ChargePower > 0.1f;
-    }
-    
-    /// <summary>
-    /// 发射箭矢
-    /// </summary>
-    private void ShootArrow(PlayerState player)
-    {
-        var (dirX, dirY) = CollisionHelper.Normalize(
-            MathF.Cos(player.AimAngle),
-            MathF.Sin(player.AimAngle)
-        );
+        if (transform == null || velocity == null) return;
         
-        var arrow = new ArrowState(
-            player.PlayerId,
-            true,
-            player.X,
-            player.Y,
-            dirX * GameConfig.ArrowSpeed,
-            dirY * GameConfig.ArrowSpeed
-        );
-        arrow.Damage = (int)(GameConfig.PlayerBaseDamage * UpgradeConfig.DamageMultiplier(player.Level));
+        // 更新移动方向
+        transform.Position = new GameVec2(input.MoveDir.X, input.MoveDir.Y);
+        transform.Rotation = input.AimAngle;
         
-        _arrows.Add(arrow);
-        player.ArrowsFired++;
-        
-        player.Action = PlayerAction.Shooting;
+        // 计算移动速度
+        velocity.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
     }
     
     /// <summary>
@@ -190,280 +243,91 @@ public sealed class GameRoom
         
         _tickCounter++;
         
-        // 1. 处理输入
-        ProcessInputQueue(dt);
+        // 使用 ECS World 更新
+        World.Update(dt);
         
-        // 2. 更新波次
-        _waveController.Update(dt);
+        // 更新战局统计
+        UpdateStats();
         
-        // 3. 更新怪物 AI
-        UpdateMonsters(dt);
+        // 检查游戏结束
+        var gameOver = CheckGameOver();
+        if (gameOver.HasValue)
+        {
+            EndGame(gameOver.Value);
+            return;
+        }
         
-        // 4. 更新箭矢
-        UpdateArrows(dt);
-        
-        // 5. 碰撞检测
-        CheckCollisions();
-        
-        // 6. 清理死亡实体
-        CleanupDead();
-        
-        // 7. 检查游戏结束
-        CheckGameOver();
-        
-        // 8. 广播状态
+        // 广播状态
         BroadcastState();
     }
     
     /// <summary>
-    /// 处理输入队列
+    /// 更新战局统计
     /// </summary>
-    private void ProcessInputQueue(float dt)
+    private void UpdateStats()
     {
-        foreach (var player in _players.Values)
-        {
-            if (player.LastInput == null) continue;
-            
-            // 移动
-            var speed = GameConfig.PlayerSpeed * UpgradeConfig.SpeedMultiplier(player.Level);
-            var newX = player.X + player.MoveDirX * speed * dt;
-            var newY = player.Y + player.MoveDirY * speed * dt;
-            
-            // 边界检测
-            var (clampedX, clampedY) = CollisionHelper.ClampToRectWithRadius(
-                newX, newY, GameConfig.PlayerCollisionRadius,
-                0, 0,
-                GameConfig.ArenaWidth, GameConfig.ArenaHeight
-            );
-            
-            player.X = clampedX;
-            player.Y = clampedY;
-            
-            // 更新状态
-            if (MathF.Abs(player.MoveDirX) > 0.1f || MathF.Abs(player.MoveDirY) > 0.1f)
-            {
-                player.Action = PlayerAction.Moving;
-            }
-            else if (player.IsCharging)
-            {
-                player.Action = PlayerAction.Charging;
-            }
-            else
-            {
-                player.Action = PlayerAction.Idle;
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 更新怪物 AI
-    /// </summary>
-    private void UpdateMonsters(float dt)
-    {
-        foreach (var monster in _monsters)
-        {
-            if (!monster.IsAlive) continue;
-            
-            monster.StateTimer += dt;
-            
-            // 简单 AI：朝最近玩家移动
-            var target = FindClosestPlayer(monster);
-            if (target != null)
-            {
-                var dirX = target.X - monster.X;
-                var dirY = target.Y - monster.Y;
-                var (nx, ny) = CollisionHelper.Normalize(dirX, dirY);
-                
-                monster.VX = nx * monster.Speed;
-                monster.VY = ny * monster.Speed;
-                monster.X += monster.VX * dt;
-                monster.Y += monster.VY * dt;
-                
-                // 更新朝向
-                monster.Rotation = MathF.Atan2(ny, nx);
-                
-                // 攻击冷却
-                monster.AttackCooldown -= dt;
-                if (monster.AttackCooldown <= 0 && DistanceToPlayer(monster, target) <= monster.AttackRange)
-                {
-                    // 怪物攻击
-                    target.Hp -= monster.AttackDamage;
-                    monster.AttackCooldown = 1f;
-                    monster.State = MonsterStateType.Attack;
-                    
-                    if (target.Hp <= 0)
-                    {
-                        target.Hp = 0;
-                        OnEntityDeath?.Invoke(new EntityDeathMsg
-                        {
-                            Type = EntityDeathMsg.EntityType.Player,
-                            EntityId = 0,
-                            Position = new Vec2 { X = target.X, Y = target.Y },
-                            KillerId = monster.Id
-                        });
-                    }
-                }
-                else
-                {
-                    monster.State = MonsterStateType.Walk;
-                }
-            }
-            
-            // 边界检测
-            var (cx, cy) = CollisionHelper.ClampToRectWithRadius(
-                monster.X, monster.Y, GameConfig.MonsterCollisionRadius,
-                0, 0,
-                GameConfig.ArenaWidth, GameConfig.ArenaHeight
-            );
-            monster.X = cx;
-            monster.Y = cy;
-        }
-    }
-    
-    private PlayerState? FindClosestPlayer(MonsterState monster)
-    {
-        PlayerState? closest = null;
-        float minDist = float.MaxValue;
+        KillCount = 0;
+        TotalDamage = 0;
+        WavesCompleted = 0;
         
-        foreach (var player in _players.Values)
+        var waveEntities = World.GetEntitiesWith<WaveComponent>();
+        foreach (var waveEntity in waveEntities)
         {
-            if (!player.IsAlive) continue;
-            
-            var dist = CollisionHelper.DistanceSq(monster.X, monster.Y, player.X, player.Y);
-            if (dist < minDist)
+            var wave = waveEntity.Get<WaveComponent>();
+            if (wave.AllWavesComplete && wave.AliveMonsters <= 0)
             {
-                minDist = dist;
-                closest = player;
+                WavesCompleted = wave.CurrentWave;
             }
+            break;
         }
         
-        return closest;
-    }
-    
-    private float DistanceToPlayer(MonsterState monster, PlayerState player)
-    {
-        return CollisionHelper.Distance(monster.X, monster.Y, player.X, player.Y);
-    }
-    
-    /// <summary>
-    /// 更新箭矢
-    /// </summary>
-    private void UpdateArrows(float dt)
-    {
-        foreach (var arrow in _arrows)
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        foreach (var player in players)
         {
-            if (!arrow.IsAlive) continue;
-            arrow.Update(dt);
-            
-            // 边界检测
-            if (arrow.X < -50 || arrow.X > GameConfig.ArenaWidth + 50 ||
-                arrow.Y < -50 || arrow.Y > GameConfig.ArenaHeight + 50)
-            {
-                arrow.LifeTime = arrow.MaxLifeTime;  // 标记销毁
-            }
+            var pc = player.Get<PlayerComponent>();
+            KillCount += pc.KillCount;
+            TotalDamage += pc.TotalDamageDealt;
         }
-    }
-    
-    /// <summary>
-    /// 碰撞检测
-    /// </summary>
-    private void CheckCollisions()
-    {
-        // 箭矢 vs 怪物
-        foreach (var arrow in _arrows.ToList())
-        {
-            if (!arrow.IsAlive || !arrow.IsPlayerArrow) continue;
-            
-            foreach (var monster in _monsters)
-            {
-                if (!monster.IsAlive) continue;
-                
-                if (CollisionHelper.CircleCollision(
-                    arrow.X, arrow.Y, GameConfig.ArrowCollisionRadius,
-                    monster.X, monster.Y, GameConfig.MonsterCollisionRadius))
-                {
-                    // 命中
-                    monster.TakeDamage(arrow.Damage, arrow.OwnerId);
-                    arrow.LifeTime = arrow.MaxLifeTime;  // 标记销毁
-                    
-                    // 记录伤害
-                    if (_players.TryGetValue(arrow.OwnerId, out var player))
-                    {
-                        player.TotalDamage += arrow.Damage;
-                    }
-                    
-                    if (monster.IsDead)
-                    {
-                        // 怪物死亡
-                        _waveController.OnMonsterDied();
-                        
-                        // 奖励经验
-                        if (_players.TryGetValue(arrow.OwnerId, out var killer))
-                        {
-                            killer.KillCount++;
-                            AwardXp(killer, 10);
-                        }
-                        
-                        OnEntityDeath?.Invoke(new EntityDeathMsg
-                        {
-                            Type = EntityDeathMsg.EntityType.Monster,
-                            EntityId = monster.Id,
-                            Position = new Vec2 { X = monster.X, Y = monster.Y },
-                            KillerId = killer?.KillCount ?? 0
-                        });
-                    }
-                    
-                    break;
-                }
-            }
-        }
-    }
-    
-    /// <summary>
-    /// 奖励经验值
-    /// </summary>
-    private void AwardXp(PlayerState player, int xp)
-    {
-        player.Xp += xp;
-        
-        // 检查升级
-        while (player.Xp >= player.XpToNextLevel)
-        {
-            player.Xp -= player.XpToNextLevel;
-            player.Level++;
-            player.XpToNextLevel = UpgradeConfig.XpForLevel(player.Level);
-            
-            Console.WriteLine($"Player {player.PlayerId} leveled up to {player.Level}!");
-            OnPlayerLevelUp?.Invoke(player.PlayerId, player.Level);
-        }
-    }
-    
-    /// <summary>
-    /// 清理死亡实体
-    /// </summary>
-    private void CleanupDead()
-    {
-        _arrows.RemoveAll(a => !a.IsAlive);
-        _monsters.RemoveAll(m => m.IsDead && m.StateTimer > 2f);  // 延迟删除死亡怪物
     }
     
     /// <summary>
     /// 检查游戏结束
     /// </summary>
-    private void CheckGameOver()
+    private GameResult? CheckGameOver()
     {
-        // 检查胜利
-        if (_waveController.IsCompleted)
+        var waveEntities = World.GetEntitiesWith<WaveComponent>();
+        foreach (var waveEntity in waveEntities)
         {
-            EndGame(GameResult.Victory);
-            return;
+            var wave = waveEntity.Get<WaveComponent>();
+            if (wave.AllWavesComplete && wave.AliveMonsters <= 0)
+            {
+                return GameResult.Victory;
+            }
         }
         
-        // 检查失败（所有玩家死亡）
-        if (_players.Values.All(p => !p.IsAlive))
+        var players = World.GetEntitiesWith<PlayerComponent, HealthComponent>();
+        bool allDead = true;
+        foreach (var player in players)
         {
-            EndGame(GameResult.Defeat);
+            var hp = player.Get<HealthComponent>();
+            if (hp.Hp > 0)
+            {
+                allDead = false;
+                break;
+            }
+            var revive = player.Get<ReviveComponent>();
+            if (revive == null || !revive.HasRevived)
+            {
+                allDead = false;
+                break;
+            }
         }
+        if (allDead && players.Count > 0)
+        {
+            return GameResult.Defeat;
+        }
+        
+        return null;
     }
     
     private void EndGame(GameResult result)
@@ -471,25 +335,115 @@ public sealed class GameRoom
         State = RoomState.Finished;
         Result = result;
         
-        var scores = _players.Values.Select(p => new PlayerScoreMsg
+        var scores = new List<PlayerScoreMsg>();
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        foreach (var player in players)
         {
-            PlayerId = p.PlayerId,
-            PlayerName = p.PlayerName,
-            Kills = p.KillCount,
-            DamageDealt = p.TotalDamage,
-            ArrowsFired = p.ArrowsFired,
-            Level = p.Level
-        }).ToList();
+            var pc = player.Get<PlayerComponent>();
+            var hp = player.Get<HealthComponent>();
+            
+            scores.Add(new PlayerScoreMsg
+            {
+                PlayerId = GetPlayerIdByEntityId(player.Id) ?? $"Player{pc.PlayerIndex}",
+                PlayerName = $"Player{pc.PlayerIndex}",
+                Kills = pc.KillCount,
+                DamageDealt = pc.TotalDamageDealt,
+                ArrowsFired = 0,  // ECS 不追踪此字段
+                Level = pc.CurrentLevel
+            });
+        }
         
         OnGameOver?.Invoke(new GameOverMsg
         {
             Result = (GameOverMsg.GameResult)result,
-            WavesCleared = _waveController.CurrentWave,
-            TotalKills = TotalKills,
+            WavesCleared = WavesCompleted,
+            TotalKills = KillCount,
             Scores = scores
         });
         
-        Console.WriteLine($"Room {RoomId} ended: {result}");
+        Console.WriteLine($"[GameRoom:{RoomId}] Game ended: {result}");
+    }
+    
+    /// <summary>
+    /// 根据 EntityId 获取 PlayerId
+    /// </summary>
+    private string? GetPlayerIdByEntityId(int entityId)
+    {
+        foreach (var kvp in _playerEntityMap)
+        {
+            if (kvp.Value == entityId)
+                return kvp.Key;
+        }
+        return null;
+    }
+    
+    /// <summary>
+    /// 玩家升级回调
+    /// </summary>
+    private void OnPlayerLevelUpInternal(Entity playerEntity, int newLevel)
+    {
+        var player = playerEntity.Get<PlayerComponent>();
+        if (player == null) return;
+
+        var upgrade = playerEntity.Get<UpgradeComponent>();
+        if (upgrade == null) return;
+
+        var options = UpgradeRoller.Roll(upgrade, newLevel);
+        if (options.Count == 0) return;
+
+        var chosen = options[0];
+        upgrade.Apply(chosen);
+
+        switch (chosen)
+        {
+            case UpgradeId.MaxHpUp:
+                {
+                    var health = playerEntity.Get<HealthComponent>();
+                    if (health != null)
+                    {
+                        health.MaxHp = UpgradeData.GetMaxHp(upgrade.MaxHpLevel);
+                        health.Hp = GMath.Min(health.Hp + UpgradeData.HpHealPerUpgrade, health.MaxHp);
+                    }
+                    break;
+                }
+            case UpgradeId.MoveSpeedUp:
+                {
+                    var vel = playerEntity.Get<VelocityComponent>();
+                    if (vel != null)
+                    {
+                        vel.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+                    }
+                    break;
+                }
+            case UpgradeId.Shield:
+                {
+                    var buff = playerEntity.Get<BuffComponent>();
+                    if (buff != null)
+                    {
+                        buff.ShieldActive = true;
+                        buff.ShieldCooldown = UpgradeData.ShieldRegenInterval;
+                    }
+                    break;
+                }
+            case UpgradeId.OrbitGuard:
+                {
+                    var orbit = playerEntity.Get<OrbitComponent>();
+                    if (orbit != null)
+                    {
+                        orbit.Count = upgrade.OrbitCount;
+                    }
+                    break;
+                }
+        }
+
+        var def = UpgradeData.Definitions[chosen];
+        Console.WriteLine($"[LevelUp] Player {player.PlayerIndex} ({GetPlayerIdByEntityId(playerEntity.Id)}) leveled up to Lv.{newLevel} → {def.Name}");
+        
+        var playerId = GetPlayerIdByEntityId(playerEntity.Id);
+        if (playerId != null)
+        {
+            OnPlayerLevelUp?.Invoke(playerId, newLevel);
+        }
     }
     
     /// <summary>
@@ -499,73 +453,129 @@ public sealed class GameRoom
     {
         var snapshot = new GameStateSnapshot
         {
-            ServerTick = _tickCounter,
-            WaveInfo = _waveController.GetWaveInfo()
+            ServerTick = _tickCounter
         };
         
-        foreach (var player in _players.Values)
+        // 玩家状态
+        var players = World.GetEntitiesWith<PlayerComponent>();
+        foreach (var player in players)
         {
-            snapshot.Players.Add(player.ToMsg());
+            var pc = player.Get<PlayerComponent>();
+            var transform = player.Get<TransformComponent>();
+            var hp = player.Get<HealthComponent>();
+            
+            if (transform == null || hp == null) continue;
+            
+            snapshot.Players.Add(new PlayerStateMsg
+            {
+                PlayerId = GetPlayerIdByEntityId(player.Id) ?? $"Player{pc.PlayerIndex}",
+                Position = new ProtoVec2 { X = transform.Position.X, Y = transform.Position.Y },
+                AimAngle = transform.Rotation,
+                Hp = hp.Hp,
+                MaxHp = hp.MaxHp,
+                Action = (int)PlayerAction.Idle,
+                Level = pc.CurrentLevel,
+                Xp = pc.TotalXp
+            });
         }
         
-        foreach (var arrow in _arrows)
+        // 箭矢状态
+        var arrows = World.GetEntitiesWith<ArrowComponent>();
+        foreach (var arrow in arrows)
         {
-            if (arrow.IsAlive)
+            var transform = arrow.Get<TransformComponent>();
+            var velocity = arrow.Get<VelocityComponent>();
+            var arrowComp = arrow.Get<ArrowComponent>();
+            
+            if (transform == null) continue;
+            
+            snapshot.Arrows.Add(new ArrowStateMsg
             {
-                snapshot.Arrows.Add(arrow.ToMsg());
-            }
+                ArrowId = arrow.Id,
+                OwnerId = arrowComp.OwnerId.ToString(),
+                Position = new ProtoVec2 { X = transform.Position.X, Y = transform.Position.Y },
+                Velocity = velocity != null ? new ProtoVec2 { X = velocity.Velocity.X, Y = velocity.Velocity.Y } : new ProtoVec2(),
+                Rotation = transform.Rotation,
+                Damage = arrowComp.Damage,
+                IsPlayerArrow = arrowComp.OwnerId >= 0
+            });
         }
         
-        foreach (var monster in _monsters)
+        // 怪物状态
+        var monsters = World.GetEntitiesWith<MonsterComponent>();
+        foreach (var monster in monsters)
         {
-            if (monster.IsAlive)
+            var transform = monster.Get<TransformComponent>();
+            var velocity = monster.Get<VelocityComponent>();
+            var hp = monster.Get<HealthComponent>();
+            var monsterComp = monster.Get<MonsterComponent>();
+            
+            if (transform == null || hp == null) continue;
+            
+            snapshot.Monsters.Add(new MonsterStateMsg
             {
-                snapshot.Monsters.Add(monster.ToMsg());
-            }
+                MonsterId = monster.Id,
+                MonsterType = (int)monsterComp.Type,
+                Position = new ProtoVec2 { X = transform.Position.X, Y = transform.Position.Y },
+                Velocity = velocity != null ? new ProtoVec2 { X = velocity.Velocity.X, Y = velocity.Velocity.Y } : new ProtoVec2(),
+                Rotation = transform.Rotation,
+                Hp = hp.Hp,
+                MaxHp = hp.MaxHp,
+                State = (int)MonsterStateType.Walk
+            });
+        }
+        
+        // 波次信息
+        var waveEntities = World.GetEntitiesWith<WaveComponent>();
+        foreach (var waveEntity in waveEntities)
+        {
+            var wave = waveEntity.Get<WaveComponent>();
+            snapshot.WaveInfo = new WaveInfoMsg
+            {
+                CurrentWave = wave.CurrentWave,
+                TotalWaves = StageLoader.GetTotalWaves(),
+                MonstersRemaining = wave.AliveMonsters,
+                IntervalCountdown = wave.WaveIntervalTimer > 0 ? wave.WaveIntervalTimer : 0
+            };
+            break;
         }
         
         OnBroadcast?.Invoke(snapshot);
     }
     
     /// <summary>
-    /// 处理波次开始
+    /// 重置战局
     /// </summary>
-    private void HandleWaveStart(int waveNumber, int monsterCount)
+    public void Reset()
     {
-        OnWaveStart?.Invoke(new WaveStartMsg
-        {
-            WaveNumber = waveNumber,
-            MonsterCount = monsterCount
-        });
-    }
-    
-    /// <summary>
-    /// 处理生成怪物
-    /// </summary>
-    private void HandleSpawnMonster(MonsterType type, float x, float y)
-    {
-        var monster = new MonsterState(type, x, y);
-        _monsters.Add(monster);
-    }
-    
-    /// <summary>
-    /// 处理所有波次完成
-    /// </summary>
-    private void HandleAllWavesCompleted()
-    {
-        EndGame(GameResult.Victory);
+        State = RoomState.WaitingReady;
+        Result = null;
+        KillCount = 0;
+        TotalDamage = 0;
+        WavesCompleted = 0;
+        _tickCounter = 0;
+        World.Clear();
+        
+        RegisterSystems();
     }
     
     /// <summary>
     /// 获取玩家
     /// </summary>
-    public PlayerState? GetPlayer(string playerId)
+    public Entity? GetPlayer(string playerId)
     {
-        return _players.TryGetValue(playerId, out var player) ? player : null;
+        if (_playerEntityMap.TryGetValue(playerId, out int entityId))
+        {
+            return World.GetEntity(entityId);
+        }
+        return null;
     }
     
     /// <summary>
-    /// 获取所有玩家
+    /// 获取所有玩家 Entity
     /// </summary>
-    public IEnumerable<PlayerState> GetPlayers() => _players.Values;
+    public IEnumerable<Entity> GetPlayers() => World.GetEntitiesWith<PlayerComponent>();
+    
+    // 事件
+    public event Action<GameOverMsg>? OnGameOver;
 }
