@@ -225,13 +225,17 @@ public sealed class GameRoom
         var upgrade = player.Get<UpgradeComponent>();
         
         if (transform == null || velocity == null) return;
-        
-        // 更新移动方向
-        transform.Position = new GameVec2(input.MoveDir.X, input.MoveDir.Y);
+
+        // 更新瞄准角度
         transform.Rotation = input.AimAngle;
-        
-        // 计算移动速度
-        velocity.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+
+        // 根据升级等级更新速度基准值
+        if (upgrade != null)
+            velocity.Speed = UpgradeData.GetMoveSpeed(upgrade.MoveSpeedLevel);
+
+        // 将输入方向转为速度向量，由 MovementSystem 负责位移
+        var dir = new GameVec2(input.MoveDir.X, input.MoveDir.Y);
+        velocity.Velocity = dir.Length() > 0.01f ? dir.Normalized() * velocity.Speed : GameVec2.Zero;
     }
     
     /// <summary>
