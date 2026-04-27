@@ -47,6 +47,9 @@ public static class MsgIds
     /// <summary>Server → Client: 玩家数据更新</summary>
     public const uint PlayerUpdate = 3007;
 
+    /// <summary>Server → Client: 帧同步输入帧</summary>
+    public const uint LockstepFrame = 3008;
+
     // ========== 系统相关 (9001-9999) ==========
     /// <summary>Client ↔ Server: 心跳</summary>
     public const uint Heartbeat = 9001;
@@ -306,4 +309,28 @@ public enum MonsterStateType
     Walk = 0,
     Attack = 1,
     Death = 2
+}
+
+// ---------- 帧同步消息 ----------
+
+/// <summary>
+/// 单个玩家在某帧的输入
+/// </summary>
+public class PlayerFrameInput
+{
+    public string PlayerId  { get; set; } = "";
+    public int    Slot      { get; set; }
+    public Vec2   MoveDir   { get; set; } = new();
+    public float  AimAngle  { get; set; }
+    public bool   Shoot     { get; set; }
+    public float  ChargePower { get; set; }
+}
+
+/// <summary>
+/// 服务器每帧广播给所有客户端的帧同步包
+/// </summary>
+public class LockstepFrameMsg
+{
+    public int Frame { get; set; }
+    public List<PlayerFrameInput> Inputs { get; set; } = new();
 }

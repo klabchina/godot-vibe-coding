@@ -1,69 +1,69 @@
 using System.Collections.Concurrent;
+using Server.Room;
 using Server.Session;
 
 namespace Server.Match;
 
 /// <summary>
-/// 匹配服务
+/// 匹配服务 — 队列满 2 人即创建房间并绑定连接 ID
 /// </summary>
 public sealed class MatchService
 {
-    private readonly ConcurrentQueue<MatchRequest> _queue = new();
+    private readonly ConcurrentQueue<MatchEntry> _queue = new();
     private readonly SessionManager _sessionManager;
-    private readonly Action<string, string, string>? _onMatchSuccess;  // (roomId, player1Id, player2Id)
+    private readonly RoomManager _roomManager;
 
-    public MatchService(SessionManager sessionManager, Action<string, string, string>? onMatchSuccess = null)
+    public MatchService(SessionManager sessionManager, RoomManager roomManager)
     {
         _sessionManager = sessionManager;
-        _onMatchSuccess = onMatchSuccess;
+        _roomManager = roomManager;
     }
 
     public void Enqueue(string playerId, string playerName)
     {
-        _queue.Enqueue(new MatchRequest { PlayerId = playerId, PlayerName = playerName });
-        Console.WriteLine($"Player {playerId} ({playerName}) joined match queue. Queue size: {_queue.Count}");
+        _queue.Enqueue(new MatchEntry(playerId, playerName));
+        Console.WriteLine($"[Match] {playerId} ({playerName}) queued. Size={_queue.Count}");
     }
 
     public void Dequeue(string playerId)
     {
-        // 简单实现：无法从队列中移除，只能通过遍历
-        // 实际生产环境需要更复杂的队列管理
-        Console.WriteLine($"Player {playerId} cancelled match");
+        Console.WriteLine($"[Match] {playerId} cancelled");
+        // ConcurrentQueue 不支持直接移除，实际生产中可改用有序集合
     }
 
     public void Tick()
     {
         if (_queue.Count < 2) return;
 
-        // 取出两个玩家
-        if (!_queue.TryDequeue(out var request1)) return;
-        if (!_queue.TryDequeue(out var request2)) 
+        if (!_queue.TryDequeue(out var e1)) return;
+        if (!_queue.TryDequeue(out var e2))
         {
-            // 如果第二个出队失败，把第一个放回去
-            _queue.Enqueue(request1);
+            _queue.Enqueue(e1);
             return;
         }
 
-        // 验证玩家会话
-        if (!_sessionManager.TryGet(request1.PlayerId, out var session1) ||
-            !_sessionManager.TryGet(request2.PlayerId, out var session2))
+        if (!_sessionManager.TryGet(e1.PlayerId, out var s1) ||
+            !_sessionManager.TryGet(e2.PlayerId, out var s2))
         {
-            Console.WriteLine("Match failed: player session not found");
+            Console.WriteLine("[Match] Session not found, aborting match");
             return;
         }
+
+        // 创建房间
+        var room = _roomManager.CreateRoom(e1.PlayerId, e2.PlayerId);
+
+        // 绑定各玩家的 WebSocket 连接 ID
+        room.SetConnection(e1.PlayerId, s1!.ConnectionId);
+        room.SetConnection(e2.PlayerId, s2!.ConnectionId);
 
         // 更新会话状态
-        session1.State = SessionState.InRoom;
-        session2.State = SessionState.InRoom;
+        s1.RoomId = room.RoomId;
+        s2.RoomId = room.RoomId;
+        s1.State = SessionState.InRoom;
+        s2.State = SessionState.InRoom;
 
-        // 通知匹配成功
-        Console.WriteLine($"Match success: {request1.PlayerId} vs {request2.PlayerId}");
-        _onMatchSuccess?.Invoke("", request1.PlayerId, request2.PlayerId);
+        Console.WriteLine($"[Match] Matched: Room={room.RoomId}  {e1.PlayerId} vs {e2.PlayerId}");
     }
 
-    private class MatchRequest
-    {
-        public string PlayerId { get; init; } = "";
-        public string PlayerName { get; init; } = "";
-    }
+    private sealed record MatchEntry(string PlayerId, string PlayerName);
 }

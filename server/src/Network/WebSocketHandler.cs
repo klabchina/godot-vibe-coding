@@ -1,30 +1,23 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using System.Text;
 using System.Text.Json;
 using Server.Proto;
-using Server.Room;
-using Server.Game;
 
 namespace Server.Network;
 
 /// <summary>
-/// WebSocket 消息处理器
+/// WebSocket 连接的读写工具 — 只负责收发字节，不含游戏逻辑
 /// </summary>
 public sealed class WebSocketHandler
 {
     private readonly ILogger<WebSocketHandler> _logger;
     private readonly ConnectionManager _connections;
-    private readonly RoomManager _roomManager;
 
     public WebSocketHandler(
         ILogger<WebSocketHandler> logger,
-        ConnectionManager connections,
-        RoomManager roomManager)
+        ConnectionManager connections)
     {
         _logger = logger;
         _connections = connections;
-        _roomManager = roomManager;
     }
 
     /// <summary>
