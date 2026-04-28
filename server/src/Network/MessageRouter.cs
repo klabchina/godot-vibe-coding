@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Google.Protobuf;
 using Server.Proto;
 using Server.Session;
 using Server.Room;
@@ -15,14 +15,14 @@ public sealed class MessageRouter
     private readonly SessionManager _sessionManager;
     private readonly RoomManager _roomManager;
     private readonly MatchService _matchService;
-    private readonly Action<string, uint, object>? _onSendMessage;  // (connectionId, msgId, message)
+    private readonly Action<string, uint, IMessage>? _onSendMessage;  // (connectionId, msgId, message)
 
     public MessageRouter(
         ILogger<MessageRouter> logger,
         SessionManager sessionManager,
         RoomManager roomManager,
         MatchService matchService,
-        Action<string, uint, object>? onSendMessage = null)
+        Action<string, uint, IMessage>? onSendMessage = null)
     {
         _logger = logger;
         _sessionManager = sessionManager;
@@ -38,7 +38,6 @@ public sealed class MessageRouter
     {
         try
         {
-            // 解析 Envelope
             var envelope = ParseEnvelope(payload);
             if (envelope == null)
             {
@@ -46,21 +45,20 @@ public sealed class MessageRouter
                 return;
             }
 
-            // 根据 MsgId 路由
             switch (envelope.Value.msgId)
             {
                 case MsgIds.MatchRequest:
                     await HandleMatchRequest(connectionId, envelope.Value.payload);
                     break;
-                    
+
                 case MsgIds.MatchCancel:
                     await HandleMatchCancel(connectionId, envelope.Value.payload);
                     break;
-                    
+
                 case MsgIds.PlayerReady:
                     await HandlePlayerReady(connectionId, envelope.Value.payload);
                     break;
-                    
+
                 case MsgIds.PlayerMove:
                     await HandlePlayerMove(connectionId, envelope.Value.payload);
                     break;
@@ -72,11 +70,11 @@ public sealed class MessageRouter
                 case MsgIds.GameEndSubmit:
                     await HandleGameEndSubmit(connectionId, envelope.Value.payload);
                     break;
-                    
+
                 case MsgIds.Heartbeat:
                     await HandleHeartbeat(connectionId);
                     break;
-                    
+
                 default:
                     _logger.LogWarning("Unknown msgId: {MsgId}", envelope.Value.msgId);
                     break;
@@ -92,13 +90,12 @@ public sealed class MessageRouter
     {
         try
         {
-            // 简化实现：前4字节是 msgId，后面是 payload
             if (payload.Length < 4) return null;
-            
-            var reader = new BinaryReader(new MemoryStream(payload.ToArray()));
+
+            using var reader = new BinaryReader(new MemoryStream(payload.ToArray()));
             var msgId = reader.ReadUInt32();
             var remaining = reader.ReadBytes((int)(reader.BaseStream.Length - reader.BaseStream.Position));
-            
+
             return (msgId, remaining);
         }
         catch
@@ -107,31 +104,22 @@ public sealed class MessageRouter
         }
     }
 
-    /// <summary>
-    /// 处理匹配请求
-    /// </summary>
     private async Task HandleMatchRequest(string connectionId, byte[] payload)
     {
         try
         {
-            var request = JsonSerializer.Deserialize<MatchRequest>(payload);
-            if (request == null) return;
+            var request = MatchRequest.Parser.ParseFrom(payload);
 
-            // 创建或更新会话
             var session = _sessionManager.GetOrCreate(connectionId, request.PlayerId);
             session.PlayerName = request.PlayerName;
             session.State = SessionState.Matching;
 
-            // 匹配（优先加入已有 1 人房间）
             var match = _matchService.Enqueue(request.PlayerId, request.PlayerName);
-            if (match != null)
+            if (match != null && _sessionManager.TryGetByRoom(match.RoomId, out var sessions))
             {
-                if (_sessionManager.TryGetByRoom(match.RoomId, out var sessions))
+                foreach (var s in sessions)
                 {
-                    foreach (var s in sessions)
-                    {
-                        await SendAsync(s.ConnectionId, MsgIds.MatchSuccess, match);
-                    }
+                    await SendAsync(s.ConnectionId, MsgIds.MatchSuccess, match);
                 }
             }
         }
@@ -141,11 +129,10 @@ public sealed class MessageRouter
         }
     }
 
-    /// <summary>
-    /// 处理取消匹配
-    /// </summary>
     private Task HandleMatchCancel(string connectionId, byte[] payload)
     {
+        _ = MatchCancel.Parser.ParseFrom(payload);
+
         if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
         {
             _matchService.Cancel(session.PlayerId);
@@ -155,15 +142,11 @@ public sealed class MessageRouter
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 处理玩家准备
-    /// </summary>
     private Task HandlePlayerReady(string connectionId, byte[] payload)
     {
         try
         {
-            var ready = JsonSerializer.Deserialize<PlayerReady>(payload);
-            if (ready == null) return Task.CompletedTask;
+            _ = PlayerReady.Parser.ParseFrom(payload);
 
             if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
                 session != null &&
@@ -177,19 +160,15 @@ public sealed class MessageRouter
         {
             _logger.LogError(ex, "Error handling PlayerReady");
         }
-        
+
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 处理玩家移动输入
-    /// </summary>
     private Task HandlePlayerMove(string connectionId, byte[] payload)
     {
         try
         {
-            var input = JsonSerializer.Deserialize<PlayerMoveMsg>(payload);
-            if (input == null) return Task.CompletedTask;
+            var input = PlayerMove.Parser.ParseFrom(payload);
 
             if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
                 session != null &&
@@ -209,7 +188,7 @@ public sealed class MessageRouter
 
     private Task HandleSkillChoice(string connectionId, byte[] payload)
     {
-        _ = JsonSerializer.Deserialize<SkillChoiceMsg>(payload);
+        _ = SkillChoice.Parser.ParseFrom(payload);
         return Task.CompletedTask;
     }
 
@@ -217,8 +196,7 @@ public sealed class MessageRouter
     {
         try
         {
-            var submit = JsonSerializer.Deserialize<GameEndSubmitMsg>(payload);
-            if (submit == null) return Task.CompletedTask;
+            var submit = GameEndSubmit.Parser.ParseFrom(payload);
 
             if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
                 session != null &&
@@ -236,41 +214,19 @@ public sealed class MessageRouter
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 处理心跳
-    /// </summary>
     private Task HandleHeartbeat(string connectionId)
     {
         if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
         {
             session.LastHeartbeat = DateTime.UtcNow;
         }
-        
+
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 发送消息给客户端
-    /// </summary>
-    private async Task SendAsync(string connectionId, uint msgId, object message)
+    private Task SendAsync(string connectionId, uint msgId, IMessage message)
     {
-        var payload = JsonSerializer.SerializeToUtf8Bytes(message);
-        var envelope = BuildEnvelope(msgId, payload);
-        
         _onSendMessage?.Invoke(connectionId, msgId, message);
-        
-        await Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// 构建消息信封
-    /// </summary>
-    private byte[] BuildEnvelope(uint msgId, byte[] payload)
-    {
-        using var ms = new MemoryStream();
-        var writer = new BinaryWriter(ms);
-        writer.Write(msgId);
-        writer.Write(payload);
-        return ms.ToArray();
+        return Task.CompletedTask;
     }
 }

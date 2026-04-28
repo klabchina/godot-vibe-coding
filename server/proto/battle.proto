@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package summer;
+option csharp_namespace = "Server.Proto";
 
 import "common.proto";
 

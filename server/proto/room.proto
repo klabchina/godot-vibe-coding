@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package summer;
+option csharp_namespace = "Server.Proto";
 
 // Client → Server — 玩家准备
 message PlayerReady {

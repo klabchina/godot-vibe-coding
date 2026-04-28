@@ -11,7 +11,7 @@ public enum RoomState
 /// <summary>
 /// 帧同步房间 — 服务器不跑任何游戏逻辑，只负责：
 ///   1. 收集每帧各玩家的输入
-///   2. 打包成 LockstepFrameMsg 广播给房间内所有客户端
+///   2. 打包成 LockstepFrame 广播给房间内所有客户端
 /// </summary>
 public sealed class GameRoom
 {
@@ -21,26 +21,14 @@ public sealed class GameRoom
     public RoomState State { get; private set; } = RoomState.Waiting;
     public int PlayerCount => _players.Count;
 
-    // playerId -> (connectionId, slot index)
     private readonly Dictionary<string, (string ConnectionId, int Slot)> _players = new();
-
-    // 当前帧缓冲的输入，Tick 结束后清空
-    private readonly Dictionary<string, PlayerMoveMsg> _frameInputs = new();
-
-    // 已发送 Ready 的玩家
+    private readonly Dictionary<string, PlayerMove> _frameInputs = new();
     private readonly HashSet<string> _readyPlayers = new();
+    private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
 
-    // 已提交结束状态的玩家
-    private readonly Dictionary<string, GameEndSubmitMsg> _endSubmits = new();
-
-    /// <summary>广播帧数据 — (connectionIds, frame消息)</summary>
-    public event Action<IReadOnlyList<string>, LockstepFrameMsg>? OnBroadcastFrame;
-
-    /// <summary>游戏开始事件</summary>
-    public event Action<IReadOnlyList<string>, GameStartMsg>? OnGameStart;
-
-    /// <summary>游戏结束事件</summary>
-    public event Action<GameOverMsg>? OnGameOver;
+    public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
+    public event Action<IReadOnlyList<string>, GameStart>? OnGameStart;
+    public event Action<GameOver>? OnGameOver;
 
     public GameRoom(string roomId, params string[] playerIds)
     {
@@ -60,18 +48,12 @@ public sealed class GameRoom
         _players[playerId] = (string.Empty, nextSlot);
     }
 
-    /// <summary>
-    /// 关联玩家的 WebSocket 连接 ID（匹配成功后或断线重连时调用）
-    /// </summary>
     public void SetConnection(string playerId, string connectionId)
     {
         if (_players.TryGetValue(playerId, out var info))
             _players[playerId] = (connectionId, info.Slot);
     }
 
-    /// <summary>
-    /// 玩家发送 Ready，全员就绪后开始游戏
-    /// </summary>
     public void OnPlayerReady(string playerId)
     {
         if (State != RoomState.Waiting) return;
@@ -83,16 +65,13 @@ public sealed class GameRoom
             StartGame();
     }
 
-    /// <summary>
-    /// 收到玩家输入 — 缓存到当前帧，等待 Tick 打包广播
-    /// </summary>
-    public void OnPlayerMove(string playerId, PlayerMoveMsg input)
+    public void OnPlayerMove(string playerId, PlayerMove input)
     {
         if (State != RoomState.InGame) return;
         _frameInputs[playerId] = input;
     }
 
-    public void OnGameEndSubmit(string playerId, GameEndSubmitMsg submit)
+    public void OnGameEndSubmit(string playerId, GameEndSubmit submit)
     {
         if (State != RoomState.InGame) return;
 
@@ -104,18 +83,12 @@ public sealed class GameRoom
         }
     }
 
-    /// <summary>
-    /// 玩家断线
-    /// </summary>
     public void OnPlayerDisconnect(string playerId)
     {
         if (_players.TryGetValue(playerId, out var info))
             _players[playerId] = (string.Empty, info.Slot);
     }
 
-    /// <summary>
-    /// 每 tick 由 RoomManager 驱动：打包输入帧并广播
-    /// </summary>
     public void Tick(float dt)
     {
         if (State != RoomState.InGame) return;
@@ -140,8 +113,6 @@ public sealed class GameRoom
         Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
     }
 
-    // ── 私有 ─────────────────────────────────────────────────────────
-
     private void StartGame()
     {
         State = RoomState.InGame;
@@ -153,7 +124,7 @@ public sealed class GameRoom
             .Select(v => v.ConnectionId)
             .ToList();
 
-        OnGameStart?.Invoke(connectionIds, new GameStartMsg
+        OnGameStart?.Invoke(connectionIds, new GameStart
         {
             RoomId = RoomId,
             RandomSeed = Random.Shared.Next(1, int.MaxValue),
@@ -164,16 +135,16 @@ public sealed class GameRoom
 
     private void BroadcastFrame()
     {
-        var msg = new LockstepFrameMsg { Frame = _frame };
+        var msg = new LockstepFrame { Frame = _frame };
 
         foreach (var (playerId, (_, slot)) in _players)
         {
-            var input = _frameInputs.TryGetValue(playerId, out var inp) ? inp : new PlayerMoveMsg();
+            var input = _frameInputs.TryGetValue(playerId, out var inp) ? inp : new PlayerMove();
             msg.Inputs.Add(new PlayerFrameInput
             {
                 PlayerId = playerId,
                 Slot = slot,
-                MoveDir = input.MoveDir,
+                MoveDir = input.MoveDir ?? new Vec2(),
             });
         }
 
@@ -187,7 +158,7 @@ public sealed class GameRoom
 
     private void EndGame(string reason)
     {
-        OnGameOver?.Invoke(new GameOverMsg
+        OnGameOver?.Invoke(new GameOver
         {
             RoomId = RoomId,
             Reason = reason,

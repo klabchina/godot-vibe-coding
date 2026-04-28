@@ -12,6 +12,18 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.25.2" />
+    <PackageReference Include="Grpc.Tools" Version="2.62.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="../proto/common.proto" ProtoRoot="../proto" GrpcServices="None" />
+    <Protobuf Include="../proto/match.proto" ProtoRoot="../proto" GrpcServices="None" />
+    <Protobuf Include="../proto/room.proto" ProtoRoot="../proto" GrpcServices="None" />
+    <Protobuf Include="../proto/battle.proto" ProtoRoot="../proto" GrpcServices="None" />
+    <Protobuf Include="../proto/event.proto" ProtoRoot="../proto" GrpcServices="None" />
   </ItemGroup>
 
   <!-- 共享 ECS / Data 源码（直接链接，不复制） -->
@@ -92,7 +104,6 @@
     <Compile Include="Game/GameConfig.cs" />
     <Compile Include="Game/MapLoader.cs" />
     <Compile Include="Game/ServerMapLoader.cs" />
-    <Compile Include="Game/GameStateSnapshot.cs" />
 
     <!-- Room -->
     <Compile Include="Room/RoomManager.cs" />

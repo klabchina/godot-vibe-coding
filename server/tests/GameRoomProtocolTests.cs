@@ -26,13 +26,13 @@ public sealed class GameRoomProtocolTests
         room.OnPlayerReady("p1");
         room.OnPlayerReady("p2");
 
-        GameOverMsg? gameOver = null;
+        GameOver? gameOver = null;
         room.OnGameOver += msg => gameOver = msg;
 
-        room.OnGameEndSubmit("p1", new GameEndSubmitMsg { Reason = "Win" });
+        room.OnGameEndSubmit("p1", new GameEndSubmit { Reason = "Win" });
         Assert.Null(gameOver);
 
-        room.OnGameEndSubmit("p2", new GameEndSubmitMsg { Reason = "Win" });
+        room.OnGameEndSubmit("p2", new GameEndSubmit { Reason = "Win" });
         Assert.NotNull(gameOver);
         Assert.Equal("r1", gameOver!.RoomId);
         Assert.Equal("Win", gameOver.Reason);

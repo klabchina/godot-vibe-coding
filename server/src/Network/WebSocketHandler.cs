@@ -1,6 +1,5 @@
 using System.Net.WebSockets;
-using System.Text.Json;
-using Server.Proto;
+using Google.Protobuf;
 
 namespace Server.Network;
 
@@ -43,8 +42,6 @@ public sealed class WebSocketHandler
 
                 if (result.MessageType == WebSocketMessageType.Binary)
                 {
-                    var bytes = buffer.AsMemory(0, result.Count);
-                    // 消息路由由 MessageRouter 处理
                     _connections.UpdateActivity(connectionId);
                 }
             }
@@ -61,8 +58,7 @@ public sealed class WebSocketHandler
         {
             _connections.Remove(connectionId);
             _logger.LogInformation("WebSocket closed: {ConnectionId}", connectionId);
-            
-            // 通知断线
+
             OnDisconnected?.Invoke(connectionId);
         }
     }
@@ -70,7 +66,7 @@ public sealed class WebSocketHandler
     /// <summary>
     /// 发送消息给指定连接
     /// </summary>
-    public async Task SendAsync(string connectionId, uint msgId, object message)
+    public async Task SendAsync(string connectionId, uint msgId, IMessage message)
     {
         if (!_connections.TryGet(connectionId, out var socket))
         {
@@ -85,7 +81,7 @@ public sealed class WebSocketHandler
 
         try
         {
-            var payload = JsonSerializer.SerializeToUtf8Bytes(message);
+            var payload = message.ToByteArray();
             var envelope = BuildEnvelope(msgId, payload);
             await socket.SendAsync(envelope, WebSocketMessageType.Binary, true, CancellationToken.None);
         }
@@ -98,9 +94,9 @@ public sealed class WebSocketHandler
     /// <summary>
     /// 广播消息给多个连接
     /// </summary>
-    public async Task BroadcastAsync(IEnumerable<string> connectionIds, uint msgId, object message)
+    public async Task BroadcastAsync(IEnumerable<string> connectionIds, uint msgId, IMessage message)
     {
-        var payload = JsonSerializer.SerializeToUtf8Bytes(message);
+        var payload = message.ToByteArray();
         var envelope = BuildEnvelope(msgId, payload);
 
         var tasks = new List<Task>();
@@ -121,7 +117,7 @@ public sealed class WebSocketHandler
     private byte[] BuildEnvelope(uint msgId, byte[] payload)
     {
         using var ms = new MemoryStream();
-        var writer = new BinaryWriter(ms);
+        using var writer = new BinaryWriter(ms);
         writer.Write(msgId);
         writer.Write(payload);
         return ms.ToArray();

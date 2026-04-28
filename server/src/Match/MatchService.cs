@@ -55,15 +55,16 @@ public sealed class MatchService
                 PlayerId = s.PlayerId,
                 PlayerName = s.PlayerName,
                 Slot = idx,
-            })
-            .ToList();
+            });
 
         Console.WriteLine($"[Match] Matched room={waitingRoom.RoomId}");
-        return new MatchSuccess
+
+        var result = new MatchSuccess
         {
             RoomId = waitingRoom.RoomId,
-            Players = players,
         };
+        result.Players.AddRange(players);
+        return result;
     }
 
     public bool Cancel(string playerId)
