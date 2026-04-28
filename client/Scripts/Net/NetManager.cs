@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using Godot;
 using Google.Protobuf;
-using Server.Proto;
 
 namespace Game.Net;
 
@@ -64,7 +63,7 @@ public partial class NetManager : Node
     public void SendHeartbeat()
     {
         if (State != ConnState.Connected || _ws == null) return;
-        _ws.Send(Protocol.BuildEnvelope(MsgIds.Heartbeat, new Empty()));
+        _ws.Send(Protocol.BuildEnvelope(MsgIds.Heartbeat, Array.Empty<byte>()));
     }
 
     public override void _Process(double delta)
@@ -127,7 +126,7 @@ public partial class NetManager : Node
     {
         while (_ws.GetAvailablePacketCount() > 0)
         {
-            var packet = _ws.GetPacket().ToArray();
+            var packet = _ws.GetPacket();
             var envelope = Protocol.ParseEnvelope(packet);
             if (envelope == null)
             {

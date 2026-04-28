@@ -57,7 +57,7 @@ public static class Protocol
         }
     }
 
-    public static object? ParsePayload(uint msgId, byte[] payload)
+    public static IMessage? ParsePayload(uint msgId, byte[] payload)
     {
         return msgId switch
         {

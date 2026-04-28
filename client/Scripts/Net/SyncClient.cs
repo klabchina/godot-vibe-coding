@@ -9,6 +9,16 @@ public class SyncClient
 {
     public readonly Queue<LockstepFrame> LockstepFrameQueue = new();
 
+    // 兼容现有 ECS 接收系统所需队列（当前协议以 LockstepFrame 为主）
+    public readonly Queue<GameStateMsg> GameStateQueue = new();
+    public readonly Queue<SpawnWaveMsg> SpawnWaveQueue = new();
+    public readonly Queue<SpawnArrowMsg> SpawnArrowQueue = new();
+    public readonly Queue<EntityDeathMsg> EntityDeathQueue = new();
+    public readonly Queue<PickupSpawnMsg> PickupSpawnQueue = new();
+    public readonly Queue<PickupCollectMsg> PickupCollectQueue = new();
+    public readonly Queue<BuffApplyMsg> BuffApplyQueue = new();
+    public readonly Queue<BossPhaseChangeMsg> BossPhaseChangeQueue = new();
+
     public event Action<GameOver> OnGameOver;
 
     private int _inputTick;
