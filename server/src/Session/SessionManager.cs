@@ -77,4 +77,13 @@ public sealed class SessionManager
     }
 
     public IEnumerable<Session> GetAllSessions() => _sessions.Values;
+
+    public bool TryGetByRoom(string roomId, out List<Session> sessions)
+    {
+        sessions = _sessions.Values
+            .Where(s => s.RoomId == roomId)
+            .ToList();
+
+        return sessions.Count > 0;
+    }
 }

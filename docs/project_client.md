@@ -312,7 +312,7 @@ Client                          Server
   │──── PlayerReady ─────────────▶│
   │                               │
   │◀─── GameStart ───────────────│ 所有玩家 Ready 后广播
-  │     { RoomId, Seed }          │
+  │     { RoomId, RandomSeed }    │
   │                               │
 ```
 

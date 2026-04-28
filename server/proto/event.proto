@@ -2,64 +2,8 @@ syntax = "proto3";
 
 package summer;
 
-import "common.proto";
-
-// Server → Client — 实体死亡
-message EntityDeath {
-    EntityType type = 1;
-    int32 entity_id = 2;
-    Vec2 position = 3;
-    int32 killer_id = 4;  // 击杀者的 player_id
-
-    enum EntityType {
-        MONSTER = 0;
-        ARROW = 1;
-        PLAYER = 2;
-    }
-}
-
-// Server → Client — 波次开始
-message WaveStart {
-    int32 wave_number = 1;
-    int32 monster_count = 2;
-}
-
 // Server → Client — 游戏结束
 message GameOver {
-    GameResult result = 1;
-    int32 waves_cleared = 2;
-    int32 total_kills = 3;
-    repeated PlayerScoreMsg scores = 4;
-
-    enum GameResult {
-        VICTORY = 0;
-        DEFEAT = 1;
-        DISCONNECT = 2;
-    }
-}
-
-message PlayerScoreMsg {
-    string player_id = 1;
-    string player_name = 2;
-    int32 kills = 3;
-    int32 damage_dealt = 4;
-    int32 arrows_fired = 5;
-    int32 level = 6;
-}
-
-// Server → Client — 升级事件
-message LevelUp {
-    string player_id = 1;
-    int32 new_level = 2;
-    int32 upgrade_points = 3;  // 可用的升级点数
-}
-
-// Server → Client — 玩家数据更新（部分更新）
-message PlayerUpdate {
-    string player_id = 1;
-    int32 hp_delta = 2;        // 血量变化（负数=受伤，正数=治疗）
-    int32 xp_delta = 3;        // 经验变化
-    int32 level = 4;          // 当前等级
-    int32 kill_count = 5;     // 击杀数
-    int32 damage_dealt = 6;    // 总伤害
+    string room_id = 1;
+    string reason = 2; // Win / Lose / Surrender / Timeout
 }

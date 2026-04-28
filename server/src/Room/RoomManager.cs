@@ -26,6 +26,11 @@ public sealed class RoomManager
             _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.LockstepFrame, frame);
         };
 
+        room.OnGameStart += (connectionIds, msg) =>
+        {
+            _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.GameStart, msg);
+        };
+
         room.OnGameOver += msg =>
         {
             foreach (var connId in room.GetConnectionIds())

@@ -1,15 +1,14 @@
-using System.Collections.Concurrent;
+using Server.Proto;
 using Server.Room;
 using Server.Session;
 
 namespace Server.Match;
 
 /// <summary>
-/// 匹配服务 — 队列满 2 人即创建房间并绑定连接 ID
+/// 匹配服务 — 优先加入已有 1 人 Waiting 房间，否则创建新房间
 /// </summary>
 public sealed class MatchService
 {
-    private readonly ConcurrentQueue<MatchEntry> _queue = new();
     private readonly SessionManager _sessionManager;
     private readonly RoomManager _roomManager;
 
@@ -19,51 +18,75 @@ public sealed class MatchService
         _roomManager = roomManager;
     }
 
-    public void Enqueue(string playerId, string playerName)
+    public MatchSuccess? Enqueue(string playerId, string playerName)
     {
-        _queue.Enqueue(new MatchEntry(playerId, playerName));
-        Console.WriteLine($"[Match] {playerId} ({playerName}) queued. Size={_queue.Count}");
+        if (!_sessionManager.TryGet(playerId, out var session) || session == null)
+        {
+            return null;
+        }
+
+        var waitingRoom = _roomManager
+            .GetAllRooms()
+            .FirstOrDefault(r => r.State == RoomState.Waiting && r.PlayerCount == 1);
+
+        if (waitingRoom == null)
+        {
+            var newRoom = _roomManager.CreateRoom(playerId);
+            newRoom.SetConnection(playerId, session.ConnectionId);
+            session.RoomId = newRoom.RoomId;
+            session.State = SessionState.InRoom;
+            Console.WriteLine($"[Match] Create waiting room={newRoom.RoomId} player={playerId}");
+            return null;
+        }
+
+        waitingRoom.AddPlayer(playerId);
+        waitingRoom.SetConnection(playerId, session.ConnectionId);
+        session.RoomId = waitingRoom.RoomId;
+        session.State = SessionState.InRoom;
+
+        if (!_sessionManager.TryGetByRoom(waitingRoom.RoomId, out var sessions))
+        {
+            return null;
+        }
+
+        var players = sessions
+            .Select((s, idx) => new PlayerInfo
+            {
+                PlayerId = s.PlayerId,
+                PlayerName = s.PlayerName,
+                Slot = idx,
+            })
+            .ToList();
+
+        Console.WriteLine($"[Match] Matched room={waitingRoom.RoomId}");
+        return new MatchSuccess
+        {
+            RoomId = waitingRoom.RoomId,
+            Players = players,
+        };
     }
 
-    public void Dequeue(string playerId)
+    public bool Cancel(string playerId)
     {
-        Console.WriteLine($"[Match] {playerId} cancelled");
-        // ConcurrentQueue 不支持直接移除，实际生产中可改用有序集合
+        if (!_sessionManager.TryGet(playerId, out var session) || session?.RoomId == null)
+        {
+            return false;
+        }
+
+        var room = _roomManager.GetRoom(session.RoomId);
+        if (room == null || room.State != RoomState.Waiting)
+        {
+            return false;
+        }
+
+        _roomManager.DestroyRoom(room.RoomId);
+        session.RoomId = null;
+        session.State = SessionState.Idle;
+        return true;
     }
 
     public void Tick()
     {
-        if (_queue.Count < 2) return;
-
-        if (!_queue.TryDequeue(out var e1)) return;
-        if (!_queue.TryDequeue(out var e2))
-        {
-            _queue.Enqueue(e1);
-            return;
-        }
-
-        if (!_sessionManager.TryGet(e1.PlayerId, out var s1) ||
-            !_sessionManager.TryGet(e2.PlayerId, out var s2))
-        {
-            Console.WriteLine("[Match] Session not found, aborting match");
-            return;
-        }
-
-        // 创建房间
-        var room = _roomManager.CreateRoom(e1.PlayerId, e2.PlayerId);
-
-        // 绑定各玩家的 WebSocket 连接 ID
-        room.SetConnection(e1.PlayerId, s1!.ConnectionId);
-        room.SetConnection(e2.PlayerId, s2!.ConnectionId);
-
-        // 更新会话状态
-        s1.RoomId = room.RoomId;
-        s2.RoomId = room.RoomId;
-        s1.State = SessionState.InRoom;
-        s2.State = SessionState.InRoom;
-
-        Console.WriteLine($"[Match] Matched: Room={room.RoomId}  {e1.PlayerId} vs {e2.PlayerId}");
+        // 协议变更后，匹配在 Enqueue 时即时完成
     }
-
-    private sealed record MatchEntry(string PlayerId, string PlayerName);
 }

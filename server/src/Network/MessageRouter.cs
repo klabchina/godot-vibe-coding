@@ -1,10 +1,8 @@
-using System.Text;
 using System.Text.Json;
 using Server.Proto;
 using Server.Session;
 using Server.Room;
 using Server.Match;
-using Server.Game;
 
 namespace Server.Network;
 
@@ -63,8 +61,16 @@ public sealed class MessageRouter
                     await HandlePlayerReady(connectionId, envelope.Value.payload);
                     break;
                     
-                case MsgIds.PlayerInput:
-                    await HandlePlayerInput(connectionId, envelope.Value.payload);
+                case MsgIds.PlayerMove:
+                    await HandlePlayerMove(connectionId, envelope.Value.payload);
+                    break;
+
+                case MsgIds.SkillChoice:
+                    await HandleSkillChoice(connectionId, envelope.Value.payload);
+                    break;
+
+                case MsgIds.GameEndSubmit:
+                    await HandleGameEndSubmit(connectionId, envelope.Value.payload);
                     break;
                     
                 case MsgIds.Heartbeat:
@@ -116,15 +122,18 @@ public sealed class MessageRouter
             session.PlayerName = request.PlayerName;
             session.State = SessionState.Matching;
 
-            // 加入匹配队列
-            _matchService.Enqueue(request.PlayerId, request.PlayerName);
-
-            // 发送等待状态
-            await SendAsync(connectionId, MsgIds.MatchUpdate, new MatchUpdate
+            // 匹配（优先加入已有 1 人房间）
+            var match = _matchService.Enqueue(request.PlayerId, request.PlayerName);
+            if (match != null)
             {
-                Status = MatchUpdate.MatchStatus.Waiting,
-                WaitTime = 0
-            });
+                if (_sessionManager.TryGetByRoom(match.RoomId, out var sessions))
+                {
+                    foreach (var s in sessions)
+                    {
+                        await SendAsync(s.ConnectionId, MsgIds.MatchSuccess, match);
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -137,12 +146,12 @@ public sealed class MessageRouter
     /// </summary>
     private Task HandleMatchCancel(string connectionId, byte[] payload)
     {
-        if (_sessionManager.TryGetByConnection(connectionId, out var session))
+        if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
         {
-            _matchService.Dequeue(session.PlayerId);
+            _matchService.Cancel(session.PlayerId);
             session.State = SessionState.Idle;
         }
-        
+
         return Task.CompletedTask;
     }
 
@@ -156,7 +165,8 @@ public sealed class MessageRouter
             var ready = JsonSerializer.Deserialize<PlayerReady>(payload);
             if (ready == null) return Task.CompletedTask;
 
-            if (_sessionManager.TryGetByConnection(connectionId, out var session) && 
+            if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
+                session != null &&
                 session.RoomId != null)
             {
                 var room = _roomManager.GetRoom(session.RoomId);
@@ -172,27 +182,57 @@ public sealed class MessageRouter
     }
 
     /// <summary>
-    /// 处理玩家输入
+    /// 处理玩家移动输入
     /// </summary>
-    private Task HandlePlayerInput(string connectionId, byte[] payload)
+    private Task HandlePlayerMove(string connectionId, byte[] payload)
     {
         try
         {
-            var input = JsonSerializer.Deserialize<PlayerInputMsg>(payload);
+            var input = JsonSerializer.Deserialize<PlayerMoveMsg>(payload);
             if (input == null) return Task.CompletedTask;
 
-            if (_sessionManager.TryGetByConnection(connectionId, out var session) && 
+            if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
+                session != null &&
                 session.RoomId != null)
             {
                 var room = _roomManager.GetRoom(session.RoomId);
-                room?.OnPlayerInput(session.PlayerId, input);
+                room?.OnPlayerMove(session.PlayerId, input);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling PlayerInput");
+            _logger.LogError(ex, "Error handling PlayerMove");
         }
-        
+
+        return Task.CompletedTask;
+    }
+
+    private Task HandleSkillChoice(string connectionId, byte[] payload)
+    {
+        _ = JsonSerializer.Deserialize<SkillChoiceMsg>(payload);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleGameEndSubmit(string connectionId, byte[] payload)
+    {
+        try
+        {
+            var submit = JsonSerializer.Deserialize<GameEndSubmitMsg>(payload);
+            if (submit == null) return Task.CompletedTask;
+
+            if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
+                session != null &&
+                session.RoomId != null)
+            {
+                var room = _roomManager.GetRoom(session.RoomId);
+                room?.OnGameEndSubmit(session.PlayerId, submit);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling GameEndSubmit");
+        }
+
         return Task.CompletedTask;
     }
 
@@ -201,7 +241,7 @@ public sealed class MessageRouter
     /// </summary>
     private Task HandleHeartbeat(string connectionId)
     {
-        if (_sessionManager.TryGetByConnection(connectionId, out var session))
+        if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
         {
             session.LastHeartbeat = DateTime.UtcNow;
         }

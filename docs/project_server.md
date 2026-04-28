@@ -358,7 +358,7 @@ server/
 │   │   └── SessionManager.cs         # 会话管理
 │   │
 │   ├── Match/
-│   │   └── MatchService.cs           # 匹配队列 → 创建房间 → 绑定连接
+│   │   └── MatchService.cs           # 复用 Waiting 房间 → 创建房间 → 绑定连接
 │   │
 │   ├── Room/
 │   │   ├── RoomManager.cs            # 房间生命周期 + 事件订阅

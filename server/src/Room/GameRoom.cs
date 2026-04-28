@@ -4,9 +4,8 @@ namespace Server.Room;
 
 public enum RoomState
 {
-    WaitingReady,
-    Playing,
-    Finished
+    Waiting,
+    InGame
 }
 
 /// <summary>
@@ -19,20 +18,26 @@ public sealed class GameRoom
     private int _frame = 0;
 
     public string RoomId { get; }
-    public RoomState State { get; private set; } = RoomState.WaitingReady;
+    public RoomState State { get; private set; } = RoomState.Waiting;
     public int PlayerCount => _players.Count;
 
     // playerId -> (connectionId, slot index)
     private readonly Dictionary<string, (string ConnectionId, int Slot)> _players = new();
 
     // 当前帧缓冲的输入，Tick 结束后清空
-    private readonly Dictionary<string, PlayerInputMsg> _frameInputs = new();
+    private readonly Dictionary<string, PlayerMoveMsg> _frameInputs = new();
 
     // 已发送 Ready 的玩家
     private readonly HashSet<string> _readyPlayers = new();
 
+    // 已提交结束状态的玩家
+    private readonly Dictionary<string, GameEndSubmitMsg> _endSubmits = new();
+
     /// <summary>广播帧数据 — (connectionIds, frame消息)</summary>
     public event Action<IReadOnlyList<string>, LockstepFrameMsg>? OnBroadcastFrame;
+
+    /// <summary>游戏开始事件</summary>
+    public event Action<IReadOnlyList<string>, GameStartMsg>? OnGameStart;
 
     /// <summary>游戏结束事件</summary>
     public event Action<GameOverMsg>? OnGameOver;
@@ -42,6 +47,17 @@ public sealed class GameRoom
         RoomId = roomId;
         for (int i = 0; i < playerIds.Length; i++)
             _players[playerIds[i]] = (string.Empty, i);
+    }
+
+    public void AddPlayer(string playerId)
+    {
+        if (_players.ContainsKey(playerId))
+        {
+            return;
+        }
+
+        var nextSlot = _players.Count;
+        _players[playerId] = (string.Empty, nextSlot);
     }
 
     /// <summary>
@@ -58,7 +74,7 @@ public sealed class GameRoom
     /// </summary>
     public void OnPlayerReady(string playerId)
     {
-        if (State != RoomState.WaitingReady) return;
+        if (State != RoomState.Waiting) return;
 
         _readyPlayers.Add(playerId);
         Console.WriteLine($"[GameRoom:{RoomId}] Player {playerId} ready ({_readyPlayers.Count}/{_players.Count})");
@@ -70,10 +86,22 @@ public sealed class GameRoom
     /// <summary>
     /// 收到玩家输入 — 缓存到当前帧，等待 Tick 打包广播
     /// </summary>
-    public void OnPlayerInput(string playerId, PlayerInputMsg input)
+    public void OnPlayerMove(string playerId, PlayerMoveMsg input)
     {
-        if (State != RoomState.Playing) return;
+        if (State != RoomState.InGame) return;
         _frameInputs[playerId] = input;
+    }
+
+    public void OnGameEndSubmit(string playerId, GameEndSubmitMsg submit)
+    {
+        if (State != RoomState.InGame) return;
+
+        _endSubmits[playerId] = submit;
+        if (_endSubmits.Count >= _players.Count && _players.Count > 0)
+        {
+            var reason = submit.Reason;
+            EndGame(reason);
+        }
     }
 
     /// <summary>
@@ -83,9 +111,6 @@ public sealed class GameRoom
     {
         if (_players.TryGetValue(playerId, out var info))
             _players[playerId] = (string.Empty, info.Slot);
-
-        if (State == RoomState.Playing)
-            EndGame(GameOverMsg.GameResult.Disconnect);
     }
 
     /// <summary>
@@ -93,7 +118,7 @@ public sealed class GameRoom
     /// </summary>
     public void Tick(float dt)
     {
-        if (State != RoomState.Playing) return;
+        if (State != RoomState.InGame) return;
 
         _frame++;
         BroadcastFrame();
@@ -107,10 +132,11 @@ public sealed class GameRoom
 
     public void Reset()
     {
-        State = RoomState.WaitingReady;
+        State = RoomState.Waiting;
         _frame = 0;
         _frameInputs.Clear();
         _readyPlayers.Clear();
+        _endSubmits.Clear();
         Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
     }
 
@@ -118,8 +144,21 @@ public sealed class GameRoom
 
     private void StartGame()
     {
-        State = RoomState.Playing;
+        State = RoomState.InGame;
         _frame = 0;
+        _endSubmits.Clear();
+
+        var connectionIds = _players.Values
+            .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
+            .Select(v => v.ConnectionId)
+            .ToList();
+
+        OnGameStart?.Invoke(connectionIds, new GameStartMsg
+        {
+            RoomId = RoomId,
+            RandomSeed = Random.Shared.Next(1, int.MaxValue),
+        });
+
         Console.WriteLine($"[GameRoom:{RoomId}] Game started!");
     }
 
@@ -129,15 +168,12 @@ public sealed class GameRoom
 
         foreach (var (playerId, (_, slot)) in _players)
         {
-            var input = _frameInputs.TryGetValue(playerId, out var inp) ? inp : new PlayerInputMsg();
+            var input = _frameInputs.TryGetValue(playerId, out var inp) ? inp : new PlayerMoveMsg();
             msg.Inputs.Add(new PlayerFrameInput
             {
-                PlayerId    = playerId,
-                Slot        = slot,
-                MoveDir     = input.MoveDir,
-                AimAngle    = input.AimAngle,
-                Shoot       = input.Shoot,
-                ChargePower = input.ChargePower,
+                PlayerId = playerId,
+                Slot = slot,
+                MoveDir = input.MoveDir,
             });
         }
 
@@ -149,10 +185,13 @@ public sealed class GameRoom
         OnBroadcastFrame?.Invoke(connectionIds, msg);
     }
 
-    private void EndGame(GameOverMsg.GameResult result)
+    private void EndGame(string reason)
     {
-        State = RoomState.Finished;
-        OnGameOver?.Invoke(new GameOverMsg { Result = result });
-        Console.WriteLine($"[GameRoom:{RoomId}] Game ended: {result}");
+        OnGameOver?.Invoke(new GameOverMsg
+        {
+            RoomId = RoomId,
+            Reason = reason,
+        });
+        Console.WriteLine($"[GameRoom:{RoomId}] Game ended: {reason}");
     }
 }

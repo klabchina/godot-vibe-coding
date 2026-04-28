@@ -2,30 +2,15 @@ syntax = "proto3";
 
 package summer;
 
-import "common.proto";
-
 // Client → Server — 请求匹配
 message MatchRequest {
     string player_id = 1;
     string player_name = 2;
 }
 
-// Client → Server — 取消匹配
+// Client → Server — 取消匹配（仅 Waiting 状态有效）
 message MatchCancel {
     string player_id = 1;
-}
-
-// Server → Client — 匹配状态更新
-message MatchUpdate {
-    MatchStatus status = 1;
-    float wait_time = 2;
-
-    enum MatchStatus {
-        WAITING = 0;
-        FOUND = 1;
-        CANCELLED = 2;
-        TIMEOUT = 3;
-    }
 }
 
 // Server → Client — 匹配成功
@@ -37,5 +22,5 @@ message MatchSuccess {
 message PlayerInfo {
     string player_id = 1;
     string player_name = 2;
-    int32 slot = 3;  // 0 或 1
+    int32 slot = 3; // 0 或 1
 }
