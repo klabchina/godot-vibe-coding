@@ -1,24 +1,19 @@
 using System;
 using System.Collections.Concurrent;
 using Godot;
+using Google.Protobuf;
+using Server.Proto;
 
 namespace Game.Net;
 
-/// <summary>
-/// WebSocket connection manager (Autoload-ready singleton).
-/// Handles connecting, disconnecting, heartbeat, reconnection,
-/// and dispatching incoming messages to registered handlers.
-/// </summary>
 public partial class NetManager : Node
 {
     public static NetManager Instance { get; private set; }
 
-    // ── Configuration ──
     private const float HeartbeatInterval = 5f;
     private const float ReconnectDelay = 3f;
     private const int MaxReconnectAttempts = 5;
 
-    // ── Connection state ──
     public enum ConnState { Disconnected, Connecting, Connected }
     public ConnState State { get; private set; } = ConnState.Disconnected;
 
@@ -29,22 +24,17 @@ public partial class NetManager : Node
     private int _reconnectAttempts;
     private bool _autoReconnect;
 
-    // ── Events ──
     public event Action OnConnected;
-    public event Action<string> OnDisconnected; // reason
-    public event Action<NetMessage> OnMessageReceived;
+    public event Action<string> OnDisconnected;
+    public event Action<uint, IMessage?> OnMessageReceived;
 
-    // ── Thread-safe message queue (messages from polling thread) ──
-    private readonly ConcurrentQueue<NetMessage> _incomingQueue = new();
+    private readonly ConcurrentQueue<(uint msgId, IMessage? message)> _incomingQueue = new();
 
     public override void _Ready()
     {
         Instance = this;
     }
 
-    // ──────────────────── Public API ────────────────────
-
-    /// <summary>Connect to the game server.</summary>
     public void Connect(string url)
     {
         if (State != ConnState.Disconnected) return;
@@ -55,32 +45,27 @@ public partial class NetManager : Node
         StartConnection();
     }
 
-    /// <summary>Gracefully disconnect.</summary>
     public void Disconnect()
     {
         _autoReconnect = false;
         if (_ws != null)
         {
-            Send(NetMessage.Create(MessageType.Disconnect, new { }));
             _ws.Close();
         }
         SetState(ConnState.Disconnected, "client requested");
     }
 
-    /// <summary>Send a NetMessage to the server.</summary>
-    public void Send(NetMessage msg)
+    public void Send(uint msgId, IMessage message)
     {
         if (State != ConnState.Connected || _ws == null) return;
-        _ws.Send(msg.Serialize().ToUtf8Buffer());
+        _ws.Send(Protocol.BuildEnvelope(msgId, message));
     }
 
-    /// <summary>Send a typed payload message.</summary>
-    public void Send<T>(MessageType type, T payload)
+    public void SendHeartbeat()
     {
-        Send(NetMessage.Create(type, payload));
+        if (State != ConnState.Connected || _ws == null) return;
+        _ws.Send(Protocol.BuildEnvelope(MsgIds.Heartbeat, new Empty()));
     }
-
-    // ──────────────────── Godot Lifecycle ────────────────────
 
     public override void _Process(double delta)
     {
@@ -103,19 +88,12 @@ public partial class NetManager : Node
                     TickHeartbeat(dt);
                     break;
 
-                case WebSocketPeer.State.Closing:
-                    break;
-
                 case WebSocketPeer.State.Closed:
                     HandleClosed();
-                    break;
-
-                case WebSocketPeer.State.Connecting:
                     break;
             }
         }
 
-        // Reconnect timer
         if (State == ConnState.Disconnected && _autoReconnect && _reconnectAttempts < MaxReconnectAttempts)
         {
             _reconnectTimer -= dt;
@@ -126,14 +104,11 @@ public partial class NetManager : Node
             }
         }
 
-        // Dispatch queued messages on main thread
         while (_incomingQueue.TryDequeue(out var msg))
         {
-            OnMessageReceived?.Invoke(msg);
+            OnMessageReceived?.Invoke(msg.msgId, msg.message);
         }
     }
-
-    // ──────────────────── Internal ────────────────────
 
     private void StartConnection()
     {
@@ -152,24 +127,28 @@ public partial class NetManager : Node
     {
         while (_ws.GetAvailablePacketCount() > 0)
         {
-            var packet = _ws.GetPacket();
-            var json = packet.GetStringFromUtf8();
+            var packet = _ws.GetPacket().ToArray();
+            var envelope = Protocol.ParseEnvelope(packet);
+            if (envelope == null)
+            {
+                GD.PrintErr("[NetManager] Failed to parse envelope");
+                continue;
+            }
+
+            var (msgId, payload) = envelope.Value;
+            if (msgId == MsgIds.Heartbeat)
+            {
+                continue;
+            }
+
             try
             {
-                var msg = NetMessage.Deserialize(json);
-                if (msg != null)
-                {
-                    if (msg.Type == MessageType.Heartbeat)
-                    {
-                        // Heartbeat response — just reset timer
-                        continue;
-                    }
-                    _incomingQueue.Enqueue(msg);
-                }
+                var msg = Protocol.ParsePayload(msgId, payload);
+                _incomingQueue.Enqueue((msgId, msg));
             }
             catch (Exception e)
             {
-                GD.PrintErr($"[NetManager] Failed to parse message: {e.Message}");
+                GD.PrintErr($"[NetManager] Failed to parse payload msgId={msgId}: {e.Message}");
             }
         }
     }
@@ -180,10 +159,7 @@ public partial class NetManager : Node
         if (_heartbeatTimer <= 0)
         {
             _heartbeatTimer = HeartbeatInterval;
-            Send(MessageType.Heartbeat, new HeartbeatMsg
-            {
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
+            SendHeartbeat();
         }
     }
 

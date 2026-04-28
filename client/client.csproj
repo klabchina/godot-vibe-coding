@@ -5,4 +5,20 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <DefineConstants>CLIENT</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.25.2" />
+    <PackageReference Include="Grpc.Tools" Version="2.62.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="../server/proto/common.proto" ProtoRoot="../server/proto" GrpcServices="None" />
+    <Protobuf Include="../server/proto/match.proto" ProtoRoot="../server/proto" GrpcServices="None" />
+    <Protobuf Include="../server/proto/room.proto" ProtoRoot="../server/proto" GrpcServices="None" />
+    <Protobuf Include="../server/proto/battle.proto" ProtoRoot="../server/proto" GrpcServices="None" />
+    <Protobuf Include="../server/proto/event.proto" ProtoRoot="../server/proto" GrpcServices="None" />
+  </ItemGroup>
 </Project>

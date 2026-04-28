@@ -1,370 +1,217 @@
+using System;
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Game.Data;
+using Google.Protobuf;
+using Server.Proto;
 
 namespace Game.Net;
 
-/// <summary>
-/// Network message types exchanged between client and server.
-/// All messages are JSON-encoded with a "type" discriminator.
-/// </summary>
-public enum MessageType
+public static class MsgIds
 {
-    // --- Matching phase ---
-    MatchRequest,       // C → S : request to join matchmaking queue
-    MatchUpdate,        // S → C : queue status update (waiting)
-    MatchSuccess,       // S → C : match found (room id, player list)
-    MatchCancel,        // C → S : cancel matchmaking
-    PlayerReady,        // C → S : player is ready to start
-    BattleStart,        // S → C : both players ready, begin battle
+    public const uint MatchRequest = 1001;
+    public const uint MatchCancel = 1002;
+    public const uint MatchSuccess = 1004;
 
-    // --- Battle phase ---
-    PlayerInput,        // C → S : movement direction
-    GameState,          // S → C : authoritative game state snapshot
-    SpawnArrow,         // S → C : arrow creation event
-    SpawnWave,          // S → C : new wave of monsters
-    EntityDeath,        // S → C : entity died (monster / pickup)
-    UpgradeOptions,     // S → C : 3 upgrade choices for the player
-    UpgradeChoice,      // C → S : player's upgrade selection
-    PickupSpawn,        // S → C : pickup (XP orb / item) spawned
-    PickupCollect,      // S → C : pickup collected by player
-    BuffApply,          // S → C : buff applied / removed
-    BossPhaseChange,    // S → C : boss phase transition
-    GameOver,           // S → C : game ended (victory / defeat)
+    public const uint PlayerReady = 2001;
+    public const uint GameStart = 2002;
 
-    // --- Common ---
-    Heartbeat,          // bidirectional keep-alive
-    Disconnect,         // graceful disconnect
+    public const uint PlayerMove = 3001;
+    public const uint SkillChoice = 3002;
+    public const uint GameEndSubmit = 3003;
+    public const uint GameOver = 3005;
+    public const uint LockstepFrame = 3008;
+
+    public const uint Heartbeat = 9001;
 }
 
-// ──────────────────── Envelope ────────────────────
-
-/// <summary>
-/// Top-level message envelope. Every WebSocket frame is a JSON object
-/// with a "Type" field and a "Data" payload (also JSON-encoded string).
-/// </summary>
-public class NetMessage
+public static class Protocol
 {
-    [JsonPropertyName("type")]
-    public MessageType Type { get; set; }
-
-    [JsonPropertyName("data")]
-    public string Data { get; set; } = "";
-
-    /// <summary>Serialize to JSON string for sending.</summary>
-    public string Serialize()
+    public static byte[] BuildEnvelope(uint msgId, IMessage payload)
     {
-        return JsonSerializer.Serialize(this, SerializeOptions);
+        return BuildEnvelope(msgId, payload.ToByteArray());
     }
 
-    /// <summary>Deserialize an incoming JSON string.</summary>
-    public static NetMessage Deserialize(string json)
+    public static byte[] BuildEnvelope(uint msgId, byte[] payload)
     {
-        return JsonSerializer.Deserialize<NetMessage>(json, SerializeOptions);
+        using var ms = new System.IO.MemoryStream();
+        using var writer = new System.IO.BinaryWriter(ms);
+        writer.Write(msgId);
+        writer.Write(payload);
+        return ms.ToArray();
     }
 
-    /// <summary>Create a NetMessage from a typed payload.</summary>
-    public static NetMessage Create<T>(MessageType type, T payload)
+    public static (uint MsgId, byte[] Payload)? ParseEnvelope(byte[] packet)
     {
-        return new NetMessage
+        if (packet == null || packet.Length < 4) return null;
+
+        try
         {
-            Type = type,
-            Data = JsonSerializer.Serialize(payload, SerializeOptions),
+            using var reader = new System.IO.BinaryReader(new System.IO.MemoryStream(packet));
+            var msgId = reader.ReadUInt32();
+            var payload = reader.ReadBytes((int)(reader.BaseStream.Length - reader.BaseStream.Position));
+            return (msgId, payload);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static object? ParsePayload(uint msgId, byte[] payload)
+    {
+        return msgId switch
+        {
+            MsgIds.MatchSuccess => MatchSuccess.Parser.ParseFrom(payload),
+            MsgIds.GameStart => GameStart.Parser.ParseFrom(payload),
+            MsgIds.LockstepFrame => LockstepFrame.Parser.ParseFrom(payload),
+            MsgIds.GameOver => GameOver.Parser.ParseFrom(payload),
+            MsgIds.Heartbeat => null,
+            _ => null,
         };
     }
-
-    /// <summary>Extract typed payload from Data field.</summary>
-    public T GetPayload<T>()
-    {
-        return JsonSerializer.Deserialize<T>(Data, SerializeOptions);
-    }
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
 }
 
-// ──────────────────── Matching Messages ────────────────────
-
-public class MatchRequestMsg { }
-
-public class MatchUpdateMsg
-{
-    [JsonPropertyName("status")]
-    public string Status { get; set; } = "waiting";
-
-    [JsonPropertyName("playersInQueue")]
-    public int PlayersInQueue { get; set; }
-}
+// 兼容现有 ECS 消费结构的数据类型
 
 public class MatchSuccessMsg
 {
-    [JsonPropertyName("roomId")]
     public string RoomId { get; set; } = "";
-
-    [JsonPropertyName("players")]
-    public List<PlayerInfo> Players { get; set; } = new();
-
-    [JsonPropertyName("seed")]
+    public List<PlayerInfoMsg> Players { get; set; } = new();
     public int Seed { get; set; }
 }
 
-public class PlayerInfo
+public class PlayerInfoMsg
 {
-    [JsonPropertyName("id")]
     public string Id { get; set; } = "";
-
-    [JsonPropertyName("index")]
     public int Index { get; set; }
 }
 
-public class PlayerReadyMsg { }
-
 public class BattleStartMsg
 {
-    [JsonPropertyName("seed")]
     public int Seed { get; set; }
 }
 
-// ──────────────────── Battle Messages ────────────────────
-
 public class PlayerInputMsg
 {
-    [JsonPropertyName("dx")]
     public float Dx { get; set; }
-
-    [JsonPropertyName("dy")]
     public float Dy { get; set; }
-
-    [JsonPropertyName("seq")]
     public int Seq { get; set; }
 }
 
 public class GameStateMsg
 {
-    [JsonPropertyName("tick")]
     public int Tick { get; set; }
-
-    [JsonPropertyName("players")]
     public List<PlayerStateData> Players { get; set; } = new();
-
-    [JsonPropertyName("monsters")]
     public List<EntityStateData> Monsters { get; set; } = new();
-
-    [JsonPropertyName("arrows")]
     public List<EntityStateData> Arrows { get; set; } = new();
-
-    [JsonPropertyName("pickups")]
     public List<EntityStateData> Pickups { get; set; } = new();
 }
 
 public class PlayerStateData
 {
-    [JsonPropertyName("id")]
     public int Id { get; set; }
-
-    [JsonPropertyName("index")]
     public int PlayerIndex { get; set; }
-
-    [JsonPropertyName("x")]
     public float X { get; set; }
-
-    [JsonPropertyName("y")]
     public float Y { get; set; }
-
-    [JsonPropertyName("hp")]
     public int Hp { get; set; }
-
-    [JsonPropertyName("maxHp")]
     public int MaxHp { get; set; }
-
-    [JsonPropertyName("xp")]
     public int Xp { get; set; }
-
-    [JsonPropertyName("level")]
     public int Level { get; set; }
-
-    [JsonPropertyName("kills")]
     public int Kills { get; set; }
-
-    [JsonPropertyName("damage")]
     public int TotalDamage { get; set; }
-
-    [JsonPropertyName("buffs")]
     public List<BuffStateData> Buffs { get; set; } = new();
-
-    [JsonPropertyName("upgrades")]
     public List<UpgradeStateData> Upgrades { get; set; } = new();
 }
 
 public class BuffStateData
 {
-    [JsonPropertyName("type")]
     public BuffType Type { get; set; }
-
-    [JsonPropertyName("remaining")]
     public float Remaining { get; set; }
 }
 
 public class UpgradeStateData
 {
-    [JsonPropertyName("id")]
     public UpgradeId Id { get; set; }
-
-    [JsonPropertyName("level")]
     public int Level { get; set; }
 }
 
 public class EntityStateData
 {
-    [JsonPropertyName("id")]
     public int Id { get; set; }
-
-    [JsonPropertyName("x")]
     public float X { get; set; }
-
-    [JsonPropertyName("y")]
     public float Y { get; set; }
-
-    [JsonPropertyName("hp")]
     public int Hp { get; set; }
-
-    [JsonPropertyName("type")]
     public int TypeId { get; set; }
 }
 
 public class SpawnArrowMsg
 {
-    [JsonPropertyName("id")]
     public int Id { get; set; }
-
-    [JsonPropertyName("ownerId")]
     public int OwnerId { get; set; }
-
-    [JsonPropertyName("x")]
     public float X { get; set; }
-
-    [JsonPropertyName("y")]
     public float Y { get; set; }
-
-    [JsonPropertyName("vx")]
     public float Vx { get; set; }
-
-    [JsonPropertyName("vy")]
     public float Vy { get; set; }
-
-    [JsonPropertyName("damage")]
     public int Damage { get; set; }
-
-    [JsonPropertyName("pierce")]
     public int Pierce { get; set; }
-
-    [JsonPropertyName("bouncing")]
     public bool Bouncing { get; set; }
-
-    [JsonPropertyName("explosive")]
     public bool Explosive { get; set; }
-
-    [JsonPropertyName("freezing")]
     public bool Freezing { get; set; }
-
-    [JsonPropertyName("burning")]
     public bool Burning { get; set; }
 }
 
 public class SpawnWaveMsg
 {
-    [JsonPropertyName("wave")]
     public int WaveNumber { get; set; }
 }
 
 public class EntityDeathMsg
 {
-    [JsonPropertyName("id")]
     public int Id { get; set; }
-
-    [JsonPropertyName("killerId")]
     public int KillerId { get; set; }
 }
 
 public class UpgradeOptionsMsg
 {
-    [JsonPropertyName("options")]
     public List<UpgradeId> Options { get; set; } = new();
 }
 
 public class UpgradeChoiceMsg
 {
-    [JsonPropertyName("upgradeId")]
     public UpgradeId UpgradeId { get; set; }
 }
 
 public class PickupSpawnMsg
 {
-    [JsonPropertyName("id")]
     public int Id { get; set; }
-
-    [JsonPropertyName("x")]
     public float X { get; set; }
-
-    [JsonPropertyName("y")]
     public float Y { get; set; }
-
-    [JsonPropertyName("pickupType")]
     public PickupType Type { get; set; }
-
-    [JsonPropertyName("value")]
     public int Value { get; set; }
 }
 
 public class PickupCollectMsg
 {
-    [JsonPropertyName("pickupId")]
     public int PickupId { get; set; }
-
-    [JsonPropertyName("playerId")]
     public int PlayerId { get; set; }
 }
 
 public class BuffApplyMsg
 {
-    [JsonPropertyName("playerId")]
     public int PlayerId { get; set; }
-
-    [JsonPropertyName("buffType")]
     public BuffType BuffType { get; set; }
-
-    [JsonPropertyName("duration")]
     public float Duration { get; set; }
-
-    [JsonPropertyName("remove")]
     public bool Remove { get; set; }
 }
 
 public class BossPhaseChangeMsg
 {
-    [JsonPropertyName("phase")]
     public BossPhase Phase { get; set; }
-
-    [JsonPropertyName("xpReward")]
     public int XpReward { get; set; }
 }
 
 public class GameOverMsg
 {
-    [JsonPropertyName("victory")]
     public bool Victory { get; set; }
-
-    [JsonPropertyName("wavesCompleted")]
     public int WavesCompleted { get; set; }
-}
-
-public class HeartbeatMsg
-{
-    [JsonPropertyName("timestamp")]
-    public long Timestamp { get; set; }
 }

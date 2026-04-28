@@ -131,12 +131,22 @@ public sealed class MessageRouter
 
     private Task HandleMatchCancel(string connectionId, byte[] payload)
     {
-        _ = MatchCancel.Parser.ParseFrom(payload);
-
-        if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
+        try
         {
-            _matchService.Cancel(session.PlayerId);
-            session.State = SessionState.Idle;
+            _ = MatchCancel.Parser.ParseFrom(payload);
+
+            if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
+            {
+                var cancelled = _matchService.Cancel(session.PlayerId);
+                if (cancelled)
+                {
+                    session.State = SessionState.Idle;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling MatchCancel");
         }
 
         return Task.CompletedTask;
@@ -154,6 +164,15 @@ public sealed class MessageRouter
             {
                 var room = _roomManager.GetRoom(session.RoomId);
                 room?.OnPlayerReady(session.PlayerId);
+
+                if (room != null && room.State == RoomState.InGame &&
+                    _sessionManager.TryGetByRoom(session.RoomId, out var sessions))
+                {
+                    foreach (var s in sessions)
+                    {
+                        s.State = SessionState.InBattle;
+                    }
+                }
             }
         }
         catch (Exception ex)
