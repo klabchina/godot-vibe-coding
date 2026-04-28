@@ -282,50 +282,70 @@ public class BossPhaseComponent
 ### 连接方式
 
 ```
-Player A (Host)  ◄───WebSocket───►  Game Server  ◄───WebSocket───►  Player B (Guest)
+Player A  ◄───WebSocket───►  Game Server  ◄───WebSocket───►  Player B
 ```
 
 - 使用 WebSocket 长连接与游戏服务器通信
-- 服务器负责匹配、状态仲裁、帧同步
-- 客户端做本地预测 + 服务器校验
+- 服务器负责房间生命周期、匹配、消息转发
+- 战斗采用 **Lockstep 帧同步**：客户端本地 ECS 确定性模拟，服务器不下发完整 `GameState`
 
-### 匹配流程
+### 房间状态（客户端视角）
+
+| 状态 | 说明 |
+|------|------|
+| `Waiting` | 房间等待第二名玩家加入，或等待双方准备完成 |
+| `InGame` | 匹配成功后进入游戏中阶段（含加载/准备完成到正式开局） |
+
+> 约定：`PlayerReady` 由玩家级标记表达，不新增房间状态。
+
+### 匹配与开局流程
 
 ```
 Client                          Server
   │                               │
   │──── MatchRequest ────────────▶│
-  │                               │  加入匹配队列
-  │                               │  等待另一位玩家
-  │◀─── MatchUpdate(waiting) ─────│
-  │                               │
-  │                               │  匹配成功
+  │                               │ 查找仅 1 人的 Waiting 房间
+  │                               │ 无则创建房间并等待；有则加入
   │◀─── MatchSuccess ────────────│
   │     { RoomId, Players[] }     │
-  │                               │
+  │                               │ 房间状态切为 InGame（准备阶段）
   │──── PlayerReady ─────────────▶│
   │                               │
-  │◀─── BattleStart ─────────────│  双方 Ready 后开始
-  │     { WaveConfig, Seed }      │
+  │◀─── GameStart ───────────────│ 所有玩家 Ready 后广播
+  │     { RoomId, Seed }          │
   │                               │
 ```
 
-### 战斗同步协议
+### 游戏操作协议
 
 | 消息类型 | 方向 | 说明 |
 |----------|------|------|
-| `PlayerInput` | Client → Server | 玩家操作（仅移动方向） |
-| `GameState` | Server → Client | 权威游戏状态快照 |
-| `SpawnArrow` | Server → Client | 箭矢生成事件 |
-| `SpawnWave` | Server → Client | 新一波怪物刷新 |
-| `EntityDeath` | Server → Client | 实体死亡通知 |
-| `GameOver` | Server → Client | 游戏结束（胜利/失败） |
-| `UpgradeOptions` | Server → Client | 波次结束时下发 3 个升级选项 |
-| `UpgradeChoice` | Client → Server | 玩家选择的升级项 |
-| `PickupSpawn` | Server → Client | 掉落物（经验球/道具）生成通知 |
-| `PickupCollect` | Server → Client | 掉落物拾取通知 |
-| `BuffApply` | Server → Client | 临时 Buff 应用/移除通知 |
-| `BossPhaseChange` | Server → Client | Boss 阶段切换通知 |
+| `PlayerMove` | Client → Server | 玩家移动操作（移动方向/输入帧） |
+| `SkillChoice` | Client → Server | 玩家选择技能（升级选择） |
+| `GameEndSubmit` | Client → Server | 玩家提交本局结束状态 |
+
+### 帧同步广播协议
+
+| 消息类型 | 方向 | 说明 |
+|----------|------|------|
+| `LockstepFrame` | Server → Client | 服务器按 Tick 广播房间内玩家输入，客户端按帧序执行 |
+| `GameOver` | Server → Client | 服务器确认房间结束并广播结算 |
+
+### 协议消息总览（客户端关心）
+
+| 消息类型 | 方向 | 阶段 | 说明 |
+|----------|------|------|------|
+| `MatchRequest` | Client → Server | 匹配 | 发起匹配 |
+| `MatchCancel` | Client → Server | Waiting | 取消匹配（仅 Waiting 有效） |
+| `MatchSuccess` | Server → Client | 匹配 | 匹配成功，返回房间与玩家信息 |
+| `PlayerReady` | Client → Server | 开局准备 | 客户端加载完成并上报准备 |
+| `GameStart` | Server → Client | 开局准备 | 全员准备完成后开始游戏 |
+| `PlayerMove` | Client → Server | 游戏中 | 上报移动输入 |
+| `SkillChoice` | Client → Server | 游戏中 | 上报技能/升级选择 |
+| `LockstepFrame` | Server → Client | 游戏中 | 按 Tick 广播全房间输入帧 |
+| `GameEndSubmit` | Client → Server | 游戏中 | 上报结束状态 |
+| `GameOver` | Server → Client | 结束 | 房间结束广播 |
+| `Heartbeat` | Client ↔ Server | 全阶段 | 心跳保活 |
 
 ---
 

@@ -10,6 +10,23 @@
 
 所有游戏模拟（怪物 AI、碰撞、伤害、波次推进）由客户端本地 ECS 确定性执行。
 
+## 房间状态与关闭规则
+
+### 房间状态
+
+| 状态 | 说明 |
+|------|------|
+| `Waiting` | 房间等待另一名玩家加入，或等待玩家完成 `PlayerReady` |
+| `InGame` | 匹配成功后进入游戏中阶段 |
+
+### 房间关闭条件
+
+1. 房间内**所有玩家**连续 2 分钟无心跳，自动关闭房间
+2. 房间内所有玩家提交 `GameEndSubmit` 后，关闭房间并广播 `GameOver`
+3. 玩家在 `Waiting` 状态发送 `MatchCancel`，关闭房间
+
+> 约束：`MatchCancel` 仅在 `Waiting` 状态有效，`InGame` 状态收到后应拒绝。
+
 ---
 
 ## 技术选型
@@ -109,23 +126,25 @@ public sealed class Session
 
 ### 3. MatchService — 匹配服务
 
-简单 FIFO 队列，满 2 人即建房。
+按房间复用匹配：优先查找仅 1 人的 `Waiting` 房间；找不到则创建新房间。
 
 ```
 匹配流程：
 
-Player A ──MatchRequest──▶ ┌──────────────┐
-                           │ Match Queue  │
-Player B ──MatchRequest──▶ │  [A]  [B]    │
-                           └──────┬───────┘
-                                  │ 队列 >= 2
-                                  ▼
-                     RoomManager.CreateRoom(A, B)
-                     room.SetConnection(A, connIdA)
-                     room.SetConnection(B, connIdB)
-                     Session[A].RoomId = room.RoomId
-                     Session[B].RoomId = room.RoomId
+Player A ──MatchRequest──▶ 查找 Waiting 且人数=1 的房间
+                           └── 无：创建 Room(A)，状态 Waiting
+
+Player B ──MatchRequest──▶ 查找 Waiting 且人数=1 的房间
+                           └── 有：加入 Room(A,B)
+
+Room(A,B) ──广播 MatchSuccess(RoomId, Players[])──▶ A,B
+Room(A,B) 状态切换：Waiting → InGame（准备阶段）
 ```
+
+取消匹配规则：
+- `MatchCancel` 仅在房间状态为 `Waiting` 时有效
+- 有玩家在 `Waiting` 状态取消匹配时，房间立即关闭
+- `InGame` 状态收到 `MatchCancel` 应拒绝（不触发关房）
 
 ### 4. RoomManager — 房间管理
 
@@ -184,7 +203,7 @@ public sealed class GameRoom
 │            Server Tick (50ms)              │
 │                                            │
 │  1. MatchService.Tick()                    │
-│     └── 队列 >= 2 → CreateRoom + 绑定连接 │
+│     └── 查找 Waiting 且人数=1 房间；无则新建│
 │                                            │
 │  2. RoomManager.Tick(dt)                   │
 │     └── foreach room:                      │
@@ -193,8 +212,8 @@ public sealed class GameRoom
 │           OnBroadcastFrame → WS广播        │
 │           _frameInputs.Clear()             │
 │                                            │
-│  3. 心跳超时检查                           │
-│  4. 断线重连超时检查                       │
+│  3. 心跳超时检查（仅所有玩家超时才关房）   │
+│  4. 结束提交检查（全员 GameEndSubmit 关房）│
 └────────────────────────────────────────────┘
 ```
 
@@ -208,68 +227,85 @@ public sealed class GameRoom
 [4字节 uint MsgId][N字节 JSON payload]
 ```
 
-### 消息 ID
+### 消息 ID（协议统一口径）
 
 ```csharp
 // 匹配
-MatchRequest  = 1001   // C→S
-MatchCancel   = 1002   // C→S
-MatchUpdate   = 1003   // S→C
-MatchSuccess  = 1004   // S→C
+MatchRequest   = 1001   // C→S
+MatchCancel    = 1002   // C→S（仅 Waiting 有效）
+MatchSuccess   = 1004   // S→C
 
-// 房间
-PlayerReady   = 2001   // C→S
-BattleStart   = 2002   // S→C  (含随机种子，客户端用于初始化确定性模拟)
+// 开局准备
+PlayerReady    = 2001   // C→S
+GameStart      = 2002   // S→C（全员 Ready 后广播，含随机种子）
 
-// 战斗（帧同步）
-PlayerInput   = 3001   // C→S  每帧上报本地操作
-LockstepFrame = 3008   // S→C  打包所有玩家输入后广播
+// 游戏操作
+PlayerMove     = 3001   // C→S 玩家移动输入
+SkillChoice    = 3002   // C→S 玩家技能/升级选择
+GameEndSubmit  = 3003   // C→S 玩家提交结束状态
+LockstepFrame  = 3008   // S→C 服务器按 Tick 广播输入帧
 
 // 结算
-GameOver      = 3005   // S→C
+GameOver       = 3005   // S→C 房间结束广播
 
 // 系统
-Heartbeat     = 9001   // C↔S
-Disconnect    = 9002   // S→C
+Heartbeat      = 9001   // C↔S
 ```
 
 ### 关键消息结构
 
 ```csharp
-// Client → Server（每帧，高频）
-public class PlayerInputMsg
+// Client → Server：玩家移动操作
+public class PlayerMoveMsg
 {
-    public int   Tick        { get; set; }  // 客户端本地帧号
-    public Vec2  MoveDir     { get; set; }  // 移动方向 (归一化)
-    public float AimAngle    { get; set; }  // 瞄准角度
-    public bool  Shoot       { get; set; }  // 是否射击
-    public float ChargePower { get; set; }  // 蓄力值 0~1
+    public int  Tick    { get; set; }   // 客户端本地帧号
+    public Vec2 MoveDir { get; set; }   // 移动方向（归一化）
 }
 
-// Server → Client（每服务器帧广播）
-public class LockstepFrameMsg
+// Client → Server：玩家技能选择
+public class SkillChoiceMsg
 {
-    public int Frame { get; set; }
-    public List<PlayerFrameInput> Inputs { get; set; }
+    public int    Tick      { get; set; }
+    public string SkillId   { get; set; } = string.Empty;
 }
 
-public class PlayerFrameInput
+// Client → Server：玩家提交结束状态
+public class GameEndSubmitMsg
 {
-    public string PlayerId   { get; set; }
-    public int    Slot       { get; set; }  // 0 or 1
-    public Vec2   MoveDir    { get; set; }
-    public float  AimAngle   { get; set; }
-    public bool   Shoot      { get; set; }
-    public float  ChargePower { get; set; }
+    public int    Tick      { get; set; }
+    public string Reason    { get; set; } = string.Empty; // Win / Lose / Surrender
 }
 
-// Server → Client（全员就绪后）
-public class BattleStart
+// Server → Client：全员就绪后
+public class GameStartMsg
 {
-    public string RoomId     { get; set; }
-    public int    RandomSeed { get; set; }  // 客户端用此种子初始化 RNG，保证确定性
+    public string RoomId     { get; set; } = string.Empty;
+    public int    RandomSeed { get; set; } // 客户端据此初始化确定性随机
+}
+
+// Server → Client：房间结束
+public class GameOverMsg
+{
+    public string RoomId   { get; set; } = string.Empty;
+    public string Reason   { get; set; } = string.Empty;
 }
 ```
+
+### 协议消息总览
+
+| 消息类型 | 方向 | 房间状态约束 | 说明 |
+|----------|------|--------------|------|
+| `MatchRequest` | Client → Server | 无 | 发起匹配 |
+| `MatchCancel` | Client → Server | `Waiting` | 取消匹配并关闭房间 |
+| `MatchSuccess` | Server → Client | `Waiting` → `InGame` | 匹配成功广播 |
+| `PlayerReady` | Client → Server | `InGame` | 客户端加载完成并上报 |
+| `GameStart` | Server → Client | `InGame` | 全员 Ready 后广播开局 |
+| `PlayerMove` | Client → Server | `InGame` | 玩家移动输入 |
+| `SkillChoice` | Client → Server | `InGame` | 玩家技能/升级选择 |
+| `LockstepFrame` | Server → Client | `InGame` | 服务器按 Tick 广播输入帧 |
+| `GameEndSubmit` | Client → Server | `InGame` | 玩家提交结束状态 |
+| `GameOver` | Server → Client | `InGame` / 关闭前 | 房间结束广播 |
+| `Heartbeat` | Client ↔ Server | 全阶段 | 心跳保活 |
 
 ---
 
@@ -293,13 +329,12 @@ Player 断线
       │
       ▼
 Session 标记 IsDisconnected = true
-GameRoom.OnPlayerDisconnect() → 触发 GameOver(Disconnect)
-通知房间内另一玩家
+连接从 ConnectionPool 移除
       │
-      └── 房间销毁，GameOver 消息已发送
+      └── 房间是否关闭由“房间关闭条件”统一判定
 ```
 
-> 当前版本：断线直接结束房间。如需重连，可在此扩展：保留房间状态 30s，重连后客户端用 Frame 编号追帧。
+> 当前版本：不再采用“单玩家断线立即 GameOver 并销毁房间”的规则。房间生命周期按心跳与结束提交条件处理。
 
 ---
 
