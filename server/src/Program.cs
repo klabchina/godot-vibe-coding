@@ -92,7 +92,10 @@ app.Map("/ws", async context =>
 
             if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
             {
-                await socket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+                if (socket.State == System.Net.WebSockets.WebSocketState.Open)
+                {
+                    await socket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+                }
                 break;
             }
 
@@ -102,6 +105,14 @@ app.Map("/ws", async context =>
                 await router.RouteAsync(connectionId, payload, CancellationToken.None);
             }
         }
+    }
+    catch (System.Net.WebSockets.WebSocketException)
+    {
+        // 客户端异常断开（未完成 close handshake）
+    }
+    catch (OperationCanceledException)
+    {
+        // 服务关闭或请求取消
     }
     finally
     {
