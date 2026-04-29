@@ -108,7 +108,18 @@ app.Map("/ws", async context =>
     }
     catch (System.Net.WebSockets.WebSocketException)
     {
-        // 客户端异常断开（未完成 close handshake）
+        if (sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
+        {
+            if (session.RoomId != null)
+            {
+                roomManager.DestroyRoom(session.RoomId);
+                session.RoomId = null;
+            }
+
+            session.State = SessionState.Idle;
+            session.IsDisconnected = true;
+            session.DisconnectTime = DateTime.UtcNow;
+        }
     }
     catch (OperationCanceledException)
     {
