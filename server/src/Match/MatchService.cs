@@ -35,8 +35,23 @@ public sealed class MatchService
             newRoom.SetConnection(playerId, session.ConnectionId);
             session.RoomId = newRoom.RoomId;
             session.State = SessionState.InRoom;
-            Console.WriteLine($"[Match] Create waiting room={newRoom.RoomId} player={playerId}");
-            return null;
+
+            var singleResult = new MatchSuccess
+            {
+                RoomId = newRoom.RoomId,
+                RandomSeed = newRoom.RandomSeed,
+            };
+            singleResult.Players.Add(new PlayerInfo
+            {
+                PlayerId = session.PlayerId,
+                PlayerName = session.PlayerName,
+                Slot = 0,
+            });
+
+            newRoom.OnPlayerReady(playerId);
+
+            Console.WriteLine($"[Match] Single player room ready room={newRoom.RoomId} player={playerId}");
+            return singleResult;
         }
 
         waitingRoom.AddPlayer(playerId);
@@ -62,6 +77,7 @@ public sealed class MatchService
         var result = new MatchSuccess
         {
             RoomId = waitingRoom.RoomId,
+            RandomSeed = waitingRoom.RandomSeed,
         };
         result.Players.AddRange(players);
         return result;

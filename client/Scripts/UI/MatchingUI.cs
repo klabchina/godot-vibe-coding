@@ -117,6 +117,7 @@ public partial class MatchingUI : Control
     {
         if (_cancelled || _leaving) return;
 
+        GameManager.Instance.CurrentRandomSeed = matchSuccess.RandomSeed;
         _statusLabel.Text = "Opponent found!";
         _countdownLabel.Text = "Waiting game start...";
         _cancelBtn.Disabled = true;

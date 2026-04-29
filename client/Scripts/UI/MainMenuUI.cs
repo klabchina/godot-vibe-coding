@@ -24,6 +24,7 @@ public partial class MainMenuUI : Control
     public void OnSinglePlayerPressed()
     {
         GameManager.Instance.CurrentMode = GameMode.SinglePlayer;
+        GameManager.Instance.CurrentRandomSeed = 42;
         SceneManager.Instance.GoToBattle();
     }
 }

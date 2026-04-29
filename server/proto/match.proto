@@ -18,6 +18,7 @@ message MatchCancel {
 message MatchSuccess {
     string room_id = 1;
     repeated PlayerInfo players = 2;
+    int32 random_seed = 3;
 }
 
 message PlayerInfo {

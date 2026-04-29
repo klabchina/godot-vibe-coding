@@ -65,6 +65,7 @@ public class MatchClient
                 if (msg is not MatchSuccess success) break;
 
                 RoomId = success.RoomId;
+                Seed = success.RandomSeed;
                 foreach (var p in success.Players)
                 {
                     if (p.PlayerId == LocalPlayerId)

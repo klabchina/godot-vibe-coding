@@ -17,6 +17,8 @@ public sealed class GameRoom
 {
     private int _frame = 0;
 
+    public int RandomSeed { get; private set; }
+
     public string RoomId { get; }
     public RoomState State { get; private set; } = RoomState.Waiting;
     public int PlayerCount => _players.Count;
@@ -33,6 +35,7 @@ public sealed class GameRoom
     public GameRoom(string roomId, params string[] playerIds)
     {
         RoomId = roomId;
+        RandomSeed = Random.Shared.Next(1, int.MaxValue);
         for (int i = 0; i < playerIds.Length; i++)
             _players[playerIds[i]] = (string.Empty, i);
     }
@@ -127,7 +130,7 @@ public sealed class GameRoom
         OnGameStart?.Invoke(connectionIds, new GameStart
         {
             RoomId = RoomId,
-            RandomSeed = Random.Shared.Next(1, int.MaxValue),
+            RandomSeed = RandomSeed,
         });
 
         Console.WriteLine($"[GameRoom:{RoomId}] Game started!");
