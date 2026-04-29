@@ -300,6 +300,128 @@ public sealed class MessageRouterPbTests
         Assert.Equal(RoomState.InGame, room.State);
     }
 
+    [Fact]
+    public async Task RouteAsync_player_move_should_update_lockstep_frame_input_after_room_started()
+    {
+        var loggerFactory = LoggerFactory.Create(builder => { });
+        var sessionManager = new SessionManager();
+        var wsHandler = new WebSocketHandler(
+            loggerFactory.CreateLogger<WebSocketHandler>(),
+            new ConnectionManager());
+        var roomManager = new RoomManager(wsHandler);
+        var matchService = new MatchService(sessionManager, roomManager);
+        var router = new MessageRouter(
+            loggerFactory.CreateLogger<MessageRouter>(),
+            sessionManager,
+            roomManager,
+            matchService,
+            null);
+
+        var s1 = sessionManager.Create("conn-1", "p1", "Alice");
+        var s2 = sessionManager.Create("conn-2", "p2", "Bob");
+        var room = roomManager.CreateRoom("p1", "p2");
+        room.SetConnection("p1", "conn-1");
+        room.SetConnection("p2", "conn-2");
+        s1.RoomId = room.RoomId;
+        s2.RoomId = room.RoomId;
+
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room.RoomId }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room.RoomId }.ToByteArray()), CancellationToken.None);
+
+        LockstepFrame? frame = null;
+        room.OnBroadcastFrame += (_, msg) => frame = msg;
+
+        var move = new PlayerMove
+        {
+            Tick = 1,
+            MoveDir = new Vec2 { X = 2.5f, Y = -1.25f }
+        };
+
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerMove, move.ToByteArray()), CancellationToken.None);
+        room.Tick(0.05f);
+
+        Assert.NotNull(frame);
+        var input = Assert.Single(frame!.Inputs, i => i.PlayerId == "p1");
+        Assert.Equal(2.5f, input.MoveDir.X);
+        Assert.Equal(-1.25f, input.MoveDir.Y);
+    }
+
+    [Fact]
+    public async Task RouteAsync_invalid_player_move_payload_should_not_break_followup_valid_move()
+    {
+        var loggerFactory = LoggerFactory.Create(builder => { });
+        var sessionManager = new SessionManager();
+        var wsHandler = new WebSocketHandler(
+            loggerFactory.CreateLogger<WebSocketHandler>(),
+            new ConnectionManager());
+        var roomManager = new RoomManager(wsHandler);
+        var matchService = new MatchService(sessionManager, roomManager);
+        var router = new MessageRouter(
+            loggerFactory.CreateLogger<MessageRouter>(),
+            sessionManager,
+            roomManager,
+            matchService,
+            null);
+
+        var s1 = sessionManager.Create("conn-1", "p1", "Alice");
+        var s2 = sessionManager.Create("conn-2", "p2", "Bob");
+        var room = roomManager.CreateRoom("p1", "p2");
+        room.SetConnection("p1", "conn-1");
+        room.SetConnection("p2", "conn-2");
+        s1.RoomId = room.RoomId;
+        s2.RoomId = room.RoomId;
+
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room.RoomId }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room.RoomId }.ToByteArray()), CancellationToken.None);
+
+        var invalidPb = new byte[] { 0x0A, 0xFF, 0xFF };
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerMove, invalidPb), CancellationToken.None);
+
+        LockstepFrame? frame = null;
+        room.OnBroadcastFrame += (_, msg) => frame = msg;
+
+        var validMove = new PlayerMove
+        {
+            Tick = 2,
+            MoveDir = new Vec2 { X = 0.5f, Y = 0.25f }
+        };
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerMove, validMove.ToByteArray()), CancellationToken.None);
+        room.Tick(0.05f);
+
+        Assert.NotNull(frame);
+        var input = Assert.Single(frame!.Inputs, i => i.PlayerId == "p1");
+        Assert.Equal(0.5f, input.MoveDir.X);
+        Assert.Equal(0.25f, input.MoveDir.Y);
+    }
+
+    [Fact]
+    public async Task RouteAsync_invalid_skill_choice_payload_should_not_break_followup_heartbeat()
+    {
+        var loggerFactory = LoggerFactory.Create(builder => { });
+        var sessionManager = new SessionManager();
+        var wsHandler = new WebSocketHandler(
+            loggerFactory.CreateLogger<WebSocketHandler>(),
+            new ConnectionManager());
+        var roomManager = new RoomManager(wsHandler);
+        var matchService = new MatchService(sessionManager, roomManager);
+        var router = new MessageRouter(
+            loggerFactory.CreateLogger<MessageRouter>(),
+            sessionManager,
+            roomManager,
+            matchService,
+            null);
+
+        var session = sessionManager.Create("conn-1", "p1", "Alice");
+        session.LastHeartbeat = DateTime.UtcNow.AddMinutes(-10);
+        var before = session.LastHeartbeat;
+
+        var invalidPb = new byte[] { 0x0A, 0xFF, 0xFF };
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.SkillChoice, invalidPb), CancellationToken.None);
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.Heartbeat, Array.Empty<byte>()), CancellationToken.None);
+
+        Assert.True(session.LastHeartbeat > before);
+    }
+
     private static byte[] BuildEnvelope(uint msgId, byte[] payload)
     {
         using var ms = new MemoryStream();
