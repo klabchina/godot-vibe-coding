@@ -67,6 +67,12 @@ public partial class BattleScene : Node2D
 		// Create player entity
 		var player = _world.CreateEntity();
 		player.Add(new PlayerComponent { PlayerIndex = 0, IsLocal = true });
+		player.Add(new NetworkSyncComponent
+		{
+			NetId = 0,
+			Owner = 0,
+			IsLocal = true
+		});
 		player.Add(new TransformComponent { Position = ArenaData.Size / 2 });
 		player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
 		player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
@@ -93,6 +99,13 @@ public partial class BattleScene : Node2D
 		player.Add(new UpgradeComponent());
 		player.Add(new BuffComponent());
 		player.Add(new OrbitComponent());
+
+		// Create game settings entity
+		var settingEntity = _world.CreateEntity();
+		settingEntity.Add(new GameSettingComponent
+		{
+			Mode = GameManager.Instance.CurrentMode
+		});
 
 		// Create wave spawner entity
 		var spawner = _world.CreateEntity();

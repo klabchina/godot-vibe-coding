@@ -33,7 +33,9 @@
     <Compile Include="../client/Scripts/Ecs/Components/DamageFlashComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/DeathPendingComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/EffectComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/GameSettingComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/HealthComponent.cs" />
+    <Compile Include="../client/Scripts/Ecs/Components/NetworkSyncComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MeleeAttackComponent.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MonsterAIState.cs" />
     <Compile Include="../client/Scripts/Ecs/Components/MonsterComponent.cs" />

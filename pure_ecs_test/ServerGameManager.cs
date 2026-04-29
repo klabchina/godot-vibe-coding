@@ -53,6 +53,13 @@ public class ServerGameManager
         // 创建玩家实体（与 BattleScene.InitializeWorld 第 66-92 行保持一致）
         SpawnPlayer(playerData.PlayerIndex, playerData.Position.X, playerData.Position.Y);
 
+        // Create game settings entity（对应 BattleScene 设置实体）
+        var settingEntity = World.CreateEntity();
+        settingEntity.Add(new GameSettingComponent
+        {
+            Mode = GameMode.SinglePlayer
+        });
+
         // Spawn map obstacles（对应 BattleScene 第 99 行）
         Game.MapLoader.SpawnObstacles(map, World);
 
@@ -91,6 +98,12 @@ public class ServerGameManager
         player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
         player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
         player.Add(new PlayerComponent { PlayerIndex = playerIndex, IsLocal = false });
+        player.Add(new NetworkSyncComponent
+        {
+            NetId = playerIndex,
+            Owner = playerIndex,
+            IsLocal = false
+        });
         player.Add(new BowComponent
         {
             Damage = PlayerData.BaseArrowDamage,

@@ -1,4 +1,5 @@
 using Godot;
+using Game.Ecs.Components;
 
 namespace Game.UI;
 
@@ -16,11 +17,13 @@ public partial class MainMenuUI : Control
 
     public void OnStartMultiPressed()
     {
+        GameManager.Instance.CurrentMode = GameMode.MultiPlayer;
         SceneManager.Instance.GoToMatching();
     }
 
     public void OnSinglePlayerPressed()
     {
+        GameManager.Instance.CurrentMode = GameMode.SinglePlayer;
         SceneManager.Instance.GoToBattle();
     }
 }
