@@ -6,6 +6,7 @@ using Game.Ecs.Components;
 using Game.Ecs.Systems;
 using Game.Ecs.ClientSystems;
 using Game;
+using Game.Net;
 using Game.Utils;
 
 namespace Game.UI;
@@ -28,6 +29,7 @@ public partial class BattleScene : Node2D
 	private MapConfig _currentMap;
 	private int _tickCount;
 	private float _accumulator;
+	private SyncClient _syncClient;
 
 	// Pending level-ups queue (supports consecutive level-ups)
 	private readonly System.Collections.Generic.Queue<(Entity player, int level)> _pendingLevelUps = new();
@@ -117,6 +119,12 @@ public partial class BattleScene : Node2D
 		// Register systems in execution order
 		_world.AddSystem(new InputSystem());
 		_world.AddSystem(new NetworkInputSystem());
+		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer)
+		{
+			_syncClient = new SyncClient();
+			_world.AddSystem(new NetworkRecvSystem { Sync = _syncClient });
+			_world.AddSystem(new NetworkSendSystem { Sync = _syncClient });
+		}
 		var waveSpawnSystem = new WaveSpawnSystem();
 		_world.AddSystem(waveSpawnSystem);
 
@@ -372,6 +380,11 @@ public partial class BattleScene : Node2D
 			var pos = transform.Position;
 			dmgNum.Show(new Vector2(pos.X - 10, pos.Y - 30), hit.Damage);
 		}
+	}
+
+	public override void _ExitTree()
+	{
+		_syncClient?.Dispose();
 	}
 
 	private void UpdateHud()

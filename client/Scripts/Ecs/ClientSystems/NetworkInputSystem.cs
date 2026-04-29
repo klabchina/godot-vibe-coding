@@ -9,6 +9,7 @@ namespace Game.Ecs.ClientSystems;
 /// </summary>
 public class NetworkInputSystem : GameSystem
 {
+    public override bool IsRenderSystem => true;
     public override void Update(float delta)
     {
         var mode = ResolveGameMode();
