@@ -8,8 +8,8 @@ namespace Game.Ecs.Systems;
 /// Sends local player input to the server each tick.
 /// Runs late in the system pipeline (execution order #14, after DeathSystem).
 ///
-/// In networked mode, the server is authoritative — the client only sends
-/// the movement direction. All game logic results come back via NetworkRecvSystem.
+/// In networked mode, the client only sends input intent (PlayerMove).
+/// The server按 Tick 广播 LockstepFrame，客户端不再上传/下载完整状态快照。
 /// </summary>
 public class NetworkSendSystem : GameSystem
 {
