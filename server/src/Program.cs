@@ -58,11 +58,11 @@ app.Map("/ws", async context =>
     var handler = context.RequestServices.GetRequiredService<WebSocketHandler>();
 
     var connectionId = connectionManager.Add(socket);
-    
+
     // 创建临时会话（等待客户端发送 PlayerId）
     var tempPlayerId = Guid.NewGuid().ToString("N");
     sessionManager.Create(connectionId, tempPlayerId, "Anonymous");
-    
+
     // 创建消息路由器
     var router = new MessageRouter(
         context.RequestServices.GetRequiredService<ILogger<MessageRouter>>(),
@@ -71,7 +71,7 @@ app.Map("/ws", async context =>
         matchService,
         async (connId, msgId, msg) => await handler.SendAsync(connId, msgId, msg)
     );
-    
+
     // 订阅断线事件
     handler.OnDisconnected += (connId) =>
     {
@@ -81,7 +81,7 @@ app.Map("/ws", async context =>
             session.DisconnectTime = DateTime.UtcNow;
         }
     };
-    
+
     // 处理 WebSocket 消息
     var buffer = new byte[8 * 1024];
     try
@@ -89,13 +89,13 @@ app.Map("/ws", async context =>
         while (socket.State == System.Net.WebSockets.WebSocketState.Open)
         {
             var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
-            
+
             if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
             {
                 await socket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
                 break;
             }
-            
+
             if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Binary)
             {
                 var payload = buffer.AsMemory(0, result.Count);
@@ -109,6 +109,6 @@ app.Map("/ws", async context =>
     }
 });
 
-Console.WriteLine("Server starting on port 8081...");
-app.Urls.Add("http://0.0.0.0:8081");
+Console.WriteLine("Server starting on port 8085...");
+app.Urls.Add("http://0.0.0.0:8085");
 app.Run();

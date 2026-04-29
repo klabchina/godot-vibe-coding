@@ -11,7 +11,7 @@ namespace Game.UI;
 public partial class MatchingUI : Control
 {
     [Export]
-    public string ServerUrl { get; set; } = "ws://127.0.0.1:8081/ws";
+    public string ServerUrl { get; set; } = "ws://127.0.0.1:8085/ws";
 
     private const float MatchTimeoutSec = 20f;
 
