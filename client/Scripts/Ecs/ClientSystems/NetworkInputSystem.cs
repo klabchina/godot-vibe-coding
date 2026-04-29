@@ -23,11 +23,11 @@ public class NetworkInputSystem : GameSystem
             var velocity = entity.Get<VelocityComponent>();
             if (!input.HasInput)
             {
-                velocity.Velocity = Vec2.Zero;
+                velocity.ClientVelocity = Vec2.Zero;
             }
             else
             {
-                velocity.Velocity = input.InputDir.Normalized() * velocity.Speed;
+                velocity.ClientVelocity = input.InputDir.Normalized() * velocity.Speed;
             }
 
         }

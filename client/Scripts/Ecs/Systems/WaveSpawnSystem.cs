@@ -215,7 +215,7 @@ public class WaveSpawnSystem : GameSystem
             // Set high-speed fly toward player (2x normal attract speed)
             var vel = pickupEntity.Get<VelocityComponent>();
             Vec2 dir = (nearestPos - pickupTransform.Position).Normalized();
-            vel.Velocity = dir * PickupData.ExpOrbFlySpeed * 2f;
+            vel.LogicVelocity = dir * PickupData.ExpOrbFlySpeed * 2f;
         }
     }
 }

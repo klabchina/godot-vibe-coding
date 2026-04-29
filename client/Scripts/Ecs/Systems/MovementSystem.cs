@@ -15,7 +15,7 @@ namespace Game.Ecs.Systems;
 public class MovementSystem : GameSystem
 {
     private const float PlayerRadius = 16f;
-    private const float ArrowMargin  = 64f;
+    private const float ArrowMargin = 64f;
 
     public override void Update(float delta)
     {
@@ -26,10 +26,10 @@ public class MovementSystem : GameSystem
             if (!entity.IsAlive) continue;
 
             var transform = entity.Get<TransformComponent>();
-            var velocity  = entity.Get<VelocityComponent>();
+            var velocity = entity.Get<VelocityComponent>();
 
             // 1. Move
-            transform.Position += velocity.Velocity * delta;
+            transform.Position += velocity.LogicVelocity * delta;
 
             // 2. Per-type post-move rules
             if (entity.Has<PlayerComponent>())
@@ -69,14 +69,14 @@ public class MovementSystem : GameSystem
                     Vec2? targetPos = FindNearestPlayerPos(transform.Position);
                     if (targetPos.HasValue)
                     {
-                        float maxTurn  = GMath.DegToRad(MonsterData.EliteProjectileTurnSpeed) * delta;
-                        float curAngle = velocity.Velocity.Angle();
+                        float maxTurn = GMath.DegToRad(MonsterData.EliteProjectileTurnSpeed) * delta;
+                        float curAngle = velocity.LogicVelocity.Angle();
                         float tgtAngle = (targetPos.Value - transform.Position).Normalized().Angle();
-                        float diff     = NormalizeAngle(tgtAngle - curAngle);
-                        float turn     = GMath.Clamp(diff, -maxTurn, maxTurn);
+                        float diff = NormalizeAngle(tgtAngle - curAngle);
+                        float turn = GMath.Clamp(diff, -maxTurn, maxTurn);
                         float newAngle = curAngle + turn;
-                        Vec2  newDir   = new Vec2(MathF.Cos(newAngle), MathF.Sin(newAngle));
-                        velocity.Velocity  = newDir * MonsterData.EliteProjectileSpeed;
+                        Vec2 newDir = new Vec2(MathF.Cos(newAngle), MathF.Sin(newAngle));
+                        velocity.LogicVelocity = newDir * MonsterData.EliteProjectileSpeed;
                         transform.Rotation = newAngle;
                     }
                 }
@@ -119,7 +119,7 @@ public class MovementSystem : GameSystem
     /// <summary>将角度规范到 [-π, π]。</summary>
     private static float NormalizeAngle(float a)
     {
-        while (a >  GMath.Pi) a -= GMath.Tau;
+        while (a > GMath.Pi) a -= GMath.Tau;
         while (a < -GMath.Pi) a += GMath.Tau;
         return a;
     }

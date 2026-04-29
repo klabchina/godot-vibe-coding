@@ -53,7 +53,7 @@ public class MonsterAISystem : GameSystem
 
             if (nearestDist >= float.MaxValue)
             {
-                velocity.Velocity = Vec2.Zero;
+                velocity.LogicVelocity = Vec2.Zero;
                 continue;
             }
 
@@ -99,14 +99,14 @@ public class MonsterAISystem : GameSystem
                     // Slime: straight chase
                     if (inWindup)
                     {
-                        velocity.Velocity = Vec2.Zero;
+                        velocity.LogicVelocity = Vec2.Zero;
                     }
                     else
                     {
                         float slimeRadius = monster.Get<ColliderComponent>()?.Radius ?? 15f;
                         Vec2 slimeDetour = ApplyDetourMemory(ai, monsterTransform.Position, nearestPos, toPlayer, slimeRadius, delta);
                         Vec2 slimeDir = AdjustForObstacles(monsterTransform.Position, slimeDetour, baseSpeed * speedMultiplier, delta, slimeRadius);
-                        velocity.Velocity = slimeDir * baseSpeed * speedMultiplier;
+                        velocity.LogicVelocity = slimeDir * baseSpeed * speedMultiplier;
                     }
                     break;
             }
@@ -118,7 +118,7 @@ public class MonsterAISystem : GameSystem
     private void UpdateSkeletonRanged(Entity monster, VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, float baseSpeed, float speedMul, float delta)
     {
-        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
+        if (ai == null) { velocity.LogicVelocity = toPlayer * baseSpeed * speedMul; return; }
 
         if (ai.RangedPhase == RangedPhase.Wander)
         {
@@ -133,7 +133,7 @@ public class MonsterAISystem : GameSystem
 
             float skelRadius = monster.Get<ColliderComponent>()?.Radius ?? 18f;
             Vec2 skelDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, ai.WanderDir, baseSpeed * speedMul, delta, skelRadius);
-            velocity.Velocity = skelDir * baseSpeed * speedMul;
+            velocity.LogicVelocity = skelDir * baseSpeed * speedMul;
             ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
@@ -145,7 +145,7 @@ public class MonsterAISystem : GameSystem
         }
         else // RangedPhase.Attack
         {
-            velocity.Velocity = Vec2.Zero; // stop while aiming
+            velocity.LogicVelocity = Vec2.Zero; // stop while aiming
             // Freeze only reduces move speed; attack timing is unaffected by design.
             ai.PhaseTimer -= delta;
 
@@ -167,14 +167,14 @@ public class MonsterAISystem : GameSystem
         proj.Add(new TransformComponent { Position = origin, Rotation = direction.Angle() });
         proj.Add(new VelocityComponent
         {
-            Velocity = direction * MonsterData.SkeletonProjectileSpeed,
+            LogicVelocity = direction * MonsterData.SkeletonProjectileSpeed,
             Speed = MonsterData.SkeletonProjectileSpeed
         });
         proj.Add(new MonsterProjectileComponent
         {
-            Damage    = MonsterData.SkeletonProjectileDamage,
-            OwnerId   = monster.Id,
-            IsHoming  = false,
+            Damage = MonsterData.SkeletonProjectileDamage,
+            OwnerId = monster.Id,
+            IsHoming = false,
             LifeTimer = 0f
         });
         proj.Add(new ColliderComponent
@@ -190,7 +190,7 @@ public class MonsterAISystem : GameSystem
     private void UpdateEliteRanged(Entity monster, VelocityComponent velocity, MonsterAIState ai,
         Vec2 toPlayer, float baseSpeed, float speedMul, float delta)
     {
-        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
+        if (ai == null) { velocity.LogicVelocity = toPlayer * baseSpeed * speedMul; return; }
 
         if (ai.RangedPhase == RangedPhase.Wander)
         {
@@ -204,7 +204,7 @@ public class MonsterAISystem : GameSystem
 
             float eliteRadius = monster.Get<ColliderComponent>()?.Radius ?? 25f;
             Vec2 eliteDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, ai.WanderDir, baseSpeed * speedMul, delta, eliteRadius);
-            velocity.Velocity = eliteDir * baseSpeed * speedMul;
+            velocity.LogicVelocity = eliteDir * baseSpeed * speedMul;
             ai.PhaseTimer -= delta;
 
             if (ai.PhaseTimer <= 0f)
@@ -216,7 +216,7 @@ public class MonsterAISystem : GameSystem
         }
         else // RangedPhase.Attack
         {
-            velocity.Velocity = Vec2.Zero;
+            velocity.LogicVelocity = Vec2.Zero;
             // Freeze only reduces move speed; attack timing is unaffected by design.
             ai.PhaseTimer -= delta;
 
@@ -250,14 +250,14 @@ public class MonsterAISystem : GameSystem
             proj.Add(new TransformComponent { Position = origin, Rotation = dir.Angle() });
             proj.Add(new VelocityComponent
             {
-                Velocity = dir * MonsterData.EliteProjectileSpeed,
-                Speed    = MonsterData.EliteProjectileSpeed
+                LogicVelocity = dir * MonsterData.EliteProjectileSpeed,
+                Speed = MonsterData.EliteProjectileSpeed
             });
             proj.Add(new MonsterProjectileComponent
             {
-                Damage    = MonsterData.EliteProjectileDamage,
-                OwnerId   = monster.Id,
-                IsHoming  = true,
+                Damage = MonsterData.EliteProjectileDamage,
+                OwnerId = monster.Id,
+                IsHoming = true,
                 LifeTimer = MonsterData.EliteProjectileLifetime
             });
             proj.Add(new ColliderComponent
@@ -275,12 +275,12 @@ public class MonsterAISystem : GameSystem
         Vec2 toPlayer, Vec2 nearestPos, float distToPlayer, float baseSpeed, float speedMul, float delta,
         bool inWindup)
     {
-        if (ai == null) { velocity.Velocity = toPlayer * baseSpeed * speedMul; return; }
+        if (ai == null) { velocity.LogicVelocity = toPlayer * baseSpeed * speedMul; return; }
 
         // If in windup, stop all movement
         if (inWindup)
         {
-            velocity.Velocity = Vec2.Zero;
+            velocity.LogicVelocity = Vec2.Zero;
             return;
         }
 
@@ -304,7 +304,7 @@ public class MonsterAISystem : GameSystem
                 float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
                 Vec2 dashDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer,
                     currentSpeed, delta, orcRadius);
-                velocity.Velocity = dashDir * currentSpeed;
+                velocity.LogicVelocity = dashDir * currentSpeed;
             }
         }
         else
@@ -326,7 +326,7 @@ public class MonsterAISystem : GameSystem
                 float orcRadius = monster.Get<ColliderComponent>()?.Radius ?? 22f;
                 Vec2 orcDir = AdjustForObstacles(monster.Get<TransformComponent>().Position, toPlayer,
                     baseSpeed * speedMul, delta, orcRadius);
-                velocity.Velocity = orcDir * baseSpeed * speedMul;
+                velocity.LogicVelocity = orcDir * baseSpeed * speedMul;
             }
         }
     }
@@ -338,14 +338,14 @@ public class MonsterAISystem : GameSystem
     /// </summary>
     private Vec2 GetWanderDirWithBoundaryCheck(Vec2 monsterPos, float margin)
     {
-        float left   = margin;
-        float right  = ArenaData.Size.X - margin;
-        float top    = margin;
+        float left = margin;
+        float right = ArenaData.Size.X - margin;
+        float top = margin;
         float bottom = ArenaData.Size.Y - margin;
 
-        bool nearLeft   = monsterPos.X < left;
-        bool nearRight  = monsterPos.X > right;
-        bool nearTop    = monsterPos.Y < top;
+        bool nearLeft = monsterPos.X < left;
+        bool nearRight = monsterPos.X > right;
+        bool nearTop = monsterPos.Y < top;
         bool nearBottom = monsterPos.Y > bottom;
 
         if (!nearLeft && !nearRight && !nearTop && !nearBottom)

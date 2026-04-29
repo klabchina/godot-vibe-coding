@@ -424,11 +424,11 @@ public class RenderSystem : GameSystem
 
         // 判断移动状态
         var velocity = entity.Get<VelocityComponent>();
-        bool isMoving = velocity != null && velocity.Velocity.LengthSquared() > 0.1f;
+        bool isMoving = velocity != null && velocity.LogicVelocity.LengthSquared() > 0.1f;
 
         // 根据水平速度翻转精灵
-        if (velocity != null && Mathf.Abs(velocity.Velocity.X) > 0.1f)
-            animSprite.FlipH = velocity.Velocity.X < 0;
+        if (velocity != null && Mathf.Abs(velocity.LogicVelocity.X) > 0.1f)
+            animSprite.FlipH = velocity.LogicVelocity.X < 0;
 
         // 动画优先级：攻击 > 行走 > 待机
         string targetAnim;

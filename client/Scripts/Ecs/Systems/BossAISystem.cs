@@ -75,7 +75,7 @@ public class BossAISystem : GameSystem
     {
         // Stop moving during summon phase
         velocity.Speed = 0;
-        velocity.Velocity = Vec2.Zero;
+        velocity.LogicVelocity = Vec2.Zero;
         phase.IsDashing = false;
 
         phase.SummonDuration -= delta;
@@ -133,7 +133,7 @@ public class BossAISystem : GameSystem
                 float currentSpeed = baseSpeed + MonsterData.BossDashSpeed * progress;
                 float bossRadius = boss.Get<ColliderComponent>()?.Radius ?? 40f;
                 Vec2 dashDir = AdjustForObstacles(transform.Position, toPlayer, currentSpeed, delta, bossRadius);
-                velocity.Velocity = dashDir * currentSpeed;
+                velocity.LogicVelocity = dashDir * currentSpeed;
             }
         }
         else
@@ -153,7 +153,7 @@ public class BossAISystem : GameSystem
                 // Normal chase at base speed
                 float bossRadius = boss.Get<ColliderComponent>()?.Radius ?? 40f;
                 Vec2 dir = AdjustForObstacles(transform.Position, toPlayer, baseSpeed, delta, bossRadius);
-                velocity.Velocity = dir * baseSpeed;
+                velocity.LogicVelocity = dir * baseSpeed;
             }
         }
     }

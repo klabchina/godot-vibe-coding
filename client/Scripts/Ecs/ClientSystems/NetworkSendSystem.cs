@@ -2,7 +2,7 @@ using Game.Ecs.Core;
 using Game.Ecs.Components;
 using Game.Net;
 
-namespace Game.Ecs.Systems;
+namespace Game.Ecs.ClientSystems;
 
 /// <summary>
 /// Sends local player input to the server each tick.
@@ -30,7 +30,7 @@ public class NetworkSendSystem : GameSystem
             if (velocity == null) continue;
 
             // Send normalized movement direction (not velocity magnitude)
-            var dir = velocity.Velocity;
+            var dir = velocity.ClientVelocity;
             if (dir.LengthSquared() > 0.001f)
             {
                 dir = dir.Normalized();

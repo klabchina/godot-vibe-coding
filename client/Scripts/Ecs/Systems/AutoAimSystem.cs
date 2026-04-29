@@ -66,7 +66,7 @@ public class AutoAimSystem : GameSystem
 
             // 行走时禁止射击
             var velocity = player.Get<VelocityComponent>();
-            if (velocity != null && velocity.Velocity.LengthSquared() > 0.1f)
+            if (velocity != null && velocity.LogicVelocity.LengthSquared() > 0.1f)
                 continue;
 
             // Fire arrows when ready and has target
@@ -138,7 +138,7 @@ public class AutoAimSystem : GameSystem
 
         arrow.Add(new VelocityComponent
         {
-            Velocity = direction * PlayerData.ArrowSpeed,
+            LogicVelocity = direction * PlayerData.ArrowSpeed,
             Speed = PlayerData.ArrowSpeed
         });
 

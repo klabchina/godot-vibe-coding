@@ -86,7 +86,7 @@ public class DeathSystem : GameSystem
             Value = xpValue,
             LifeTime = PickupData.ExpOrbLifeTime
         });
-        orb.Add(new VelocityComponent { Velocity = Vec2.Zero, Speed = 0f });
+        orb.Add(new VelocityComponent { LogicVelocity = Vec2.Zero, Speed = 0f });
     }
 
     private void SpawnItemDrop(Vec2 position)
@@ -131,6 +131,6 @@ public class DeathSystem : GameSystem
             Value = value,
             LifeTime = PickupData.ExpOrbLifeTime // items also last 30s
         });
-        item.Add(new VelocityComponent { Velocity = Vec2.Zero, Speed = 0f });
+        item.Add(new VelocityComponent { LogicVelocity = Vec2.Zero, Speed = 0f });
     }
 }

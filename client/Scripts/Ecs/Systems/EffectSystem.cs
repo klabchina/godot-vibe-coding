@@ -142,7 +142,7 @@ public class EffectSystem : GameSystem
 
         var arrow = World.CreateEntity();
         arrow.Add(new TransformComponent { Position = hitPos, Rotation = dir.Angle() });
-        arrow.Add(new VelocityComponent { Velocity = dir * PlayerData.ArrowSpeed, Speed = PlayerData.ArrowSpeed });
+        arrow.Add(new VelocityComponent { LogicVelocity = dir * PlayerData.ArrowSpeed, Speed = PlayerData.ArrowSpeed });
         arrow.Add(new ArrowComponent
         {
             Damage = bounceDamage,
