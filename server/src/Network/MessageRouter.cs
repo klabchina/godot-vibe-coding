@@ -207,7 +207,23 @@ public sealed class MessageRouter
 
     private Task HandleSkillChoice(string connectionId, byte[] payload)
     {
-        _ = SkillChoice.Parser.ParseFrom(payload);
+        try
+        {
+            var choice = SkillChoice.Parser.ParseFrom(payload);
+
+            if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
+                session != null &&
+                session.RoomId != null)
+            {
+                var room = _roomManager.GetRoom(session.RoomId);
+                room?.OnSkillChoice(session.PlayerId, choice);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling SkillChoice");
+        }
+
         return Task.CompletedTask;
     }
 

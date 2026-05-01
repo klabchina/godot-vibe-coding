@@ -15,6 +15,7 @@ message PlayerMove {
 message SkillChoice {
     int32 tick = 1;
     string skill_id = 2;
+    int32 slot = 3;
 }
 
 // Client → Server — 玩家提交结束状态

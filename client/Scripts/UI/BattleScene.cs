@@ -50,6 +50,8 @@ public partial class BattleScene : Node2D
 			?? throw new System.InvalidOperationException("Failed to load UpgradePanel scene");
 		_canvasLayer.AddChild(_upgradePanel);
 		_upgradePanel.OnUpgradeSelected += (entity, id) => _isPaused = false;
+		_upgradePanel.SetSyncClient(null);
+		_upgradePanel.SetUpgradeApplySystem(null);
 
 		MapLoader.LoadAll();
 		StageLoader.Load("stage_2");
@@ -67,12 +69,16 @@ public partial class BattleScene : Node2D
 		_world = new World();
 
 		// Create player entity
+		var localSlot = GameManager.Instance.CurrentMode == GameMode.MultiPlayer
+			? GameManager.Instance.CurrentPlayerSlot
+			: 0;
+
 		var player = _world.CreateEntity();
-		player.Add(new PlayerComponent { PlayerIndex = 0, IsLocal = true });
+		player.Add(new PlayerComponent { PlayerIndex = localSlot, IsLocal = true });
 		player.Add(new NetworkSyncComponent
 		{
-			NetId = 0,
-			Owner = 0,
+			NetId = localSlot,
+			Owner = localSlot,
 			IsLocal = true
 		});
 		player.Add(new TransformComponent { Position = ArenaData.Size / 2 });
@@ -121,10 +127,18 @@ public partial class BattleScene : Node2D
 		_world.AddSystem(new NetworkInputSystem());
 		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer)
 		{
-			_syncClient = new SyncClient();
+			_syncClient = new SyncClient
+			{
+				LocalPlayerSlot = localSlot
+			};
+			_upgradePanel.SetSyncClient(_syncClient);
 			_world.AddSystem(new NetworkRecvSystem { Sync = _syncClient });
 			_world.AddSystem(new NetworkSendSystem { Sync = _syncClient });
 		}
+		var upgradeApplySystem = new UpgradeApplySystem();
+		_world.AddSystem(upgradeApplySystem);
+		_upgradePanel.SetUpgradeApplySystem(upgradeApplySystem);
+
 		var waveSpawnSystem = new WaveSpawnSystem();
 		_world.AddSystem(waveSpawnSystem);
 

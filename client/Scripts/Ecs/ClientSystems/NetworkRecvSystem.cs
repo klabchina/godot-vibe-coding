@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Ecs.Components;
 using Game.Ecs.Core;
+using Game.Ecs.Systems;
 using Game.Net;
 
 namespace Game.Ecs.ClientSystems;
@@ -21,6 +22,7 @@ public class NetworkRecvSystem : GameSystem
         if (Sync == null) return;
 
         ProcessLockstepFrames();
+        ProcessSkillChoices();
     }
 
     private void ProcessLockstepFrames()
@@ -57,6 +59,18 @@ public class NetworkRecvSystem : GameSystem
                 moveDir = Vec2.Zero;
 
             velocity.LogicVelocity = moveDir * velocity.Speed;
+        }
+    }
+
+    private void ProcessSkillChoices()
+    {
+        var upgradeApplySystem = World.GetSystem<UpgradeApplySystem>();
+        if (upgradeApplySystem == null) return;
+
+        while (Sync.SkillChoiceQueue.Count > 0)
+        {
+            var choice = Sync.SkillChoiceQueue.Dequeue();
+            upgradeApplySystem.EnqueueChoice(choice.Slot, choice.SkillId, choice.Tick);
         }
     }
 }

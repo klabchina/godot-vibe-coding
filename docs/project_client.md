@@ -876,3 +876,4 @@ var level = LevelData.GetLevel(player.TotalXp);
 | OBB 矩形碰撞支持 | `docs/superpowers/specs/2026-04-17-obb-collision-design.md` |
 | 地图加载与障碍物 | `docs/superpowers/specs/2026-04-17-map-loading-design.md` |
 | 怪物绕行记忆 | `docs/superpowers/specs/2026-04-17-monster-detour-memory-design.md` |
+| SkillChoice 网络接收与 ECS 升级应用 | `docs/superpowers/specs/2026-05-01-skill-choice-ecs-application-design.md` |

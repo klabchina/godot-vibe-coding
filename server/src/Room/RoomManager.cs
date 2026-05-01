@@ -26,6 +26,11 @@ public sealed class RoomManager
             _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.LockstepFrame, frame);
         };
 
+        room.OnBroadcastSkillChoice += (connectionIds, choice) =>
+        {
+            _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.SkillChoice, choice);
+        };
+
         room.OnGameStart += (connectionIds, msg) =>
         {
             _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.GameStart, msg);

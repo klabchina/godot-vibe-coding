@@ -15,6 +15,7 @@ public partial class GameManager : Node
 	public GamePhase CurrentPhase { get; set; } = GamePhase.MainMenu;
 	public Ecs.Components.GameMode CurrentMode { get; set; } = Ecs.Components.GameMode.SinglePlayer;
 	public int CurrentRandomSeed { get; set; } = 42;
+	public int CurrentPlayerSlot { get; set; } = 0;
 
 	// Per-session battle stats
 	public int KillCount { get; set; }

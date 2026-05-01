@@ -61,6 +61,7 @@ public static class Protocol
             MsgIds.MatchSuccess => MatchSuccess.Parser.ParseFrom(payload),
             MsgIds.GameStart => GameStart.Parser.ParseFrom(payload),
             MsgIds.LockstepFrame => LockstepFrame.Parser.ParseFrom(payload),
+            MsgIds.SkillChoice => SkillChoice.Parser.ParseFrom(payload),
             MsgIds.GameOver => GameOver.Parser.ParseFrom(payload),
             MsgIds.Heartbeat => null,
             _ => null,

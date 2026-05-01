@@ -8,10 +8,12 @@ namespace Game.Net;
 public class SyncClient
 {
     public readonly Queue<LockstepFrame> LockstepFrameQueue = new();
+    public readonly Queue<SkillChoice> SkillChoiceQueue = new();
 
     public event Action<GameOver> OnGameOver;
 
     private int _inputTick;
+    public int LocalPlayerSlot { get; set; }
 
     public SyncClient()
     {
@@ -38,6 +40,7 @@ public class SyncClient
         {
             Tick = _inputTick,
             SkillId = skillId ?? string.Empty,
+            Slot = LocalPlayerSlot,
         });
     }
 
@@ -64,6 +67,13 @@ public class SyncClient
                 if (msg is LockstepFrame frame)
                 {
                     LockstepFrameQueue.Enqueue(frame);
+                }
+                break;
+
+            case MsgIds.SkillChoice:
+                if (msg is SkillChoice choice)
+                {
+                    SkillChoiceQueue.Enqueue(choice);
                 }
                 break;
 

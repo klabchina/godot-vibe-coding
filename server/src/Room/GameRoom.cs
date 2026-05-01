@@ -29,6 +29,7 @@ public sealed class GameRoom
     private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
 
     public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
+    public event Action<IReadOnlyList<string>, SkillChoice>? OnBroadcastSkillChoice;
     public event Action<IReadOnlyList<string>, GameStart>? OnGameStart;
     public event Action<GameOver>? OnGameOver;
 
@@ -72,6 +73,26 @@ public sealed class GameRoom
     {
         if (State != RoomState.InGame) return;
         _frameInputs[playerId] = input;
+    }
+
+    public void OnSkillChoice(string playerId, SkillChoice choice)
+    {
+        if (State != RoomState.InGame) return;
+        if (!_players.TryGetValue(playerId, out var info)) return;
+
+        var message = new SkillChoice
+        {
+            Tick = choice.Tick,
+            SkillId = choice.SkillId,
+            Slot = info.Slot,
+        };
+
+        var connectionIds = _players.Values
+            .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
+            .Select(v => v.ConnectionId)
+            .ToList();
+
+        OnBroadcastSkillChoice?.Invoke(connectionIds, message);
     }
 
     public void OnGameEndSubmit(string playerId, GameEndSubmit submit)
