@@ -101,6 +101,7 @@ app.Map("/ws", async context =>
 
             if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Binary)
             {
+                connectionManager.UpdateActivity(connectionId);
                 var payload = buffer.AsMemory(0, result.Count);
                 await router.RouteAsync(connectionId, payload, CancellationToken.None);
             }
