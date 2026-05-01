@@ -27,6 +27,7 @@ public sealed class GameRoom
     private readonly Dictionary<string, PlayerMove> _frameInputs = new();
     private readonly HashSet<string> _readyPlayers = new();
     private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
+    private readonly Dictionary<string, GameOver> _gameOverSubmits = new();
 
     public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
     public event Action<IReadOnlyList<string>, SkillChoice>? OnBroadcastSkillChoice;
@@ -107,6 +108,18 @@ public sealed class GameRoom
         }
     }
 
+    public void OnGameOverSubmit(string playerId, GameOver gameOver)
+    {
+        if (State != RoomState.InGame) return;
+
+        _gameOverSubmits[playerId] = gameOver;
+        if (_gameOverSubmits.Count >= _players.Count && _players.Count > 0)
+        {
+            var reason = gameOver.Reason;
+            EndGame(reason);
+        }
+    }
+
     public void OnPlayerDisconnect(string playerId)
     {
         if (_players.TryGetValue(playerId, out var info))
@@ -134,6 +147,7 @@ public sealed class GameRoom
         _frameInputs.Clear();
         _readyPlayers.Clear();
         _endSubmits.Clear();
+        _gameOverSubmits.Clear();
         Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
     }
 
@@ -142,6 +156,7 @@ public sealed class GameRoom
         State = RoomState.InGame;
         _frame = 0;
         _endSubmits.Clear();
+        _gameOverSubmits.Clear();
 
         var connectionIds = _players.Values
             .Where(v => !string.IsNullOrEmpty(v.ConnectionId))

@@ -346,6 +346,12 @@ public partial class BattleScene : Node2D
 		GameLogger.Print($"[Debug] GameRandom calls: {GameRandom.CallCount}");
 		GameLogger.Print("=================================");
 
+		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
+		{
+			_syncClient.SendGameOver(victory ? "Win" : "Lose");
+			NetManager.Instance.Disconnect();
+		}
+
 		// Delay transition slightly so player sees the final state
 		GetTree().CreateTimer(2.0f).Timeout += () =>
 		{

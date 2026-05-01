@@ -53,6 +53,15 @@ public class SyncClient
         });
     }
 
+    public void SendGameOver(string reason)
+    {
+        NetManager.Instance.Send(MsgIds.GameOver, new GameOver
+        {
+            RoomId = string.Empty,
+            Reason = reason ?? string.Empty,
+        });
+    }
+
     public void Dispose()
     {
         if (NetManager.Instance != null)
