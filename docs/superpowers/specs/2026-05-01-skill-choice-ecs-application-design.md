@@ -1,145 +1,92 @@
-# SkillChoice 网络接收与 ECS 升级应用设计
+# SkillChoice 联机链路与升级应用（现状复核 + 最小修复设计）
 
 ## 背景
 
-当前客户端升级流程存在职责混杂：
+已复核代码现状（client + server）：
 
-- `UpgradePanel` 在 UI 层直接执行 `UpgradeComponent.Apply(...)` 与立即效果（HP/速度/护盾/环绕物）
-- `SyncClient` 仅发送 `SkillChoice`，未接收 `MsgIds.SkillChoice`
-- 多人模式下升级生效未与服务端权威确认对齐
+- `SyncClient` 已支持 `MsgIds.SkillChoice` 接收并入 `SkillChoiceQueue`。
+- `UpgradePanel.OnChoiceSelected` 已实现：多人发送 `SkillChoice`；单机走本地 `UpgradeApplySystem.EnqueueChoice`。
+- `NetworkRecvSystem` 已消费 `SkillChoiceQueue` 并转交 `UpgradeApplySystem`。
+- `UpgradeApplySystem` 已按 `slot -> PlayerComponent.PlayerIndex` 应用升级与立即效果。
+- 服务端已实现 `SkillChoice` 路由与广播（会用权威 slot 覆盖）。
 
-目标是将“升级效果落地”下沉到 ECS 系统，并在多人模式下以服务端下行消息为准。
+因此，原“接入 SkillChoice 链路 + 升级下沉 ECS”的主体已具备。
 
-## 目标与范围
+当前核心缺陷是：
 
-### 目标
+- `BattleScene.ProcessPendingLevelUps` 展示升级面板时无条件 `_isPaused = true`，导致多人模式本地逻辑停摆；服务端仍推进，进而产生客户端状态偏差。
 
-1. 客户端支持 `MsgIds.SkillChoice` 的接收。
-2. `UpgradePanel.OnChoiceSelected` 只负责发送选择，不再直接修改组件数据。
-3. 升级效果（`UpgradeComponent` 与相关组件联动）统一由 ECS 逻辑系统执行。
-4. 多人模式按服务端下行消息生效，按 `slot -> PlayerComponent.PlayerIndex` 映射玩家。
+## 已确认决策
 
-### 非目标
+1. 消息流向：`Client -> Server -> Client`（服务端权威）。
+2. 升级应用位置：仅 ECS 系统应用，UI 只发送意图。
+3. 暂停策略：多人模式不触发 `_isPaused` 全局暂停。
 
-- 不改动匹配流程。
-- 不引入回滚预测机制（本地立即生效后校正）。
-- 不扩展到本次需求外的战斗协议重构。
+## 目标（本轮最小修复）
 
-## 协议设计
+1. 保持现有 SkillChoice 联机链路不变（继续服务端权威生效）。
+2. 修复多人升级面板导致的逻辑停摆问题。
+3. 单机模式保留原暂停体验（升级面板期间暂停逻辑）。
+4. 不扩大改动面到协议、匹配流程或额外功能。
 
-当前 `SkillChoice` 缺少映射字段，无法按 slot 精确应用。采用以下扩展：
+## 非目标
 
-```proto
-message SkillChoice {
-    int32 tick = 1;
-    string skill_id = 2;
-    int32 slot = 3;
+- 不新增预测/回滚。
+- 不重构 ECS 执行管线。
+- 不改服务端 SkillChoice 协议字段。
+
+## 设计方案
+
+### A. BattleScene 暂停逻辑分流（唯一必要代码改动）
+
+在 `BattleScene.ProcessPendingLevelUps` 中：
+
+- 单机：继续 `_isPaused = true` 后显示面板。
+- 多人：不设置 `_isPaused`，仅显示面板。
+
+伪代码：
+
+```csharp
+if (options.Count > 0)
+{
+    if (GameManager.Instance.CurrentMode != GameMode.MultiPlayer)
+        _isPaused = true;
+
+    _upgradePanel.Show(player, options);
 }
 ```
 
-说明：
+### B. 现有链路职责保持
 
-- 客户端上行可传本地 slot（或保持兼容由服务端补齐）。
-- 服务端广播时必须带权威 `slot`，客户端按 slot 应用。
+- `UpgradePanel`：只做展示/选择/发送，不直接改组件。
+- `SyncClient`：收发 SkillChoice，入队。
+- `NetworkRecvSystem`：消费队列并转给 `UpgradeApplySystem`。
+- `UpgradeApplySystem`：唯一升级落地点，按 slot 命中玩家并做去重。
 
-## 架构与职责
+## 验证策略（TDD 约束）
 
-### 1) UI 层（`UpgradePanel`）
+先做失败验证，再改代码：
 
-职责：仅处理展示与用户交互。
+1. **最小可执行失败验证**（若当前无测试基建，可先用可执行验证）：
+   - 构造多人场景触发升级面板。
+   - 观察升级面板显示后 `_world.UpdateLogic` 仍持续推进（tick 继续增长）。
+   - 当前版本应失败（tick 停止），作为 red。
 
-改动：
+2. **实现最小修复**：仅改 `BattleScene.ProcessPendingLevelUps` 的暂停条件。
 
-- `OnChoiceSelected` 中移除：
-  - `upgrade.Apply(chosen)`
-  - `ApplyImmediateEffects(chosen)`
-- 多人模式下改为：
-  - 调用 `SyncClient.SendSkillChoice(skillId)`
-  - 关闭面板并触发 `OnUpgradeSelected`（用于流程推进/解暂停）
-
-### 2) 网络层（`SyncClient`）
-
-职责：收发消息与缓存，不改 ECS 组件。
-
-改动：
-
-- 新增 `SkillChoiceQueue`（与 `LockstepFrameQueue` 类似）。
-- `HandleMessage` 增加 `case MsgIds.SkillChoice`：解析后入队。
-- 保留 `SendSkillChoice` 上行发送。
-
-### 3) ECS 层
-
-#### `NetworkRecvSystem`
-
-- 继续处理 `LockstepFrameQueue`（写 `VelocityComponent.LogicVelocity`）。
-- 新增消费 `SkillChoiceQueue` 的入口（转交升级应用系统或队列）。
-
-#### `UpgradeApplySystem`（新增逻辑系统）
-
-职责：统一处理升级落地。
-
-- 按 `slot -> PlayerComponent.PlayerIndex` 定位玩家实体。
-- 执行 `UpgradeComponent.Apply(chosen)`。
-- 执行立即效果（从 UI 下沉）：
-  - `MaxHpUp`：更新 `HealthComponent.MaxHp` 并治疗
-  - `MoveSpeedUp`：更新 `VelocityComponent.Speed`
-  - `Shield`：更新 `BuffComponent` 护盾状态/冷却
-  - `OrbitGuard`：更新 `OrbitComponent.Count`
-
-## 数据流与时序
-
-### 多人模式（权威生效）
-
-1. 玩家在 `UpgradePanel` 做出选择。
-2. 客户端上行 `SkillChoice`。
-3. 服务端处理并广播权威 `SkillChoice{tick, skill_id, slot}`。
-4. `SyncClient` 接收并入 `SkillChoiceQueue`。
-5. ECS 逻辑帧中消费消息，`UpgradeApplySystem` 按 slot 应用升级。
-
-### 单机模式
-
-- 保持本地直接生效路径（不依赖网络）。
-
-## 一致性与去重
-
-为避免重复包导致重复升级：
-
-- 维护 `lastAppliedTickBySlot`（或 `(slot,tick)` 去重集合）。
-- 若同 slot 收到重复/过旧 tick，则忽略。
-
-## 错误处理
-
-1. **解析失败**：沿用网络层保护逻辑，忽略该消息。
-2. **非法 skill_id**：无法映射 `UpgradeId` 时忽略并记录日志。
-3. **slot 无对应实体**：忽略并记录开发日志。
-4. **组件缺失**：仅跳过该效果分支，不中断系统。
+3. **回归验证**：
+   - 多人：面板显示期间逻辑不断帧，SkillChoice 下行后升级生效。
+   - 单机：面板显示期间仍暂停，选择后恢复。
+   - `client` 构建通过。
 
 ## 验收标准
 
-1. `UpgradePanel` 不再直接改 `Upgrade/Health/Velocity/Buff/Orbit`。
-2. `SyncClient.HandleMessage` 支持 `MsgIds.SkillChoice` 接收并入队。
-3. 多人模式升级仅在收到服务端下行后生效。
-4. 升级应用按 `slot -> PlayerIndex` 正确命中目标玩家。
-5. 重复消息不会重复叠加升级。
-6. `client` 项目构建通过。
+1. 多人模式升级面板出现时不再全局暂停逻辑帧。
+2. 多人升级效果仍仅由服务端回传 SkillChoice 触发 ECS 生效。
+3. 单机模式升级面板暂停行为不变。
+4. 不引入与本需求无关文件改动。
 
-## 影响文件（计划）
+## 影响文件（预期最小）
 
-- `server/proto/battle.proto`（扩展 `SkillChoice.slot`）
-- `client/Scripts/Net/SyncClient.cs`
-- `client/Scripts/UI/UpgradePanel.cs`
-- `client/Scripts/Ecs/ClientSystems/NetworkRecvSystem.cs`
-- `client/Scripts/Ecs/Systems/UpgradeApplySystem.cs`（新增）
-- `client/Scripts/UI/BattleScene.cs`（系统注册与依赖注入）
-
-## 风险与回滚
-
-### 风险
-
-- 协议改动需客户端/服务端同时更新，存在短暂不兼容窗口。
-- 若服务端未广播 `SkillChoice`，多人升级将不生效。
-
-### 回滚策略
-
-- 保留旧逻辑分支开关（开发期可临时启用本地直接生效）。
-- 协议与实现变更保持小步提交，便于回退。
+- `client/Scripts/UI/BattleScene.cs`（必要）
+- 测试/验证代码文件（若项目已有对应测试入口，则按现有结构新增）

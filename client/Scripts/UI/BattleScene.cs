@@ -261,7 +261,8 @@ public partial class BattleScene : Node2D
 		var options = UpgradeRoller.Roll(upgrade, level);
 		if (options.Count > 0)
 		{
-			_isPaused = true;
+			if (GameManager.Instance.CurrentMode != GameMode.MultiPlayer)
+				_isPaused = true;
 			_upgradePanel.Show(player, options);
 		}
 	}
