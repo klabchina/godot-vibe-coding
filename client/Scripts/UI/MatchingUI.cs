@@ -119,6 +119,10 @@ public partial class MatchingUI : Control
 
         GameManager.Instance.CurrentRandomSeed = matchSuccess.RandomSeed;
         GameManager.Instance.CurrentPlayerSlot = _matchClient.LocalPlayerIndex;
+        var slots = new int[matchSuccess.Players.Count];
+        for (int i = 0; i < matchSuccess.Players.Count; i++)
+            slots[i] = matchSuccess.Players[i].Slot;
+        GameManager.Instance.CurrentMatchPlayerSlots = slots;
         _statusLabel.Text = "Opponent found!";
         _countdownLabel.Text = "Waiting game start...";
         _cancelBtn.Disabled = true;
