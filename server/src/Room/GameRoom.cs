@@ -65,6 +65,21 @@ public sealed class GameRoom
         }
     }
 
+    public bool TryGetPlayerSlot(string playerId, out int slot)
+    {
+        lock (_sync)
+        {
+            if (_players.TryGetValue(playerId, out var info))
+            {
+                slot = info.Slot;
+                return true;
+            }
+
+            slot = default;
+            return false;
+        }
+    }
+
     public void OnPlayerReady(string playerId)
     {
         lock (_sync)

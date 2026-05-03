@@ -51,11 +51,15 @@ public sealed class MatchService
         }
 
         var players = sessions
-            .Select((s, idx) => new PlayerInfo
+            .Select(s =>
             {
-                PlayerId = s.PlayerId,
-                PlayerName = s.PlayerName,
-                Slot = idx,
+                waitingRoom.TryGetPlayerSlot(s.PlayerId, out var slot);
+                return new PlayerInfo
+                {
+                    PlayerId = s.PlayerId,
+                    PlayerName = s.PlayerName,
+                    Slot = slot,
+                };
             });
 
         Console.WriteLine($"[Match] Matched room={waitingRoom.RoomId}");
