@@ -473,10 +473,22 @@ public partial class BattleScene : Node2D
 		var playerEntities = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
 		if (playerEntities.Count > 0)
 		{
-			var health = playerEntities[0].Get<HealthComponent>();
-			var player = playerEntities[0].Get<PlayerComponent>();
-			var buff = playerEntities[0].Get<BuffComponent>();
-			var upgrade = playerEntities[0].Get<UpgradeComponent>();
+			Entity hudPlayer = null;
+			foreach (var entity in playerEntities)
+			{
+				var p = entity.Get<PlayerComponent>();
+				if (p != null && p.IsLocal)
+				{
+					hudPlayer = entity;
+					break;
+				}
+			}
+			hudPlayer ??= playerEntities[0];
+
+			var health = hudPlayer.Get<HealthComponent>();
+			var player = hudPlayer.Get<PlayerComponent>();
+			var buff = hudPlayer.Get<BuffComponent>();
+			var upgrade = hudPlayer.Get<UpgradeComponent>();
 
 			_hud?.UpdateHp(health.Hp, health.MaxHp);
 			_hud?.UpdateLevel(player.CurrentLevel);
