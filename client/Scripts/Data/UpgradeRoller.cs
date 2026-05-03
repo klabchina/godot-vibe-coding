@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Ecs.Components;
-using Game.Ecs.Core;
 
 namespace Game.Data;
 
@@ -13,7 +12,7 @@ public static class UpgradeRoller
 {
     /// <summary>
     /// Roll 3 unique upgrade options for the given player's current upgrade state.
-    /// 使用 GameRandom 以保持与 ECS 随机数序列的一致性。
+    /// 使用 Godot 内置随机。
     /// </summary>
     public static List<UpgradeId> Roll(UpgradeComponent upgrades, int playerLevel)
     {
@@ -36,7 +35,7 @@ public static class UpgradeRoller
 
                 if (attackOptions.Count > 0)
                 {
-                    int idx = GameRandom.Next(attackOptions.Count);
+                    int idx = (int)Godot.GD.RandRange(0, attackOptions.Count - 1);
                     pick = attackOptions[idx];
                 }
                 else
@@ -76,7 +75,7 @@ public static class UpgradeRoller
                 weighted.Add((id, UpgradeData.SpecialWeight / specialIds.Count));
 
         float totalWeight = weighted.Sum(w => w.weight);
-        float roll = GameRandom.Randf() * totalWeight;
+        float roll = Godot.GD.Randf() * totalWeight;
         float cumulative = 0;
 
         foreach (var (id, weight) in weighted)

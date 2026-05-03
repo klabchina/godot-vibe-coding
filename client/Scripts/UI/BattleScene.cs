@@ -227,6 +227,7 @@ public partial class BattleScene : Node2D
 					{
 						_world.UpdateLogic(FixedDelta);
 						_tickCount++;
+						GameLogger.PrintRich($"[{GameManager.Instance.CurrentPlayerSlot}][TickCount {_tickCount}] randomUsedCount: {GameRandom.CallCount}");
 					}
 				}
 				else
