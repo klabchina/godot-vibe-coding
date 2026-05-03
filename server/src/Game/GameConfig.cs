@@ -13,7 +13,6 @@ public static class GameConfig
     
     // 匹配设置
     public const int MatchTimeoutSec = 60;
-    public const int ReconnectTimeoutSec = 30;
     
     // 心跳设置
     public const int HeartbeatIntervalSec = 10;

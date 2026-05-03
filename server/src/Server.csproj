@@ -42,6 +42,7 @@
     <!-- Session -->
     <Compile Include="Session/Session.cs" />
     <Compile Include="Session/SessionManager.cs" />
+    <Compile Include="Session/DisconnectPolicy.cs" />
 
     <!-- Match -->
     <Compile Include="Match/MatchService.cs" />

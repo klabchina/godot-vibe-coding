@@ -51,9 +51,6 @@ public sealed class GameLoopService : BackgroundService
                 
                 // 3. 检查心跳超时
                 CheckHeartbeatTimeout();
-                
-                // 4. 检查断线重连超时
-                CheckReconnectTimeout();
             }
             catch (Exception ex)
             {
@@ -72,73 +69,17 @@ public sealed class GameLoopService : BackgroundService
         {
             _logger.LogWarning("Connection heartbeat timeout: {ConnectionId}", connectionId);
             
-            // 通知断线
-            if (_sessions.TryGetByConnection(connectionId, out var session))
-            {
-                HandleDisconnect(session);
-            }
-            
+            // 不支持重连：断线即踢
+            HandleDisconnect(connectionId);
             _connections.Remove(connectionId);
         }
     }
 
     /// <summary>
-    /// 检查断线重连超时
+    /// 处理断线（不支持重连：断线即踢）
     /// </summary>
-    private void CheckReconnectTimeout()
+    private void HandleDisconnect(string connectionId)
     {
-        foreach (var session in _sessions.GetAllSessions())
-        {
-            if (session.IsDisconnected && session.IsReconnectExpired())
-            {
-                _logger.LogWarning("Player reconnect timeout: {PlayerId}", session.PlayerId);
-
-                var roomId = session.RoomId;
-
-                // 清理超时会话
-                _sessions.Remove(session.PlayerId);
-
-                // 断线超时视为对局终止，销毁房间并重置房间内其他会话
-                if (!string.IsNullOrEmpty(roomId))
-                {
-                    DestroyRoomAndResetSessions(roomId);
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// 处理断线
-    /// </summary>
-    private void HandleDisconnect(Server.Session.Session session)
-    {
-        session.IsDisconnected = true;
-        session.DisconnectTime = DateTime.UtcNow;
-        session.State = SessionState.Idle;
-
-        if (session.RoomId != null)
-        {
-            var room = _rooms.GetRoom(session.RoomId);
-            room?.OnPlayerDisconnect(session.PlayerId);
-        }
-    }
-
-    private void DestroyRoomAndResetSessions(string roomId)
-    {
-        if (_rooms.DestroyRoom(roomId))
-        {
-            _logger.LogInformation("Room destroyed due to reconnect timeout: {RoomId}", roomId);
-        }
-
-        if (_sessions.TryGetByRoom(roomId, out var sessions))
-        {
-            foreach (var s in sessions)
-            {
-                s.RoomId = null;
-                s.State = SessionState.Idle;
-                s.IsDisconnected = false;
-                s.DisconnectTime = null;
-            }
-        }
+        DisconnectPolicy.KickByConnection(_sessions, _rooms, connectionId);
     }
 }

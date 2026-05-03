@@ -395,6 +395,75 @@ public sealed class MessageRouterPbTests
     }
 
     [Fact]
+    public async Task RouteAsync_rematch_after_normal_game_end_should_still_broadcast_lockstep_frame()
+    {
+        var loggerFactory = LoggerFactory.Create(builder => { });
+        var sessionManager = new SessionManager();
+        var wsHandler = new WebSocketHandler(
+            loggerFactory.CreateLogger<WebSocketHandler>(),
+            new ConnectionManager());
+        var roomManager = new RoomManager(wsHandler);
+        var matchService = new MatchService(sessionManager, roomManager);
+        var router = new MessageRouter(
+            loggerFactory.CreateLogger<MessageRouter>(),
+            sessionManager,
+            roomManager,
+            matchService,
+            null);
+
+        // 第 1 局匹配并开始
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.MatchRequest, new MatchRequest { PlayerId = "p1", PlayerName = "Alice" }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.MatchRequest, new MatchRequest { PlayerId = "p2", PlayerName = "Bob" }.ToByteArray()), CancellationToken.None);
+
+        Assert.True(sessionManager.TryGet("p1", out var s1));
+        Assert.True(sessionManager.TryGet("p2", out var s2));
+        Assert.NotNull(s1);
+        Assert.NotNull(s2);
+        Assert.NotNull(s1!.RoomId);
+        Assert.Equal(s1.RoomId, s2!.RoomId);
+
+        var room1 = roomManager.GetRoom(s1.RoomId!);
+        Assert.NotNull(room1);
+
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room1!.RoomId }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room1.RoomId }.ToByteArray()), CancellationToken.None);
+
+        LockstepFrame? frame1 = null;
+        room1.OnBroadcastFrame += (_, msg) => frame1 = msg;
+        roomManager.Tick(0.05f);
+        Assert.NotNull(frame1);
+
+        // 正常结束第 1 局
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.GameEndSubmit, new GameEndSubmit { Reason = "Win" }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.GameEndSubmit, new GameEndSubmit { Reason = "Win" }.ToByteArray()), CancellationToken.None);
+
+        Assert.Null(roomManager.GetRoom(room1.RoomId));
+
+        // 再次匹配并开始第 2 局
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.MatchRequest, new MatchRequest { PlayerId = "p1", PlayerName = "Alice" }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.MatchRequest, new MatchRequest { PlayerId = "p2", PlayerName = "Bob" }.ToByteArray()), CancellationToken.None);
+
+        Assert.True(sessionManager.TryGet("p1", out var rematchS1));
+        Assert.True(sessionManager.TryGet("p2", out var rematchS2));
+        Assert.NotNull(rematchS1);
+        Assert.NotNull(rematchS2);
+        Assert.NotNull(rematchS1!.RoomId);
+        Assert.Equal(rematchS1.RoomId, rematchS2!.RoomId);
+
+        var room2 = roomManager.GetRoom(rematchS1.RoomId!);
+        Assert.NotNull(room2);
+
+        await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room2!.RoomId }.ToByteArray()), CancellationToken.None);
+        await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.PlayerReady, new PlayerReady { RoomId = room2.RoomId }.ToByteArray()), CancellationToken.None);
+
+        LockstepFrame? frame2 = null;
+        room2.OnBroadcastFrame += (_, msg) => frame2 = msg;
+        roomManager.Tick(0.05f);
+
+        Assert.NotNull(frame2);
+    }
+
+    [Fact]
     public async Task RouteAsync_invalid_skill_choice_payload_should_not_break_followup_heartbeat()
     {
         var loggerFactory = LoggerFactory.Create(builder => { });

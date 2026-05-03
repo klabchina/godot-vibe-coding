@@ -72,14 +72,10 @@ app.Map("/ws", async context =>
         async (connId, msgId, msg) => await handler.SendAsync(connId, msgId, msg)
     );
 
-    // 订阅断线事件
+    // 订阅断线事件（不支持重连：断线即踢）
     handler.OnDisconnected += (connId) =>
     {
-        if (sessionManager.TryGetByConnection(connId, out var session))
-        {
-            session.IsDisconnected = true;
-            session.DisconnectTime = DateTime.UtcNow;
-        }
+        DisconnectPolicy.KickByConnection(sessionManager, roomManager, connId);
     };
 
     // 处理 WebSocket 消息
@@ -109,18 +105,8 @@ app.Map("/ws", async context =>
     }
     catch (System.Net.WebSockets.WebSocketException)
     {
-        if (sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
-        {
-            session.State = SessionState.Idle;
-            session.IsDisconnected = true;
-            session.DisconnectTime = DateTime.UtcNow;
-
-            if (session.RoomId != null)
-            {
-                var room = roomManager.GetRoom(session.RoomId);
-                room?.OnPlayerDisconnect(session.PlayerId);
-            }
-        }
+        DisconnectPolicy.KickByConnection(sessionManager, roomManager, connectionId);
+        Console.WriteLine($"WebSocketException:  KICK {connectionId}");
     }
     catch (OperationCanceledException)
     {

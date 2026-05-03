@@ -24,16 +24,6 @@ public sealed class Session
     public SessionState State { get; set; } = SessionState.Idle;
     public string? RoomId { get; set; }
     
-    // 断线重连
-    public bool IsDisconnected { get; set; }
-    public DateTime? DisconnectTime { get; set; }
-    public const int ReconnectTimeoutSec = 30;
-    
     // 心跳
     public DateTime LastHeartbeat { get; set; } = DateTime.UtcNow;
-    
-    public bool IsReconnectExpired()
-        => IsDisconnected
-        && DisconnectTime.HasValue
-        && (DateTime.UtcNow - DisconnectTime.Value).TotalSeconds > ReconnectTimeoutSec;
 }

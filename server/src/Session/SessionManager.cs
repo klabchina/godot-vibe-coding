@@ -65,8 +65,6 @@ public sealed class SessionManager
                 PlayerName = existing.PlayerName,
                 State = existing.State,
                 RoomId = existing.RoomId,
-                IsDisconnected = false,
-                DisconnectTime = null,
                 LastHeartbeat = DateTime.UtcNow
             };
             _sessions[playerId] = updatedSession;
