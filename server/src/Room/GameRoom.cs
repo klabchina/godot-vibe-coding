@@ -64,9 +64,9 @@ public sealed class GameRoom
         if (State != RoomState.Waiting) return;
 
         _readyPlayers.Add(playerId);
-        Console.WriteLine($"[GameRoom:{RoomId}] Player {playerId} ready ({_readyPlayers.Count}/{_players.Count})");
+        Console.WriteLine($"[GameRoom:{RoomId}] Player {playerId} ready ({_readyPlayers.Count}/{_players.Count}) Needed player:2");
 
-        if (_readyPlayers.Count >= _players.Count && _players.Count > 0)
+        if (_players.Count >= 2 && _readyPlayers.Count >= _players.Count)
             StartGame();
     }
 

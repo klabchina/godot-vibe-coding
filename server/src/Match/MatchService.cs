@@ -27,7 +27,7 @@ public sealed class MatchService
 
         var waitingRoom = _roomManager
             .GetAllRooms()
-            .FirstOrDefault(r => r.State == RoomState.Waiting && r.PlayerCount == 1);
+            .FirstOrDefault(r => r.State == RoomState.Waiting && r.PlayerCount <= 1);
 
         if (waitingRoom == null)
         {
@@ -36,22 +36,8 @@ public sealed class MatchService
             session.RoomId = newRoom.RoomId;
             session.State = SessionState.InRoom;
 
-            var singleResult = new MatchSuccess
-            {
-                RoomId = newRoom.RoomId,
-                RandomSeed = newRoom.RandomSeed,
-            };
-            singleResult.Players.Add(new PlayerInfo
-            {
-                PlayerId = session.PlayerId,
-                PlayerName = session.PlayerName,
-                Slot = 0,
-            });
-
-            newRoom.OnPlayerReady(playerId);
-
-            Console.WriteLine($"[Match] Single player room ready room={newRoom.RoomId} player={playerId}");
-            return singleResult;
+            Console.WriteLine($"[Match] Player queued in waiting room={newRoom.RoomId} player={playerId}");
+            return null;
         }
 
         waitingRoom.AddPlayer(playerId);
