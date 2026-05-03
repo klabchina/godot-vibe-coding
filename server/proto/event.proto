@@ -2,9 +2,3 @@ syntax = "proto3";
 
 package summer;
 option csharp_namespace = "Server.Proto";
-
-// Server → Client — 游戏结束
-message GameOver {
-    string room_id = 1;
-    string reason = 2; // Win / Lose / Surrender / Timeout
-}

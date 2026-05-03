@@ -27,13 +27,12 @@ public sealed class GameRoom
     private readonly Dictionary<string, PlayerMove> _frameInputs = new();
     private readonly HashSet<string> _readyPlayers = new();
     private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
-    private readonly Dictionary<string, GameOver> _gameOverSubmits = new();
     private readonly object _sync = new();
 
     public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
     public event Action<IReadOnlyList<string>, SkillChoice>? OnBroadcastSkillChoice;
     public event Action<IReadOnlyList<string>, GameStart>? OnGameStart;
-    public event Action<GameOver>? OnGameOver;
+    public event Action<GameEndSubmit>? OnGameEnd;
 
     public GameRoom(string roomId, params string[] playerIds)
     {
@@ -130,21 +129,6 @@ public sealed class GameRoom
         }
     }
 
-    public void OnGameOverSubmit(string playerId, GameOver gameOver)
-    {
-        lock (_sync)
-        {
-            if (State != RoomState.InGame) return;
-
-            _gameOverSubmits[playerId] = gameOver;
-            if (_gameOverSubmits.Count >= _players.Count && _players.Count > 0)
-            {
-                var reason = gameOver.Reason;
-                EndGame(reason);
-            }
-        }
-    }
-
     public void OnPlayerDisconnect(string playerId)
     {
         lock (_sync)
@@ -186,7 +170,6 @@ public sealed class GameRoom
             _frameInputs.Clear();
             _readyPlayers.Clear();
             _endSubmits.Clear();
-            _gameOverSubmits.Clear();
             Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
         }
     }
@@ -196,7 +179,6 @@ public sealed class GameRoom
         State = RoomState.InGame;
         _frame = 0;
         _endSubmits.Clear();
-        _gameOverSubmits.Clear();
 
         var connectionIds = _players.Values
             .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
@@ -237,9 +219,9 @@ public sealed class GameRoom
 
     private void EndGame(string reason)
     {
-        OnGameOver?.Invoke(new GameOver
+        OnGameEnd?.Invoke(new GameEndSubmit
         {
-            RoomId = RoomId,
+            Tick = _frame,
             Reason = reason,
         });
         Console.WriteLine($"[GameRoom:{RoomId}] Game ended: {reason}");

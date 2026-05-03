@@ -92,16 +92,17 @@ public sealed class GameLoopService : BackgroundService
             if (session.IsDisconnected && session.IsReconnectExpired())
             {
                 _logger.LogWarning("Player reconnect timeout: {PlayerId}", session.PlayerId);
-                
-                // 通知游戏结束（断线）
-                if (session.RoomId != null)
-                {
-                    var room = _rooms.GetRoom(session.RoomId);
-                    // 通知其他玩家有人断线
-                }
-                
-                // 清理会话
+
+                var roomId = session.RoomId;
+
+                // 清理超时会话
                 _sessions.Remove(session.PlayerId);
+
+                // 断线超时视为对局终止，销毁房间并重置房间内其他会话
+                if (!string.IsNullOrEmpty(roomId))
+                {
+                    DestroyRoomAndResetSessions(roomId);
+                }
             }
         }
     }
@@ -114,11 +115,30 @@ public sealed class GameLoopService : BackgroundService
         session.IsDisconnected = true;
         session.DisconnectTime = DateTime.UtcNow;
         session.State = SessionState.Idle;
-        
+
         if (session.RoomId != null)
         {
             var room = _rooms.GetRoom(session.RoomId);
-            // TODO: 通知房间玩家断线
+            room?.OnPlayerDisconnect(session.PlayerId);
+        }
+    }
+
+    private void DestroyRoomAndResetSessions(string roomId)
+    {
+        if (_rooms.DestroyRoom(roomId))
+        {
+            _logger.LogInformation("Room destroyed due to reconnect timeout: {RoomId}", roomId);
+        }
+
+        if (_sessions.TryGetByRoom(roomId, out var sessions))
+        {
+            foreach (var s in sessions)
+            {
+                s.RoomId = null;
+                s.State = SessionState.Idle;
+                s.IsDisconnected = false;
+                s.DisconnectTime = null;
+            }
         }
     }
 }

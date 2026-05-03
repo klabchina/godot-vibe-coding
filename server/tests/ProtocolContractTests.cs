@@ -19,7 +19,6 @@ public sealed class ProtocolContractTests
         Assert.Equal(3001u, MsgIds.PlayerMove);
         Assert.Equal(3002u, MsgIds.SkillChoice);
         Assert.Equal(3003u, MsgIds.GameEndSubmit);
-        Assert.Equal(3005u, MsgIds.GameOver);
         Assert.Equal(3008u, MsgIds.LockstepFrame);
 
         Assert.Equal(9001u, MsgIds.Heartbeat);

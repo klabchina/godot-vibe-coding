@@ -18,7 +18,6 @@ public static class MsgIds
     public const uint PlayerMove = 3001;
     public const uint SkillChoice = 3002;
     public const uint GameEndSubmit = 3003;
-    public const uint GameOver = 3005;
     public const uint LockstepFrame = 3008;
 
     // 系统

@@ -36,11 +36,9 @@ public sealed class RoomManager
             _ = _wsHandler.BroadcastAsync(connectionIds, MsgIds.GameStart, msg);
         };
 
-        room.OnGameOver += msg =>
+        room.OnGameEnd += _ =>
         {
-            foreach (var connId in room.GetConnectionIds())
-                _ = _wsHandler.SendAsync(connId, MsgIds.GameOver, msg);
-            _rooms.TryRemove(room.RoomId, out _);
+            _rooms.TryRemove(room.RoomId, out var _);
         };
 
         _rooms[room.RoomId] = room;

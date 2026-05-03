@@ -10,8 +10,6 @@ public class SyncClient
     public readonly Queue<LockstepFrame> LockstepFrameQueue = new();
     public readonly Queue<SkillChoice> SkillChoiceQueue = new();
 
-    public event Action<GameOver> OnGameOver;
-
     private int _inputTick;
     public int LocalPlayerSlot { get; set; }
 
@@ -53,15 +51,6 @@ public class SyncClient
         });
     }
 
-    public void SendGameOver(string reason)
-    {
-        NetManager.Instance.Send(MsgIds.GameOver, new GameOver
-        {
-            RoomId = string.Empty,
-            Reason = reason ?? string.Empty,
-        });
-    }
-
     public void Dispose()
     {
         if (NetManager.Instance != null)
@@ -86,12 +75,6 @@ public class SyncClient
                 }
                 break;
 
-            case MsgIds.GameOver:
-                if (msg is GameOver over)
-                {
-                    OnGameOver?.Invoke(over);
-                }
-                break;
         }
     }
 }

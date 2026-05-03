@@ -111,15 +111,15 @@ app.Map("/ws", async context =>
     {
         if (sessionManager.TryGetByConnection(connectionId, out var session) && session != null)
         {
-            if (session.RoomId != null)
-            {
-                roomManager.DestroyRoom(session.RoomId);
-                session.RoomId = null;
-            }
-
             session.State = SessionState.Idle;
             session.IsDisconnected = true;
             session.DisconnectTime = DateTime.UtcNow;
+
+            if (session.RoomId != null)
+            {
+                var room = roomManager.GetRoom(session.RoomId);
+                room?.OnPlayerDisconnect(session.PlayerId);
+            }
         }
     }
     catch (OperationCanceledException)

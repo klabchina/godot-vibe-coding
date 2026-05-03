@@ -249,28 +249,6 @@ public sealed class MessageRouter
         return Task.CompletedTask;
     }
 
-    private Task HandleGameOver(string connectionId, byte[] payload)
-    {
-        try
-        {
-            var gameOver = GameOver.Parser.ParseFrom(payload);
-
-            if (_sessionManager.TryGetByConnection(connectionId, out var session) &&
-                session != null &&
-                session.RoomId != null)
-            {
-                var room = _roomManager.GetRoom(session.RoomId);
-                room?.OnGameOverSubmit(session.PlayerId, gameOver);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling GameOver");
-        }
-
-        return Task.CompletedTask;
-    }
-
     private Task HandleHeartbeat(string connectionId)
     {
         if (_sessionManager.TryGetByConnection(connectionId, out var session) && session != null)

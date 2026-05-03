@@ -165,15 +165,15 @@ public sealed class MessageRouterPbTests
         room.OnPlayerReady("p1");
         room.OnPlayerReady("p2");
 
-        GameOver? gameOver = null;
-        room.OnGameOver += msg => gameOver = msg;
+        GameEndSubmit? gameEnd = null;
+        room.OnGameEnd += msg => gameEnd = msg;
 
         await router.RouteAsync("conn-1", BuildEnvelope(MsgIds.GameEndSubmit, new GameEndSubmit { Reason = "Win" }.ToByteArray()), CancellationToken.None);
-        Assert.Null(gameOver);
+        Assert.Null(gameEnd);
 
         await router.RouteAsync("conn-2", BuildEnvelope(MsgIds.GameEndSubmit, new GameEndSubmit { Reason = "Win" }.ToByteArray()), CancellationToken.None);
-        Assert.NotNull(gameOver);
-        Assert.Equal("Win", gameOver!.Reason);
+        Assert.NotNull(gameEnd);
+        Assert.Equal("Win", gameEnd!.Reason);
     }
 
     [Fact]

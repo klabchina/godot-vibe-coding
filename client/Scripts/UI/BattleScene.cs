@@ -390,7 +390,7 @@ public partial class BattleScene : Node2D
 
 		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
 		{
-			_syncClient.SendGameOver(victory ? "Win" : "Lose");
+			_syncClient.SendGameEndSubmit(victory ? "Win" : "Lose");
 			NetManager.Instance.Disconnect();
 		}
 

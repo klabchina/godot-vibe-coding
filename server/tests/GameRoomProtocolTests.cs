@@ -20,22 +20,21 @@ public sealed class GameRoomProtocolTests
     }
 
     [Fact]
-    public void Room_should_emit_game_over_when_all_players_submit_end()
+    public void Room_should_emit_game_end_when_all_players_submit_end()
     {
         var room = new GameRoom("r1", "p1", "p2");
         room.OnPlayerReady("p1");
         room.OnPlayerReady("p2");
 
-        GameOver? gameOver = null;
-        room.OnGameOver += msg => gameOver = msg;
+        GameEndSubmit? gameEnd = null;
+        room.OnGameEnd += msg => gameEnd = msg;
 
         room.OnGameEndSubmit("p1", new GameEndSubmit { Reason = "Win" });
-        Assert.Null(gameOver);
+        Assert.Null(gameEnd);
 
         room.OnGameEndSubmit("p2", new GameEndSubmit { Reason = "Win" });
-        Assert.NotNull(gameOver);
-        Assert.Equal("r1", gameOver!.RoomId);
-        Assert.Equal("Win", gameOver.Reason);
+        Assert.NotNull(gameEnd);
+        Assert.Equal("Win", gameEnd!.Reason);
     }
 
     [Fact]
@@ -46,7 +45,7 @@ public sealed class GameRoomProtocolTests
         room.OnPlayerReady("p2");
 
         var ended = false;
-        room.OnGameOver += _ => ended = true;
+        room.OnGameEnd += _ => ended = true;
 
         room.OnPlayerDisconnect("p1");
 

@@ -15,7 +15,6 @@ public static class MsgIds
     public const uint PlayerMove = 3001;
     public const uint SkillChoice = 3002;
     public const uint GameEndSubmit = 3003;
-    public const uint GameOver = 3005;
     public const uint LockstepFrame = 3008;
 
     public const uint Heartbeat = 9001;
@@ -62,7 +61,6 @@ public static class Protocol
             MsgIds.GameStart => GameStart.Parser.ParseFrom(payload),
             MsgIds.LockstepFrame => LockstepFrame.Parser.ParseFrom(payload),
             MsgIds.SkillChoice => SkillChoice.Parser.ParseFrom(payload),
-            MsgIds.GameOver => GameOver.Parser.ParseFrom(payload),
             MsgIds.Heartbeat => null,
             _ => null,
         };
