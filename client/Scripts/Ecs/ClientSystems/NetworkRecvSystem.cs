@@ -26,7 +26,9 @@ public class NetworkRecvSystem : GameSystem
 
     private void ProcessLockstepFrames()
     {
-        while (Sync.TryDequeueExpectedFrame(out var frame))
+        // 一次 logic tick 只消费一帧，避免后续 MovementSystem 等系统只跑一次而吞掉中间帧的输入。
+        // 队列中堆积的帧由 BattleScene 的逻辑循环按 CanAdvanceOneTick 多次推进消费。
+        if (Sync.TryDequeueExpectedFrame(out var frame))
         {
             ApplyFrameInputs(frame);
             ApplyFrameSkillChoices(frame);

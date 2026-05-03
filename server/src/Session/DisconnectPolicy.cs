@@ -21,17 +21,13 @@ public static class DisconnectPolicy
             return;
         }
 
-        roomManager.DestroyRoom(roomId);
-
-        if (!sessionManager.TryGetByRoom(roomId, out var sessions))
+        if (!sessionManager.TryGetByRoom(roomId, out _))
         {
+            roomManager.DestroyRoom(roomId);
             return;
         }
 
-        foreach (var s in sessions)
-        {
-            s.RoomId = null;
-            s.State = SessionState.Idle;
-        }
+        var room = roomManager.GetRoom(roomId);
+        room?.OnPlayerDisconnect(playerId);
     }
 }

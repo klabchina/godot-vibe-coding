@@ -214,29 +214,30 @@ public partial class BattleScene : Node2D
 
 		float deltaSec = (float)delta;
 
-		// 累积实际时间，使用固定步长更新逻辑系统（服务器帧率）
-		_accumulator += deltaSec;
-
-		while (_accumulator >= FixedDelta)
+		if (!_isPaused)
 		{
-			if (!_isPaused)
+			if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
 			{
-				if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
-				{
-					if (_syncClient.CanAdvanceOneTick())
-					{
-						_world.UpdateLogic(FixedDelta);
-						_tickCount++;
-						GameLogger.PrintRich($"[{GameManager.Instance.CurrentPlayerSlot}][TickCount {_tickCount}] randomUsedCount: {GameRandom.CallCount}");
-					}
-				}
-				else
+				// 多人模式以服务器帧为时间源：只要队列中有期望帧就推进逻辑，
+				// 队列堆积时一次渲染帧内连续追赶，避免吞掉中间帧的输入造成位置漂移。
+				while (_syncClient.CanAdvanceOneTick())
 				{
 					_world.UpdateLogic(FixedDelta);
 					_tickCount++;
+					GameLogger.PrintRich($"[{GameManager.Instance.CurrentPlayerSlot}][TickCount {_tickCount}] randomUsedCount: {GameRandom.CallCount}");
 				}
 			}
-			_accumulator -= FixedDelta;
+			else
+			{
+				// 单人模式仍然按固定步长累加器推进逻辑。
+				_accumulator += deltaSec;
+				while (_accumulator >= FixedDelta)
+				{
+					_world.UpdateLogic(FixedDelta);
+					_tickCount++;
+					_accumulator -= FixedDelta;
+				}
+			}
 		}
 
 		// 每帧更新渲染系统（客户端帧率）
