@@ -68,45 +68,30 @@ public partial class BattleScene : Node2D
 		_accumulator = 0f;
 		_world = new World();
 
-		// Create player entity
+		// Create player entities
 		var localSlot = GameManager.Instance.CurrentMode == GameMode.MultiPlayer
 			? GameManager.Instance.CurrentPlayerSlot
 			: 0;
 
-		var player = _world.CreateEntity();
-		player.Add(new PlayerComponent { PlayerIndex = localSlot, IsLocal = true });
-		player.Add(new NetworkSyncComponent
+		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer)
 		{
-			NetId = localSlot,
-			Owner = localSlot,
-			IsLocal = true
-		});
-		player.Add(new TransformComponent { Position = ArenaData.Size / 2 });
-		player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
-		player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
-		player.Add(new BowComponent
+			var slots = GameManager.Instance.CurrentMatchPlayerSlots;
+			if (slots != null && slots.Length > 0)
+			{
+				foreach (var slot in slots)
+				{
+					CreatePlayerEntity(slot, slot == localSlot, ResolveSpawnPositionBySlot(slot));
+				}
+			}
+			else
+			{
+				CreatePlayerEntity(localSlot, true, ResolveSpawnPositionBySlot(localSlot));
+			}
+		}
+		else
 		{
-			Damage = PlayerData.BaseArrowDamage,
-			Cooldown = PlayerData.BaseCooldown,
-			CooldownTimer = 0,
-			ArrowCount = PlayerData.BaseArrowCount,
-			SpreadAngle = 0
-		});
-		player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
-		player.Add(new ClientInputComponent());
-		player.Add(new ColliderComponent
-		{
-			Shape = ColliderShape.Box,
-			Radius = PlayerData.PlayerRadius,
-			HalfWidth = PlayerData.HalfWidth,
-			HalfHeight = PlayerData.HalfHeight,
-			Layer = CollisionLayers.Player,
-			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
-		});
-
-		player.Add(new UpgradeComponent());
-		player.Add(new BuffComponent());
-		player.Add(new OrbitComponent());
+			CreatePlayerEntity(0, true, ArenaData.Size / 2);
+		}
 
 		// Create game settings entity
 		var settingEntity = _world.CreateEntity();
@@ -166,6 +151,59 @@ public partial class BattleScene : Node2D
 
 		// Start wave 1
 		waveSpawnSystem.StartNextWave(wave);
+	}
+
+	private void CreatePlayerEntity(int slot, bool isLocal, Vec2 spawnPos)
+	{
+		var player = _world.CreateEntity();
+		player.Add(new PlayerComponent { PlayerIndex = slot, IsLocal = isLocal });
+		player.Add(new NetworkSyncComponent
+		{
+			NetId = slot,
+			Owner = slot,
+			IsLocal = isLocal
+		});
+		player.Add(new TransformComponent { Position = spawnPos });
+		player.Add(new VelocityComponent { Speed = PlayerData.BaseMoveSpeed });
+		player.Add(new HealthComponent { Hp = PlayerData.BaseHp, MaxHp = PlayerData.BaseHp });
+		player.Add(new BowComponent
+		{
+			Damage = PlayerData.BaseArrowDamage,
+			Cooldown = PlayerData.BaseCooldown,
+			CooldownTimer = 0,
+			ArrowCount = PlayerData.BaseArrowCount,
+			SpreadAngle = 0
+		});
+		player.Add(new AutoAimComponent { TargetId = -1, SearchRadius = 0 });
+		if (isLocal)
+			player.Add(new ClientInputComponent());
+		player.Add(new ColliderComponent
+		{
+			Shape = ColliderShape.Box,
+			Radius = PlayerData.PlayerRadius,
+			HalfWidth = PlayerData.HalfWidth,
+			HalfHeight = PlayerData.HalfHeight,
+			Layer = CollisionLayers.Player,
+			Mask = CollisionLayers.Monster | CollisionLayers.Pickup
+		});
+		player.Add(new UpgradeComponent());
+		player.Add(new BuffComponent());
+		player.Add(new OrbitComponent());
+	}
+
+	private Vec2 ResolveSpawnPositionBySlot(int slot)
+	{
+		var center = ArenaData.Size / 2;
+		const float spacingX = 120f;
+		const float spacingY = 80f;
+
+		if (slot == 0) return new Vec2(center.X - spacingX, center.Y);
+		if (slot == 1) return new Vec2(center.X + spacingX, center.Y);
+
+		int ring = slot / 2;
+		float dirX = slot % 2 == 0 ? -1f : 1f;
+		float dirY = ring % 2 == 0 ? -1f : 1f;
+		return new Vec2(center.X + dirX * spacingX * (ring + 1), center.Y + dirY * spacingY);
 	}
 
 	private const float FixedDelta = ServerConfig.ServerFrameTime;  // 固定步长，与服务器一致
