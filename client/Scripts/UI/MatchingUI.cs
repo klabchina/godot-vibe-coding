@@ -97,7 +97,7 @@ public partial class MatchingUI : Control
     {
         if (_cancelled || _leaving) return;
 
-        var playerId = $"guest_{(long)Time.GetUnixTimeFromSystem()}";
+        var playerId = $"guest_{System.Guid.NewGuid():N}";
         _matchClient.StartMatch(playerId, "Guest");
 
         _elapsed = 0f;
