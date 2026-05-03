@@ -291,6 +291,10 @@ public partial class BattleScene : Node2D
 		var (player, level) = _pendingLevelUps.Dequeue();
 		if (!player.IsAlive) return;
 
+		var playerComp = player.Get<PlayerComponent>();
+		if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && (playerComp == null || !playerComp.IsLocal))
+			return;
+
 		var upgrade = player.Get<UpgradeComponent>();
 		if (upgrade == null) return;
 

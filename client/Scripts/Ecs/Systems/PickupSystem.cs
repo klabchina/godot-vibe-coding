@@ -33,43 +33,64 @@ public class PickupSystem : GameSystem
                 continue;
             }
 
-            // Check against each player
-            foreach (var playerEntity in players)
+            // 1) 无目标：找到第一个进入吸附范围的玩家并锁定目标
+            if (pickup.TargetPlayerId < 0)
             {
-                if (!playerEntity.IsAlive) continue;
-
-                var playerTransform = playerEntity.Get<TransformComponent>();
-                var upgrade = playerEntity.Get<UpgradeComponent>();
-
-                float pickupRadius = upgrade != null
-                    ? UpgradeData.GetPickupRadius(upgrade.MagnetLevel)
-                    : PlayerData.BasePickupRadius;
-
-                float dist = pickupTransform.Position.DistanceTo(playerTransform.Position);
-
-                // Already flying (wave-clear attract) — keep updating direction & check collect
-                var vel = pickupEntity.Get<VelocityComponent>();
-                bool alreadyFlying = vel != null && vel.LogicVelocity.LengthSquared() > 0;
-
-                if (dist <= pickupRadius || alreadyFlying)
+                foreach (var playerEntity in players)
                 {
-                    // Attract: fly toward player
-                    if (vel != null)
-                    {
-                        Vec2 dir = (playerTransform.Position - pickupTransform.Position).Normalized();
-                        float speed = alreadyFlying
-                            ? GMath.Max(vel.LogicVelocity.Length(), PickupData.ExpOrbFlySpeed)
-                            : PickupData.ExpOrbFlySpeed;
-                        vel.LogicVelocity = dir * speed;
-                    }
+                    if (!playerEntity.IsAlive) continue;
 
-                    // Collect if very close
-                    if (dist <= 15f)
+                    var playerTransform = playerEntity.Get<TransformComponent>();
+                    var upgrade = playerEntity.Get<UpgradeComponent>();
+
+                    float pickupRadius = upgrade != null
+                        ? UpgradeData.GetPickupRadius(upgrade.MagnetLevel)
+                        : PlayerData.BasePickupRadius;
+
+                    float dist = pickupTransform.Position.DistanceTo(playerTransform.Position);
+                    if (dist <= pickupRadius)
                     {
-                        CollectPickup(playerEntity, pickup);
-                        World.DestroyEntity(pickupEntity.Id);
+                        pickup.TargetPlayerId = playerEntity.Id;
+                        // 锁定目标后，延长生命周期
+                        pickup.LifeTime = PickupData.ExpOrbLifeTime;
                         break;
                     }
+                }
+            }
+
+            // 2) 有目标：直接朝目标移动并尝试拾取
+            if (pickup.TargetPlayerId >= 0)
+            {
+                var target = World.GetEntity(pickup.TargetPlayerId);
+                if (target == null || !target.IsAlive)
+                {
+                    pickup.TargetPlayerId = -1;
+                    continue;
+                }
+
+                var targetTransform = target.Get<TransformComponent>();
+                if (targetTransform == null)
+                {
+                    pickup.TargetPlayerId = -1;
+                    continue;
+                }
+
+                var vel = pickupEntity.Get<VelocityComponent>();
+                if (vel != null)
+                {
+                    Vec2 dir = (targetTransform.Position - pickupTransform.Position).Normalized();
+                    float currentSpeed = vel.LogicVelocity.Length();
+                    float speed = currentSpeed > 0f
+                        ? GMath.Max(currentSpeed, PickupData.ExpOrbFlySpeed)
+                        : PickupData.ExpOrbFlySpeed;
+                    vel.LogicVelocity = dir * speed;
+                }
+
+                float targetDist = pickupTransform.Position.DistanceTo(targetTransform.Position);
+                if (targetDist <= 15f)
+                {
+                    CollectPickup(target, pickup);
+                    World.DestroyEntity(pickupEntity.Id);
                 }
             }
         }

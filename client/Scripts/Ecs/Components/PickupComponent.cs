@@ -7,4 +7,5 @@ public class PickupComponent
     public PickupType Type;
     public int Value;
     public float LifeTime;
+    public int TargetPlayerId = -1;
 }

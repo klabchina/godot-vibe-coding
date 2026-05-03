@@ -28,6 +28,7 @@ public sealed class GameRoom
     private readonly HashSet<string> _readyPlayers = new();
     private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
     private readonly Dictionary<string, GameOver> _gameOverSubmits = new();
+    private readonly object _sync = new();
 
     public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
     public event Action<IReadOnlyList<string>, SkillChoice>? OnBroadcastSkillChoice;
@@ -44,111 +45,150 @@ public sealed class GameRoom
 
     public void AddPlayer(string playerId)
     {
-        if (_players.ContainsKey(playerId))
+        lock (_sync)
         {
-            return;
-        }
+            if (_players.ContainsKey(playerId))
+            {
+                return;
+            }
 
-        var nextSlot = _players.Count;
-        _players[playerId] = (string.Empty, nextSlot);
+            var nextSlot = _players.Count;
+            _players[playerId] = (string.Empty, nextSlot);
+        }
     }
 
     public void SetConnection(string playerId, string connectionId)
     {
-        if (_players.TryGetValue(playerId, out var info))
-            _players[playerId] = (connectionId, info.Slot);
+        lock (_sync)
+        {
+            if (_players.TryGetValue(playerId, out var info))
+                _players[playerId] = (connectionId, info.Slot);
+        }
     }
 
     public void OnPlayerReady(string playerId)
     {
-        if (State != RoomState.Waiting) return;
+        lock (_sync)
+        {
+            if (State != RoomState.Waiting) return;
 
-        _readyPlayers.Add(playerId);
-        Console.WriteLine($"[GameRoom:{RoomId}] Player {playerId} ready ({_readyPlayers.Count}/{_players.Count}) Needed player:2");
+            _readyPlayers.Add(playerId);
+            Console.WriteLine($"[GameRoom:{RoomId}] Player {playerId} ready ({_readyPlayers.Count}/{_players.Count}) Needed player:2");
 
-        if (_players.Count >= 2 && _readyPlayers.Count >= _players.Count)
-            StartGame();
+            if (_players.Count >= 2 && _readyPlayers.Count >= _players.Count)
+                StartGame();
+        }
     }
 
     public void OnPlayerMove(string playerId, PlayerMove input)
     {
-        if (State != RoomState.InGame) return;
-        _frameInputs[playerId] = input;
+        lock (_sync)
+        {
+            if (State != RoomState.InGame) return;
+            _frameInputs[playerId] = input;
+        }
     }
 
     public void OnSkillChoice(string playerId, SkillChoice choice)
     {
-        if (State != RoomState.InGame) return;
-        if (!_players.TryGetValue(playerId, out var info)) return;
+        SkillChoice? message;
+        List<string> connectionIds;
 
-        var message = new SkillChoice
+        lock (_sync)
         {
-            Tick = choice.Tick,
-            SkillId = choice.SkillId,
-            Slot = info.Slot,
-        };
+            if (State != RoomState.InGame) return;
+            if (!_players.TryGetValue(playerId, out var info)) return;
 
-        var connectionIds = _players.Values
-            .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
-            .Select(v => v.ConnectionId)
-            .ToList();
+            message = new SkillChoice
+            {
+                Tick = choice.Tick,
+                SkillId = choice.SkillId,
+                Slot = info.Slot,
+            };
+
+            connectionIds = _players.Values
+                .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
+                .Select(v => v.ConnectionId)
+                .ToList();
+        }
 
         OnBroadcastSkillChoice?.Invoke(connectionIds, message);
     }
 
     public void OnGameEndSubmit(string playerId, GameEndSubmit submit)
     {
-        if (State != RoomState.InGame) return;
-
-        _endSubmits[playerId] = submit;
-        if (_endSubmits.Count >= _players.Count && _players.Count > 0)
+        lock (_sync)
         {
-            var reason = submit.Reason;
-            EndGame(reason);
+            if (State != RoomState.InGame) return;
+
+            _endSubmits[playerId] = submit;
+            if (_endSubmits.Count >= _players.Count && _players.Count > 0)
+            {
+                var reason = submit.Reason;
+                EndGame(reason);
+            }
         }
     }
 
     public void OnGameOverSubmit(string playerId, GameOver gameOver)
     {
-        if (State != RoomState.InGame) return;
-
-        _gameOverSubmits[playerId] = gameOver;
-        if (_gameOverSubmits.Count >= _players.Count && _players.Count > 0)
+        lock (_sync)
         {
-            var reason = gameOver.Reason;
-            EndGame(reason);
+            if (State != RoomState.InGame) return;
+
+            _gameOverSubmits[playerId] = gameOver;
+            if (_gameOverSubmits.Count >= _players.Count && _players.Count > 0)
+            {
+                var reason = gameOver.Reason;
+                EndGame(reason);
+            }
         }
     }
 
     public void OnPlayerDisconnect(string playerId)
     {
-        if (_players.TryGetValue(playerId, out var info))
-            _players[playerId] = (string.Empty, info.Slot);
+        lock (_sync)
+        {
+            if (_players.TryGetValue(playerId, out var info))
+                _players[playerId] = (string.Empty, info.Slot);
+        }
     }
 
     public void Tick(float dt)
     {
-        if (State != RoomState.InGame) return;
+        lock (_sync)
+        {
+            if (State != RoomState.InGame) return;
 
-        _frame++;
-        BroadcastFrame();
-        _frameInputs.Clear();
+            _frame++;
+            BroadcastFrame();
+            _frameInputs.Clear();
+        }
     }
 
-    public IEnumerable<string> GetConnectionIds() =>
-        _players.Values
-            .Select(v => v.ConnectionId)
-            .Where(id => !string.IsNullOrEmpty(id));
+    public IEnumerable<string> GetConnectionIds()
+    {
+        lock (_sync)
+        {
+            return _players.Values
+                .Select(v => v.ConnectionId)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .ToList();
+        }
+    }
 
     public void Reset()
     {
-        State = RoomState.Waiting;
-        _frame = 0;
-        _frameInputs.Clear();
-        _readyPlayers.Clear();
-        _endSubmits.Clear();
-        _gameOverSubmits.Clear();
-        Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
+        lock (_sync)
+        {
+            State = RoomState.Waiting;
+            _frame = 0;
+            _frameInputs.Clear();
+            _readyPlayers.Clear();
+            _endSubmits.Clear();
+            _gameOverSubmits.Clear();
+            Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
+        }
     }
 
     private void StartGame()

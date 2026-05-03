@@ -201,6 +201,7 @@ public class WaveSpawnSystem : GameSystem
             // Find nearest player
             float nearestDist = float.MaxValue;
             Vec2 nearestPos = Vec2.Zero;
+            int nearestPlayerId = -1;
             foreach (var player in players)
             {
                 var pt = player.Get<TransformComponent>();
@@ -209,6 +210,7 @@ public class WaveSpawnSystem : GameSystem
                 {
                     nearestDist = d;
                     nearestPos = pt.Position;
+                    nearestPlayerId = player.Id;
                 }
             }
 
@@ -216,6 +218,9 @@ public class WaveSpawnSystem : GameSystem
             var vel = pickupEntity.Get<VelocityComponent>();
             Vec2 dir = (nearestPos - pickupTransform.Position).Normalized();
             vel.LogicVelocity = dir * PickupData.ExpOrbFlySpeed * 2f;
+
+            // Lock target player so PickupSystem continues tracking the same player
+            pickup.TargetPlayerId = nearestPlayerId;
         }
     }
 }
