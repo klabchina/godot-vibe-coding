@@ -8,10 +8,10 @@ namespace Game.Net;
 public class SyncClient
 {
     public readonly Queue<LockstepFrame> LockstepFrameQueue = new();
-    public readonly Queue<SkillChoice> SkillChoiceQueue = new();
 
     private int _inputTick;
     public int LocalPlayerSlot { get; set; }
+    public int NextExpectedFrame { get; private set; } = 1;
 
     public SyncClient()
     {
@@ -20,7 +20,7 @@ public class SyncClient
 
     public void SendInput(CoreVec2 moveDir)
     {
-        _inputTick++;
+        _inputTick = NextExpectedFrame;
         NetManager.Instance.Send(MsgIds.PlayerMove, new PlayerMove
         {
             Tick = _inputTick,
@@ -57,6 +57,41 @@ public class SyncClient
             NetManager.Instance.OnMessageReceived -= HandleMessage;
     }
 
+    /// <summary>
+    /// 检查是否可以前进一帧
+    /// </summary>
+    /// <remarks>
+    /// FIXME: 掉帧的情况下不应该 直接扔掉，而是应该快速执行tick，直到赶上服务器进度
+    /// </remarks>
+    /// <returns></returns>
+    public bool CanAdvanceOneTick()
+    {
+        while (LockstepFrameQueue.Count > 0)
+        {
+            var peek = LockstepFrameQueue.Peek();
+            if (peek.Frame < NextExpectedFrame)
+            {
+                LockstepFrameQueue.Dequeue();
+                continue;
+            }
+
+            return peek.Frame == NextExpectedFrame;
+        }
+
+        return false;
+    }
+
+    public bool TryDequeueExpectedFrame(out LockstepFrame frame)
+    {
+        frame = null;
+        if (!CanAdvanceOneTick())
+            return false;
+
+        frame = LockstepFrameQueue.Dequeue();
+        NextExpectedFrame++;
+        return true;
+    }
+
     private void HandleMessage(uint msgId, Google.Protobuf.IMessage msg)
     {
         switch (msgId)
@@ -67,14 +102,6 @@ public class SyncClient
                     LockstepFrameQueue.Enqueue(frame);
                 }
                 break;
-
-            case MsgIds.SkillChoice:
-                if (msg is SkillChoice choice)
-                {
-                    SkillChoiceQueue.Enqueue(choice);
-                }
-                break;
-
         }
     }
 }

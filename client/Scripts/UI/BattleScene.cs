@@ -221,8 +221,19 @@ public partial class BattleScene : Node2D
 		{
 			if (!_isPaused)
 			{
-				_world.UpdateLogic(FixedDelta);
-				_tickCount++;
+				if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
+				{
+					if (_syncClient.CanAdvanceOneTick())
+					{
+						_world.UpdateLogic(FixedDelta);
+						_tickCount++;
+					}
+				}
+				else
+				{
+					_world.UpdateLogic(FixedDelta);
+					_tickCount++;
+				}
 			}
 			_accumulator -= FixedDelta;
 		}

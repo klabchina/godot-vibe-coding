@@ -28,6 +28,7 @@ message GameEndSubmit {
 message LockstepFrame {
     int32 frame = 1;
     repeated PlayerFrameInput inputs = 2;
+    repeated SkillChoice skill_choices = 3;
 }
 
 message PlayerFrameInput {

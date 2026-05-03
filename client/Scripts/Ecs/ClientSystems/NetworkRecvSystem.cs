@@ -22,15 +22,14 @@ public class NetworkRecvSystem : GameSystem
         if (Sync == null) return;
 
         ProcessLockstepFrames();
-        ProcessSkillChoices();
     }
 
     private void ProcessLockstepFrames()
     {
-        while (Sync.LockstepFrameQueue.Count > 0)
+        while (Sync.TryDequeueExpectedFrame(out var frame))
         {
-            var frame = Sync.LockstepFrameQueue.Dequeue();
             ApplyFrameInputs(frame);
+            ApplyFrameSkillChoices(frame);
         }
     }
 
@@ -62,14 +61,17 @@ public class NetworkRecvSystem : GameSystem
         }
     }
 
-    private void ProcessSkillChoices()
+    private void ApplyFrameSkillChoices(Server.Proto.LockstepFrame frame)
     {
-        var upgradeApplySystem = World.GetSystem<UpgradeApplySystem>();
-        if (upgradeApplySystem == null) return;
+        if (frame.SkillChoices.Count == 0)
+            return;
 
-        while (Sync.SkillChoiceQueue.Count > 0)
+        var upgradeApplySystem = World.GetSystem<UpgradeApplySystem>();
+        if (upgradeApplySystem == null)
+            return;
+
+        foreach (var choice in frame.SkillChoices)
         {
-            var choice = Sync.SkillChoiceQueue.Dequeue();
             upgradeApplySystem.EnqueueChoice(choice.Slot, choice.SkillId, choice.Tick);
         }
     }

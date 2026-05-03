@@ -25,12 +25,12 @@ public sealed class GameRoom
 
     private readonly Dictionary<string, (string ConnectionId, int Slot)> _players = new();
     private readonly Dictionary<string, PlayerMove> _frameInputs = new();
+    private readonly List<SkillChoice> _pendingSkillChoices = new();
     private readonly HashSet<string> _readyPlayers = new();
     private readonly Dictionary<string, GameEndSubmit> _endSubmits = new();
     private readonly object _sync = new();
 
     public event Action<IReadOnlyList<string>, LockstepFrame>? OnBroadcastFrame;
-    public event Action<IReadOnlyList<string>, SkillChoice>? OnBroadcastSkillChoice;
     public event Action<IReadOnlyList<string>, GameStart>? OnGameStart;
     public event Action<GameEndSubmit>? OnGameEnd;
 
@@ -90,28 +90,18 @@ public sealed class GameRoom
 
     public void OnSkillChoice(string playerId, SkillChoice choice)
     {
-        SkillChoice? message;
-        List<string> connectionIds;
-
         lock (_sync)
         {
             if (State != RoomState.InGame) return;
             if (!_players.TryGetValue(playerId, out var info)) return;
 
-            message = new SkillChoice
+            _pendingSkillChoices.Add(new SkillChoice
             {
                 Tick = choice.Tick,
                 SkillId = choice.SkillId,
                 Slot = info.Slot,
-            };
-
-            connectionIds = _players.Values
-                .Where(v => !string.IsNullOrEmpty(v.ConnectionId))
-                .Select(v => v.ConnectionId)
-                .ToList();
+            });
         }
-
-        OnBroadcastSkillChoice?.Invoke(connectionIds, message);
     }
 
     public void OnGameEndSubmit(string playerId, GameEndSubmit submit)
@@ -147,6 +137,7 @@ public sealed class GameRoom
             _frame++;
             BroadcastFrame();
             _frameInputs.Clear();
+            _pendingSkillChoices.Clear();
         }
     }
 
@@ -168,6 +159,7 @@ public sealed class GameRoom
             State = RoomState.Waiting;
             _frame = 0;
             _frameInputs.Clear();
+            _pendingSkillChoices.Clear();
             _readyPlayers.Clear();
             _endSubmits.Clear();
             Console.WriteLine($"[GameRoom:{RoomId}] Reset.");
@@ -207,6 +199,11 @@ public sealed class GameRoom
                 Slot = slot,
                 MoveDir = input.MoveDir ?? new Vec2(),
             });
+        }
+
+        foreach (var choice in _pendingSkillChoices)
+        {
+            msg.SkillChoices.Add(choice);
         }
 
         var connectionIds = _players.Values
