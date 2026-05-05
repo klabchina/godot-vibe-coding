@@ -247,10 +247,23 @@ public class RenderSystem : GameSystem
 
         if (entity.Has<PlayerComponent>())
         {
+            var player = entity.Get<PlayerComponent>();
+
             var animSprite = new AnimatedSprite2D();
             animSprite.SpriteFrames = CreateArcherSpriteFrames();
             animSprite.Play(AnimNames.Idle);
             wrapper.AddChild(animSprite);
+
+            var nameLabel = new Label();
+            nameLabel.Text = player.IsLocal ? "me" : $"player{player.PlayerIndex}";
+            nameLabel.Position = new Vector2(-50, -100);
+            nameLabel.Size = new Vector2(100, 20);
+            nameLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            nameLabel.AddThemeFontSizeOverride("font_size", 24);
+            nameLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
+            nameLabel.AddThemeConstantOverride("outline_size", 10);
+            wrapper.AddChild(nameLabel);
+
             return wrapper;
         }
         else if (entity.Has<MonsterComponent>())
