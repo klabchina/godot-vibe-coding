@@ -60,9 +60,6 @@ public class SyncClient
     /// <summary>
     /// 检查是否可以前进一帧
     /// </summary>
-    /// <remarks>
-    /// FIXME: 掉帧的情况下不应该 直接扔掉，而是应该快速执行tick，直到赶上服务器进度
-    /// </remarks>
     /// <returns></returns>
     public bool CanAdvanceOneTick()
     {

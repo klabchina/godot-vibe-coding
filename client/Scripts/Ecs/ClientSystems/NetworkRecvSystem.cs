@@ -3,6 +3,7 @@ using Game.Ecs.Components;
 using Game.Ecs.Core;
 using Game.Ecs.Systems;
 using Game.Net;
+using Game.Utils;
 
 namespace Game.Ecs.ClientSystems;
 
@@ -12,14 +13,33 @@ namespace Game.Ecs.ClientSystems;
 ///
 /// 当前协议为帧同步：服务器下发 LockstepFrame（输入帧），
 /// 客户端不再接收/回放 GameState、SpawnWave、SpawnArrow 等旧状态快照消息。
+///
+/// 追帧策略：每渲染帧最多处理 <see cref="MaxCatchupPerFrame"/> 个逻辑帧。
+/// BattleScene 的 while 循环通过此常量限制追帧速度，将大积压分摊到多个渲染帧，
+/// 避免 lag spike 后在单帧内爆发式执行造成卡顿。
 /// </summary>
 public class NetworkRecvSystem : GameSystem
 {
+    /// <summary>
+    /// 每渲染帧最多追赶的逻辑帧数。
+    /// 网络恢复后积压帧将以此速率逐步消化，而非一次性全部执行。
+    /// </summary>
+    public const int MaxCatchupPerFrame = 3;
+
+    /// <summary>积压帧数超过此值时输出警告日志。</summary>
+    private const int BacklogWarnThreshold = MaxCatchupPerFrame + 1;
+
     public SyncClient Sync { get; set; }
 
     public override void Update(float delta)
     {
         if (Sync == null) return;
+
+        int stackedFrameCount = Sync.LockstepFrameQueue.Count;
+        if (stackedFrameCount > BacklogWarnThreshold)
+        {
+            GameLogger.Print($"[NetworkRecvSystem] 帧积压: {stackedFrameCount} 帧待处理（每渲染帧上限 {MaxCatchupPerFrame}）");
+        }
 
         ProcessLockstepFrames();
     }

@@ -218,12 +218,15 @@ public partial class BattleScene : Node2D
 		{
 			if (GameManager.Instance.CurrentMode == GameMode.MultiPlayer && _syncClient != null)
 			{
-				// 多人模式以服务器帧为时间源：只要队列中有期望帧就推进逻辑，
-				// 队列堆积时一次渲染帧内连续追赶，避免吞掉中间帧的输入造成位置漂移。
-				while (_syncClient.CanAdvanceOneTick())
+				// 多人模式以服务器帧为时间源：只要队列中有期望帧就推进逻辑。
+				// 每渲染帧最多追赶 MaxCatchupPerFrame 个逻辑帧，将 lag spike 后的大积压
+				// 分摊到多个渲染帧逐步消化，避免一次性执行过多 tick 导致卡顿。
+				int catchupCount = 0;
+				while (_syncClient.CanAdvanceOneTick() && catchupCount < NetworkRecvSystem.MaxCatchupPerFrame)
 				{
 					_world.UpdateLogic(FixedDelta);
 					_tickCount++;
+					catchupCount++;
 					GameLogger.PrintRich($"[{GameManager.Instance.CurrentPlayerSlot}][TickCount {_tickCount}] randomUsedCount: {GameRandom.CallCount}");
 				}
 			}
