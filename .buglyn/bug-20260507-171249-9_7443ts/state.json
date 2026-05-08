@@ -1,0 +1,78 @@
+{
+  "round": 1,
+  "round_dir": "",
+  "feedback_path": "",
+  "prev_improvements_path": "",
+  "last_round": 0,
+  "action": "",
+  "next_round": 0,
+  "arch_review": false,
+  "final_verdict": "",
+  "enrich_needed": true,
+  "enrich_jira_payload": "/Users/li-j/project/godot-project/godot-ai-match-game/.buglyn/bug-20260507-171249-9_7443ts/jira_payload.json",
+  "enrich_business_ns": "Ballista,ActionEngine",
+  "enrich_rca_keywords": "Quest,Cutin",
+  "hard_blocked": false,
+  "_todos": [
+    {
+      "id": "setup",
+      "status": "in_progress",
+      "description": "Step 0 — resolve SKILL_DIR + run unified driver",
+      "active_form": "Setting up"
+    },
+    {
+      "id": "context-web",
+      "status": "pending",
+      "description": "Step 1.1 — Web search subagent (optional)",
+      "active_form": "Web-searching"
+    },
+    {
+      "id": "context-aggregate",
+      "status": "pending",
+      "description": "Step 1.2 — Aggregate context + fatal-payload guard + enrich decision",
+      "active_form": "Aggregating context"
+    },
+    {
+      "id": "enrich-logs",
+      "status": "pending",
+      "description": "Step 1.3 — log-extractor enrich subagent (optional)",
+      "active_form": "Enriching log_refs"
+    },
+    {
+      "id": "investigate-r1",
+      "status": "pending",
+      "description": "Step 2 — render + Investigator spawn + verify+parse (R1)",
+      "active_form": "Investigating R1"
+    },
+    {
+      "id": "review-r1",
+      "status": "pending",
+      "description": "Step 3 — hard-block + render + Reviewer spawn + verify+parse + track (R1)",
+      "active_form": "Reviewing R1"
+    },
+    {
+      "id": "decide-r1",
+      "status": "pending",
+      "description": "Step 4 — loop-control decide (R1)",
+      "active_form": "Deciding R1"
+    },
+    {
+      "id": "requirements-spawn",
+      "status": "pending",
+      "description": "Step 5 — Requirements subagent (approved-only)",
+      "active_form": "Generating requirements"
+    },
+    {
+      "id": "finalize-report",
+      "status": "pending",
+      "description": "Step 6 — finalize-report (always runs)",
+      "active_form": "Finalizing report"
+    },
+    {
+      "id": "auto-commit",
+      "status": "pending",
+      "description": "Step 7 — auto-commit final artefacts (skipped when auto_commit=false)",
+      "active_form": "Auto-committing"
+    }
+  ]
+}

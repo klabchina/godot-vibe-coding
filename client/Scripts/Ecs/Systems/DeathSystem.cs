@@ -34,12 +34,13 @@ public class DeathSystem : GameSystem
         var transform = entity.Get<TransformComponent>();
         var monster = entity.Get<MonsterComponent>();
 
-        // Track kill for attacker (find the player who last hit)
-        var players = World.GetEntitiesWith<PlayerComponent>();
-        foreach (var player in players)
+        // Track kill for the player who last hit this monster
+        if (monster.LastHitPlayerEntityId >= 0)
         {
-            player.Get<PlayerComponent>().KillCount++;
-            break; // single player for now
+            var killer = World.GetEntity(monster.LastHitPlayerEntityId);
+            var killerComp = killer?.Get<PlayerComponent>();
+            if (killerComp != null)
+                killerComp.KillCount++;
         }
 
         // Spawn experience orb at monster's position

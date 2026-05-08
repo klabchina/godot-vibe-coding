@@ -374,12 +374,24 @@ public partial class BattleScene : Node2D
 		var players = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
 		if (players.Count > 0)
 		{
-			var player = players[0].Get<PlayerComponent>();
-			var health = players[0].Get<HealthComponent>();
-			gm.KillCount = player.KillCount;
-			gm.TotalDamage = player.TotalDamageDealt;
-			gm.TotalXpCollected = player.TotalXp;
-			gm.RemainingHpPercent = health.MaxHp > 0 ? (float)health.Hp / health.MaxHp : 0;
+			// Aggregate stats across all players
+			int totalKills = 0;
+			int totalDamage = 0;
+			int totalXp = 0;
+			float avgHpPercent = 0f;
+			foreach (var p in players)
+			{
+				var pc = p.Get<PlayerComponent>();
+				var hc = p.Get<HealthComponent>();
+				totalKills += pc.KillCount;
+				totalDamage += pc.TotalDamageDealt;
+				totalXp += pc.TotalXp;
+				avgHpPercent += hc.MaxHp > 0 ? (float)hc.Hp / hc.MaxHp : 0f;
+			}
+			gm.KillCount = totalKills;
+			gm.TotalDamage = totalDamage;
+			gm.TotalXpCollected = totalXp;
+			gm.RemainingHpPercent = avgHpPercent / players.Count;
 		}
 
 		// [ECS一致性日志] 输出战斗结算数据，用于对比客户端/服务端运行结果

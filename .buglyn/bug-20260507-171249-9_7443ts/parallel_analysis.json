@@ -1,0 +1,38 @@
+{
+  "ghPayload": null,
+  "jiraPayload": {
+    "issues": [
+      {
+        "key": "BALLISTA-57871",
+        "summary": "【ローグライトイベント】インゲーム迷宮画面にて、ドラゴンドリンク発動中にバフアイコンが表示されない",
+        "status": "却下",
+        "url": "https://klab-group.atlassian.net/browse/BALLISTA-57871",
+        "updated": "2026-05-01T10:21:20.417+0900",
+        "description": "【内容】\nインゲーム迷宮画面にて、\n仕様書に条件を満たしている間だけ効果が得られるバフ・デバフはバフ・デバフ効果のアイコンを表示すると記載があるが、実機ではドラゴンドリンク発動中にバフアイコンが表示されない\n\n【前提条件】\n・ドラゴンドリンクを獲得済みであること\n・HP30%以下で確認すること\n\n【再現手順】\n1.ホーム画面からローグライトイベントのバナーをタップする\n2.機械の遺跡または、竜の遺跡のステージを出発する\n3.インゲーム迷宮画面にてバフアイコン表示領域を確認する\n\n【備考】\n・GL版での確認はしておりません。\n・04/14のROMでローグライトイベントのインゲームが進行不能のため04/13のROMで確認をしております\n\n仕様書\n[https://docs.google.com/document/d/1QNrkiD2zvHN5wIPOowqtPhK_UM6iN9wkEGdVfKaP76g/edit?tab=t.0#heading=h.n5kftueqpyxf|https://docs.google.com/document/d/1QNrkiD2zvHN5wIPOowqtPhK_UM6iN9wkEGdVfKaP76g/edit?tab=t.0#heading=h.n5kftueqpyxf]\n\n【項目書】\n＜Ballista＞（ep01010）テスト仕様書（冒険スキル・特殊効果）＞ No.24\n[https://docs.google.com/spreadsheets/d/1WVegCzPlCvHAoOoSTbPbljRnXERQ0JP-tqA7_UVGsEI/edit?gid=669956443#gid=669956443&range=B33|https://docs.google.com/spreadsheets/d/1WVegCzPlCvHAoOoSTbPbljRnXERQ0JP-tqA7_UVGsEI/edit?gid=669956443#gid=669956443&range=B33]\n\n関連でBLOCKになる項目：No.25\n\n!20260414-1257_xq-cq44-screenshot_720.png|width=309,alt=\"20260414-1257_xq-cq44-screenshot_720.png\"!",
+        "created": "2026-04-14T14:59:47.030+0900",
+        "assignee": "yanase-t [ProVision]",
+        "priority": "中",
+        "issue_type": "缺陷",
+        "resolution": "完成",
+        "labels": [],
+        "log_refs": [
+          {
+            "url": "https://pages.github.jp.klab.com/ballista/dev-pages/app-log-viewer/?file=F0AT2924K25"
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "webSummary": null,
+  "codeHits": [],
+  "derivedKeywords": [],
+  "failedKeywords": [],
+  "masterdataPayload": {
+    "available": true,
+    "base": "/Users/li-j/project/unity-project/ballista/ballista-client-server/masterdata",
+    "schemaBase": "/Users/li-j/project/unity-project/ballista/ballista-client-server/schema",
+    "indexPath": "/Users/li-j/project/godot-project/godot-ai-match-game/.buglyn/bug-20260507-171249-9_7443ts/masterdata-index.json",
+    "suspects": []
+  }
+}

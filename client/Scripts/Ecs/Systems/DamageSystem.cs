@@ -61,6 +61,11 @@ public class DamageSystem : GameSystem
                         if (player != null)
                         {
                             player.TotalDamageDealt += hit.Damage;
+
+                            // Record last-hit player on monster for kill attribution
+                            var monster = defender.Get<MonsterComponent>();
+                            if (monster != null)
+                                monster.LastHitPlayerEntityId = arrowComp.OwnerId;
                         }
                     }
                 }
