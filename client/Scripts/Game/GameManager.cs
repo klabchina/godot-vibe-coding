@@ -18,12 +18,18 @@ public partial class GameManager : Node
 	public int CurrentPlayerSlot { get; set; } = 0;
 	public int[] CurrentMatchPlayerSlots { get; set; } = System.Array.Empty<int>();
 
-	// Per-session battle stats
+	// Per-session battle stats — all players combined
 	public int KillCount { get; set; }
 	public int TotalDamage { get; set; }
 	public int TotalXpCollected { get; set; }
 	public int WavesCompleted { get; set; }
 	public float RemainingHpPercent { get; set; }
+
+	// Local player's individual stats
+	public int LocalKillCount { get; set; }
+	public int LocalTotalDamage { get; set; }
+	public int LocalTotalXpCollected { get; set; }
+	public float LocalRemainingHpPercent { get; set; }
 
 	public override void _Ready()
 	{
@@ -37,5 +43,9 @@ public partial class GameManager : Node
 		TotalXpCollected = 0;
 		WavesCompleted = 0;
 		RemainingHpPercent = 1.0f;
+		LocalKillCount = 0;
+		LocalTotalDamage = 0;
+		LocalTotalXpCollected = 0;
+		LocalRemainingHpPercent = 1.0f;
 	}
 }

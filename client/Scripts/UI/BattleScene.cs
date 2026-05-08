@@ -372,27 +372,32 @@ public partial class BattleScene : Node2D
 		gm.WavesCompleted = wavesCompleted;
 
 		var players = _world.GetEntitiesWith<PlayerComponent, HealthComponent>();
-		if (players.Count > 0)
+
+		// Aggregate stats across all players
+		int totalKills = 0, totalDamage = 0, totalXp = 0;
+		float avgHpPercent = 0f;
+		foreach (var p in players)
 		{
-			// Aggregate stats across all players
-			int totalKills = 0;
-			int totalDamage = 0;
-			int totalXp = 0;
-			float avgHpPercent = 0f;
-			foreach (var p in players)
+			var pc = p.Get<PlayerComponent>();
+			var hc = p.Get<HealthComponent>();
+			totalKills += pc.KillCount;
+			totalDamage += pc.TotalDamageDealt;
+			totalXp += pc.TotalXp;
+			avgHpPercent += hc.MaxHp > 0 ? (float)hc.Hp / hc.MaxHp : 0f;
+
+			// Local player's individual stats
+			if (pc.IsLocal)
 			{
-				var pc = p.Get<PlayerComponent>();
-				var hc = p.Get<HealthComponent>();
-				totalKills += pc.KillCount;
-				totalDamage += pc.TotalDamageDealt;
-				totalXp += pc.TotalXp;
-				avgHpPercent += hc.MaxHp > 0 ? (float)hc.Hp / hc.MaxHp : 0f;
+				gm.LocalKillCount = pc.KillCount;
+				gm.LocalTotalDamage = pc.TotalDamageDealt;
+				gm.LocalTotalXpCollected = pc.TotalXp;
+				gm.LocalRemainingHpPercent = hc.MaxHp > 0 ? (float)hc.Hp / hc.MaxHp : 0f;
 			}
-			gm.KillCount = totalKills;
-			gm.TotalDamage = totalDamage;
-			gm.TotalXpCollected = totalXp;
-			gm.RemainingHpPercent = avgHpPercent / players.Count;
 		}
+		gm.KillCount = totalKills;
+		gm.TotalDamage = totalDamage;
+		gm.TotalXpCollected = totalXp;
+		gm.RemainingHpPercent = players.Count > 0 ? avgHpPercent / players.Count : 0f;
 
 		// [ECS一致性日志] 输出战斗结算数据，用于对比客户端/服务端运行结果
 		GameLogger.Print("========== ECS 战斗结算 ==========");

@@ -13,10 +13,10 @@ public partial class ResultUI : Control
         GetNode<Label>("ContentBox/GradeLabel").AddThemeColorOverride("font_color", GetGradeColor(grade));
 
         GetNode<Label>("ContentBox/WavesRow/WavesValue").Text = $"{gm.WavesCompleted} / {StageLoader.GetTotalWaves()}";
-        GetNode<Label>("ContentBox/KillsRow/KillsValue").Text  = $"{gm.KillCount}";
-        GetNode<Label>("ContentBox/DamageRow/DamageValue").Text = $"{gm.TotalDamage}";
-        GetNode<Label>("ContentBox/XpRow/XpValue").Text        = $"{gm.TotalXpCollected}";
-        GetNode<Label>("ContentBox/HpRow/HpValue").Text        = $"{(gm.RemainingHpPercent * 100):F0}%";
+        GetNode<Label>("ContentBox/KillsRow/KillsValue").Text  = $"{gm.LocalKillCount}";
+        GetNode<Label>("ContentBox/DamageRow/DamageValue").Text = $"{gm.LocalTotalDamage}";
+        GetNode<Label>("ContentBox/XpRow/XpValue").Text        = $"{gm.LocalTotalXpCollected}";
+        GetNode<Label>("ContentBox/HpRow/HpValue").Text        = $"{(gm.LocalRemainingHpPercent * 100):F0}%";
     }
 
     public void OnReturnPressed()
@@ -28,10 +28,10 @@ public partial class ResultUI : Control
     {
         float score = 0;
         score += (gm.WavesCompleted / 8f) * 40f;
-        score += Mathf.Min(gm.KillCount / 100f, 1f) * 20f;
-        score += Mathf.Min(gm.TotalDamage / 5000f, 1f) * 20f;
-        score += gm.RemainingHpPercent * 10f;
-        score += Mathf.Min(gm.TotalXpCollected / 2000f, 1f) * 10f;
+        score += Mathf.Min(gm.LocalKillCount / 100f, 1f) * 20f;
+        score += Mathf.Min(gm.LocalTotalDamage / 5000f, 1f) * 20f;
+        score += gm.LocalRemainingHpPercent * 10f;
+        score += Mathf.Min(gm.LocalTotalXpCollected / 2000f, 1f) * 10f;
 
         if (score >= 85) return "S";
         if (score >= 65) return "A";
